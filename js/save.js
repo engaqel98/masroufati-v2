@@ -54,7 +54,8 @@ async function doSave(p, statusId) {
     balance: p.balance || '',
     card: p.card || '',
     bank: p.bank || '',
-    txType: p.txType || ''
+    txType: p.txType || '',
+    intl: (p.fxCurrency && p.fxAmount) ? (p.fxCurrency + ' ' + p.fxAmount + (p.fxRate ? ' @' + p.fxRate : '')) : ''
   };
 
   expenses.unshift(entry);
@@ -76,7 +77,8 @@ async function doSave(p, statusId) {
       method: encodeURIComponent(entry.method),
       balance: entry.balance,
       card: entry.card,
-      bank: encodeURIComponent(entry.bank)
+      bank: encodeURIComponent(entry.bank),
+      intl: encodeURIComponent(entry.intl)
     });
     var resp = await fetch(settings.webapp + '?' + params.toString());
     var json = await resp.json();
