@@ -146,6 +146,8 @@ function renderFinance() {
 
   var mNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
   var curLabel = mNames[now.getMonth()] + ' ' + now.getFullYear();
+  var endD = new Date(sy, sm - 1 + 23); // الشهر الـ24 (آخر قسط)
+  var endLabel = mNames[endD.getMonth()] + ' ' + endD.getFullYear();
   var curM = today().substring(0,7);
   var thisMonth = expenses.filter(function(e) { return e.date && e.date.startsWith(curM); });
   var essAct = thisMonth.filter(function(e) { return e.type==='أساسيات'; }).reduce(function(s,e) { return s+e.amount; },0);
@@ -167,7 +169,7 @@ function renderFinance() {
   html += '<div class="progress-wrap">';
   html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px"><span>الشهر ' + monthNum + ' من 24</span><span>' + progress + '%</span></div>';
   html += '<div class="progress-track"><div class="progress-fill ' + progClass + '" style="width:' + progress + '%"></div></div>';
-  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">متبقي ' + monthsLeft + ' شهر · ينتهي أبريل 2028</div>';
+  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">متبقي ' + monthsLeft + ' شهر · ينتهي ' + endLabel + '</div>';
   html += '</div></div></div>';
 
   // بطاقة الشهر الحالي
