@@ -18,6 +18,11 @@ function analyze() {
   var balStr = parsed.balance ? 'الرصيد: ' + fmt(parsed.balance) + ' ر.س' : '';
   var cardStr = parsed.card ? '•••• ' + parsed.card : '';
   var methodStr = parsed.method || '';
+  var fxStr = '';
+  if (parsed.fxCurrency && parsed.fxAmount) {
+    fxStr = parsed.fxCurrency + ' ' + fmt(parsed.fxAmount);
+    if (parsed.fxRate) fxStr += ' (سعر الصرف ' + parsed.fxRate + ')';
+  }
 
   var html = '';
   html += '<div class="card" style="margin-top:12px">';
@@ -31,6 +36,7 @@ function analyze() {
   html += '<div class="drow"><span class="drow-key">البنك</span><span class="drow-val">' + parsed.bank + '</span></div>';
   if (cardStr) html += '<div class="drow"><span class="drow-key">البطاقة</span><span class="drow-val">' + cardStr + '</span></div>';
   if (methodStr) html += '<div class="drow"><span class="drow-key">طريقة الدفع</span><span class="drow-val">' + methodStr + '</span></div>';
+  if (fxStr) html += '<div class="drow"><span class="drow-key">العملة الدولية</span><span class="drow-val">' + fxStr + '</span></div>';
   if (balStr) html += '<div class="drow"><span class="drow-key">الرصيد</span><span class="drow-val">' + balStr + '</span></div>';
 
   html += '<div class="card-body">';
@@ -223,7 +229,7 @@ function renderSettings() {
   html += '<div class="field"><label>رابط الشيت</label><input type="text" id="s-sheeturl" value="' + (settings.sheetUrl||'') + '"></div>';
   html += '<div class="btn-row">';
   html += '<button class="btn btn-outline btn-sm" onclick="saveWebApp()">حفظ الروابط</button>';
-  html += '<button class="btn btn-outline btn-sm" onclick="openSheet()">فتح الشيب ↗</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="openSheet()">فتح الشيت ↗</button>';
   html += '</div>';
   html += '<div id="s-webapp-status"></div>';
   html += '</div></div>';
