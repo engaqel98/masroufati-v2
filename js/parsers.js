@@ -97,11 +97,24 @@ function parseAHLI(txt) {
 
 function parseSAB(txt) {
   var isIncoming = /إيداع حوالة|حوالة واردة|واردة/.test(txt);
-  var isIntl = /USD|EUR|UNITED STATES/i.test(txt);
+  // معاملة دولية: تُكتشف عبر "نقاط البيع الدولي" أو "سعر الصرف" أو وجود عملة أجنبية
+  var fxCur = null, fxAmount = null, fxRate = null;
+  var curMatch = txt.match(/بمبلغ\s+([A-Z]{3})\s*([\d,]+\.?\d*)/);
+  if (curMatch && curMatch[1] !== 'SAR' && curMatch[1] !== 'SR') {
+    fxCur = curMatch[1];
+    fxAmount = parseFloat(curMatch[2].replace(/,/g, ''));
+  }
+  var rateMatch = txt.match(/سعر الصرف[:\s]*([\d.]+)/);
+  if (rateMatch) fxRate = parseFloat(rateMatch[1]);
+  var isIntl = /نقاط البيع الدولي|سعر الصرف/.test(txt) || (fxCur !== null) || /USD|EUR|UNITED STATES/i.test(txt);
+
   var amount = null, m;
 
   if (isIntl) {
-    m = txt.match(/المبلغ الإجمالي بالريال[:\s]*([\d,]+\.?\d*)/) || txt.match(/المبلغ بالريال[:\s]*([\d,]+\.?\d*)/);
+    // المبلغ النهائي بالريال = "المبلغ الإجمالي" (بعد الرسوم). احتياطياً "المبلغ بالريال" ثم "بالريال"
+    m = txt.match(/المبلغ الإجمالي(?:\s*بالريال)?[:\s]*([\d,]+\.?\d*)/)
+      || txt.match(/المبلغ بالريال[:\s]*([\d,]+\.?\d*)/)
+      || txt.match(/بالريال[:\s]*([\d,]+\.?\d*)/);
     if (m) amount = parseFloat(m[1].replace(/,/g, ''));
   }
   if (!amount) {
@@ -115,16 +128,26 @@ function parseSAB(txt) {
     m = txt.match(/من\s*:\s*([^\n\r،,]{3,40})/i);
     if (m) merchant = m[1].trim();
   } else {
-    m = txt.match(/لدى\s+(.+?)\s+بمبلغ/i) || txt.match(/لدى\s+(.+?)(?:\s+تاريخ|\s*\n|\s*$)/im) || txt.match(/لدى\s+([^\n\r،,*#]{3,50})/i);
+    // التاجر بين "لدى" وأقرب فاصل: "من خلال" / "في" / "بمبلغ" / نهاية السطر
+    m = txt.match(/لدى\s+(.+?)\s+(?:من خلال|بمبلغ|في\s+[A-Z\u0600-\u06FF])/i)
+      || txt.match(/لدى\s+(.+?)(?:\s+تاريخ|\s*\n|\s*$)/im)
+      || txt.match(/لدى\s+([^\n\r،,*#]{3,50})/i);
     if (m) merchant = m[1].trim();
   }
 
-  return {
+  var result = {
     amount: amount, merchant: merchant, bank: 'الأول (SAB)',
     date: extractDate(txt), balance: extractBalance(txt),
     card: extractCard(txt), method: extractMethod(txt),
     txType: txt.trim().split('\n')[0]
   };
+  // أضف تفاصيل العملة الدولية إن وُجدت
+  if (fxCur && fxAmount) {
+    result.fxCurrency = fxCur;
+    result.fxAmount = fxAmount;
+    if (fxRate) result.fxRate = fxRate;
+  }
+  return result;
 }
 
 function detectAndParse(txt) {
@@ -134,8 +157,8 @@ function detectAndParse(txt) {
 
   var isSAB = !isRajhi && (
     t.includes('الأول') || t.includes('sab') || t.includes('alfursan')
-    || t.includes('إيداع حوالة')
-    || (t.includes('لدى') && (t.includes('sar') || t.includes('usd')))
+    || t.includes('إيداع حوالة') || t.includes('نقاط البيع الدولي')
+    || (t.includes('لدى') && (t.includes('sar') || t.includes('usd') || t.includes('qar') || t.includes('سعر الصرف')))
   );
 
   var isAhli = !isRajhi && !isSAB && (
