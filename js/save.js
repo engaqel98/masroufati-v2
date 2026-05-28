@@ -21,6 +21,9 @@ async function saveEntry() {
     return;
   }
   var p = window._parsed;
+  var noteEl = document.getElementById('note-edit');
+  p.note = noteEl ? noteEl.value : '';
+  p.origAmount = p.amount;
   p.type = type;
   p.amount = amt;
   await doSave(p);
@@ -44,7 +47,8 @@ async function saveManual() {
     type: mType,
     method: document.getElementById('m-method').value,
     balance: '', card: '', bank: 'يدوي',
-    txType: 'إدخال يدوي'
+    txType: 'إدخال يدوي',
+    note: (document.getElementById('m-note') ? document.getElementById('m-note').value : '')
   };
   await doSave(p, 'manual-status');
   if (document.getElementById('manual-status').innerHTML.includes('alert-green')) {
@@ -52,6 +56,7 @@ async function saveManual() {
     document.getElementById('m-merchant').value = '';
     document.getElementById('m-method').value = '';
     document.getElementById('m-type').value = '';
+    if (document.getElementById('m-note')) document.getElementById('m-note').value = '';
   }
 }
 
@@ -72,7 +77,9 @@ async function doSave(p, statusId) {
     card: p.card || '',
     bank: p.bank || '',
     txType: p.txType || '',
-    intl: (p.fxCurrency && p.fxAmount) ? (p.fxCurrency + ' ' + p.fxAmount + (p.fxRate ? ' @' + p.fxRate : '')) : ''
+    intl: (p.fxCurrency && p.fxAmount) ? (p.fxCurrency + ' ' + p.fxAmount + (p.fxRate ? ' @' + p.fxRate : '')) : '',
+    note: p.note || '',
+    origAmount: (p.origAmount != null && p.origAmount !== '') ? p.origAmount : p.amount
   };
 
   expenses.unshift(entry);
@@ -97,7 +104,9 @@ async function doSave(p, statusId) {
       bank: encodeURIComponent(entry.bank),
       intl: encodeURIComponent(entry.intl),
       txType: encodeURIComponent(entry.txType),
-      id: entry.id
+      id: entry.id,
+      note: encodeURIComponent(entry.note),
+      origAmount: entry.origAmount
     });
     var resp = await fetch(settings.webapp + '?' + params.toString());
     var json = await resp.json();

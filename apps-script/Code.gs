@@ -37,7 +37,7 @@ var PLAN_SHEET = 'خطة التمويل';
 var DICT_SHEET = 'القاموس';
 var TX_START   = 4;          // first data row (headers are on row 3)
 var TX_FIRSTCOL = 2;         // column B
-var TX_WIDTH   = 14;         // columns B..O
+var TX_WIDTH   = 16;         // columns B..Q
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
@@ -91,10 +91,12 @@ function appendTx_(p) {
 
   var date = parseDate_(p.date);
   var bal  = (p.balance == null || p.balance === '') ? '' : Number(p.balance);
+  var amount = Number(p.amount) || 0;
+  var orig = (p.origAmount == null || p.origAmount === '') ? amount : Number(p.origAmount);
   var row = [
     date,                                 // B التاريخ
     dec_(p.merchant),                     // C الوصف
-    Number(p.amount) || 0,                // D المبلغ
+    amount,                               // D المبلغ (المُسجَّل / حصتي)
     dec_(p.type) || 'غير محدد',           // E النوع (stored, from app)
     date.getMonth() + 1,                  // F الشهر
     date.getFullYear(),                   // G السنة
@@ -105,7 +107,9 @@ function appendTx_(p) {
     dec_(p.intl),                         // L العملة الدولية
     dec_(p.txType),                       // M نوع العملية
     String(p.id || Date.now()),           // N المعرّف (text, avoids precision loss)
-    new Date()                            // O وقت التسجيل
+    new Date(),                           // O وقت التسجيل
+    orig,                                 // P المبلغ الأصلي (المخصوم من البنك)
+    dec_(p.note)                          // Q ملاحظة
   ];
 
   var writeRow = lastTxRow_(sh) + 1;
@@ -132,7 +136,7 @@ function readTx_() {
     var r = vals[i];
     // r indices (offset from column B): 0=B date,1=C merchant,2=D amount,3=E type,
     // 4=F month,5=G year,6=H bank,7=I method,8=J balance,9=K card,10=L intl,
-    // 11=M txType,12=N id,13=O timestamp
+    // 11=M txType,12=N id,13=O timestamp,14=P origAmount,15=Q note
     var hasDesc = String(r[1]).trim() !== '';
     var hasAmt  = !(r[2] === '' || r[2] == null);
     if (!hasDesc && !hasAmt) continue;
@@ -143,17 +147,19 @@ function readTx_() {
       : String(d == null ? '' : d);
 
     rows.push({
-      id:       String(r[12] || (TX_START + i)),
-      date:     dateStr,
-      merchant: String(r[1] == null ? '' : r[1]),
-      amount:   Number(r[2]) || 0,
-      type:     String(r[3] == null ? '' : r[3]),
-      method:   String(r[7] == null ? '' : r[7]),
-      balance:  (r[8] === '' || r[8] == null) ? '' : r[8],
-      card:     String(r[9] == null ? '' : r[9]),
-      bank:     String(r[6] == null ? '' : r[6]),
-      txType:   String(r[11] == null ? '' : r[11]),
-      intl:     String(r[10] == null ? '' : r[10])
+      id:         String(r[12] || (TX_START + i)),
+      date:       dateStr,
+      merchant:   String(r[1] == null ? '' : r[1]),
+      amount:     Number(r[2]) || 0,
+      type:       String(r[3] == null ? '' : r[3]),
+      method:     String(r[7] == null ? '' : r[7]),
+      balance:    (r[8] === '' || r[8] == null) ? '' : r[8],
+      card:       String(r[9] == null ? '' : r[9]),
+      bank:       String(r[6] == null ? '' : r[6]),
+      txType:     String(r[11] == null ? '' : r[11]),
+      intl:       String(r[10] == null ? '' : r[10]),
+      origAmount: (r[14] === '' || r[14] == null) ? '' : Number(r[14]),
+      note:       String(r[15] == null ? '' : r[15])
     });
   }
   rows.reverse();   // newest first, to match the app's unshift ordering
@@ -188,8 +194,8 @@ function readDict_() {
 function setupHeaders() {
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TX_SHEET);
   if (!sh) return;
-  sh.getRange(3, 9, 1, 7).setValues([[
-    'طريقة الدفع', 'الرصيد', 'البطاقة', 'العملة الدولية', 'نوع العملية', 'المعرّف', 'وقت التسجيل'
+  sh.getRange(3, 9, 1, 9).setValues([[
+    'طريقة الدفع', 'الرصيد', 'البطاقة', 'العملة الدولية', 'نوع العملية', 'المعرّف', 'وقت التسجيل', 'المبلغ الأصلي', 'ملاحظة'
   ]]);
 }
 

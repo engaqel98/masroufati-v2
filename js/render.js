@@ -50,6 +50,7 @@ function analyze() {
     html += '<option value="' + v + '">' + v + '</option>';
   });
   html += '</select></div>';
+  html += '<div class="field"><label>ملاحظة (اختياري)</label><input type="text" id="note-edit" placeholder="مثال: قسمتها مع فلان"></div>';
   html += '<div class="btn-row">';
   html += '<button class="btn btn-green" onclick="saveEntry()">💾 حفظ وإرسال</button>';
   html += '<button class="btn btn-outline" onclick="clearSMS()">مسح</button>';
@@ -87,11 +88,15 @@ function renderHistory() {
   var total = data.reduce(function(s,e) { return s + (e.amount||0); }, 0);
   var rows = '';
   data.forEach(function(e) {
+    var edited = e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
     rows += '<div class="hist-item">';
-    rows += '<div class="hist-right"><div class="hist-amt">' + fmt(e.amount) + ' ر.س</div><div class="hist-date">' + (e.date||'') + '</div></div>';
+    rows += '<div class="hist-right"><div class="hist-amt">' + fmt(e.amount) + ' ر.س</div>'
+      + (edited ? '<div class="hist-date">من ' + fmt(e.origAmount) + '</div>' : '')
+      + '<div class="hist-date">' + (e.date||'') + '</div></div>';
     rows += '<div style="flex:1;min-width:0;padding-right:8px">';
     rows += '<div class="hist-name">' + (e.merchant||'—') + '</div>';
     rows += '<div class="hist-sub"><span class="' + typeDot(e.type) + '">●</span> ' + (e.type||'') + (e.bank ? ' · ' + e.bank : '') + '</div>';
+    if (e.note) rows += '<div class="hist-sub" style="color:var(--muted)">📝 ' + e.note + '</div>';
     rows += '</div></div>';
   });
 
@@ -143,7 +148,8 @@ function renderFinance() {
   var sy = parseInt(parts[0]), sm = parseInt(parts[1]);
   var monthNum = (now.getFullYear()-sy)*12 + (now.getMonth()+1-sm) + 1;
   var monthsLeft = Math.max(0, 24 - monthNum + 1);
-  var paidEst = Math.min(Math.max(0, monthNum-1)*payment, total);
+  var totalPaid = expenses.filter(function(e) { return e.type === 'سداد التمويل'; }).reduce(function(s,e) { return s + (e.amount||0); }, 0);
+  var paidEst = Math.min(totalPaid, total);
   var remaining = Math.max(0, total - paidEst);
   var progress = Math.min(100, Math.round((paidEst/total)*100));
   var progClass = progress >= 66 ? 'prog-green' : progress >= 33 ? 'prog-orange' : 'prog-red';
@@ -168,7 +174,7 @@ function renderFinance() {
   html += '<div class="card-title">تقدم السداد</div>';
   html += '<div class="metrics">';
   html += '<div class="metric"><div class="metric-label">المبلغ الأصلي</div><div class="metric-val">' + fmtInt(total) + ' <span class="metric-unit">ر.س</span></div></div>';
-  html += '<div class="metric"><div class="metric-label">المتبقي (تقديري)</div><div class="metric-val" style="color:' + (remaining>0?'var(--red-text)':'var(--green)') + '">' + fmtInt(remaining) + ' <span class="metric-unit">ر.س</span></div></div>';
+  html += '<div class="metric"><div class="metric-label">المتبقي</div><div class="metric-val" style="color:' + (remaining>0?'var(--red-text)':'var(--green)') + '">' + fmtInt(remaining) + ' <span class="metric-unit">ر.س</span></div></div>';
   html += '</div>';
   html += '<div class="progress-wrap">';
   html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px"><span>الشهر ' + monthNum + ' من 24</span><span>' + progress + '%</span></div>';
