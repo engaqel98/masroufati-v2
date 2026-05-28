@@ -12,7 +12,8 @@ function analyze() {
     return;
   }
 
-  parsed.type = classifyMerchant(parsed.merchant, parsed.txType);
+  var isCredit = parsed.direction === 'credit';
+  if (!isCredit) parsed.type = classifyMerchant(parsed.merchant, parsed.txType);
   window._parsed = parsed;
 
   var balStr = parsed.balance ? 'الرصيد: ' + fmt(parsed.balance) + ' ر.س' : '';
@@ -27,9 +28,9 @@ function analyze() {
   var html = '';
   html += '<div class="card" style="margin-top:12px">';
   html += '<div class="amount-big">';
-  html += '<div class="amount-num">' + fmt(parsed.amount) + ' <span style="font-size:18px;font-weight:400;color:var(--muted)">ر.س</span></div>';
+  html += '<div class="amount-num"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(parsed.amount) + ' <span style="font-size:18px;font-weight:400;color:var(--muted)">ر.س</span></div>';
   html += '<div class="amount-sub">' + (parsed.txType || '') + '</div>';
-  html += '<span class="badge ' + typeBadge(parsed.type) + '">' + parsed.type + '</span>';
+  html += '<span class="badge ' + (isCredit ? 'badge-blue' : typeBadge(parsed.type)) + '">' + (isCredit ? '➕ إضافة · سداد بطاقة' : parsed.type) + '</span>';
   html += '</div>';
   html += '<div class="drow"><span class="drow-key">التاجر</span><span class="drow-val">' + (parsed.merchant||'—') + '</span></div>';
   html += '<div class="drow"><span class="drow-key">التاريخ</span><span class="drow-val">' + parsed.date + '</span></div>';
@@ -42,14 +43,18 @@ function analyze() {
   html += '<div class="card-body">';
   html += '<div class="field"><label>المبلغ المُسجَّل (ر.س)</label>';
   html += '<input type="number" id="amount-edit" value="' + parsed.amount + '" step="0.01">';
-  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">المخصوم: ' + fmt(parsed.amount) + ' ر.س — عدّله لو الخصم مشترك</div></div>';
-  html += '<div class="field"><label>التصنيف</label>';
-  html += '<select id="type-select" onchange="window._parsed.type=this.value">';
-  html += '<option value="" disabled selected>— اختر التصنيف —</option>';
-  ['أساسيات','كماليات','سداد التمويل','غير محدد'].forEach(function(v) {
-    html += '<option value="' + v + '">' + v + '</option>';
-  });
-  html += '</select></div>';
+  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (isCredit ? 'مبلغ السداد: ' : 'المخصوم: ') + fmt(parsed.amount) + ' ر.س' + (isCredit ? '' : ' — عدّله لو الخصم مشترك') + '</div></div>';
+  if (!isCredit) {
+    html += '<div class="field"><label>التصنيف</label>';
+    html += '<select id="type-select" onchange="window._parsed.type=this.value">';
+    html += '<option value="" disabled selected>— اختر التصنيف —</option>';
+    ['أساسيات','كماليات','سداد التمويل','غير محدد'].forEach(function(v) {
+      html += '<option value="' + v + '">' + v + '</option>';
+    });
+    html += '</select></div>';
+  } else {
+    html += '<div class="alert alert-green" style="margin:8px 0">➕ حركة إضافة (سداد بطاقة) — تجدّد رصيد البطاقة وغير محسوبة في الصرف.</div>';
+  }
   html += '<div class="field"><label>ملاحظة (اختياري)</label><input type="text" id="note-edit" placeholder="مثال: قسمتها مع فلان"></div>';
   html += '<div class="btn-row">';
   html += '<button class="btn btn-green" onclick="saveEntry()">💾 حفظ وإرسال</button>';
@@ -90,23 +95,47 @@ function renderHistory() {
     return;
   }
 
-  var total = data.reduce(function(s,e) { return s + (e.amount||0); }, 0);
+  // الإجمالي = الصرف فقط (نستثني حركات الإضافة)
+  var total = data.reduce(function(s,e) { return s + (e.direction === 'credit' ? 0 : (e.amount||0)); }, 0);
+
+  // أحدث رصيد متاح لكل بطاقة (من كل العمليات)
+  var balByCard = {};
+  expenses.forEach(function(e) {
+    if (e.balance === '' || e.balance == null) return;
+    var key = e.card ? ('•••• ' + e.card) : (e.bank || '—');
+    var cur = balByCard[key];
+    var newer = !cur || (e.date||'') > (cur.date||'') || ((e.date||'') === (cur.date||'') && (Number(e.id)||0) > (Number(cur.id)||0));
+    if (newer) balByCard[key] = e;
+  });
+  var balKeys = Object.keys(balByCard);
+  var summary = '';
+  if (balKeys.length) {
+    summary += '<div class="card" style="margin-bottom:10px"><div class="card-body"><div class="card-title">الرصيد المتاح</div>';
+    balKeys.forEach(function(k) {
+      summary += '<div class="settings-row"><span>' + k + '</span><span class="settings-val">' + fmt(balByCard[k].balance) + ' ر.س</span></div>';
+    });
+    summary += '</div></div>';
+  }
+
   var rows = '';
   data.forEach(function(e) {
-    var edited = e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
+    var isCredit = e.direction === 'credit';
+    var edited = !isCredit && e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
     rows += '<div class="hist-item">';
-    rows += '<div class="hist-right"><div class="hist-amt">' + fmt(e.amount) + ' ر.س</div>'
+    rows += '<div class="hist-right"><div class="hist-amt"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
       + (edited ? '<div class="hist-date">من ' + fmt(e.origAmount) + '</div>' : '')
       + '<div class="hist-date">' + (e.date||'') + '</div></div>';
     rows += '<div style="flex:1;min-width:0;padding-right:8px">';
     rows += '<div class="hist-name">' + (e.merchant||'—') + '</div>';
     rows += '<div class="hist-sub"><span class="' + typeDot(e.type) + '">●</span> ' + (e.type||'') + (e.bank ? ' · ' + e.bank : '') + '</div>';
+    if (e.balance !== '' && e.balance != null) rows += '<div class="hist-sub" style="color:var(--muted)">الرصيد: ' + fmt(e.balance) + ' ر.س</div>';
     if (e.note) rows += '<div class="hist-sub" style="color:var(--muted)">📝 ' + e.note + '</div>';
     rows += '</div></div>';
   });
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;padding:12px 15px;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية</span><span style="font-weight:600">' + fmt(total) + ' ر.س</span></div></div>'
+  el.innerHTML = summary
+    + '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;padding:12px 15px;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · الصرف</span><span style="font-weight:600">' + fmt(total) + ' ر.س</span></div></div>'
     + '<div class="card">' + rows + '</div>' + sheetBtn;
 }
 

@@ -51,6 +51,29 @@ function extractMethod(txt) {
   return '';
 }
 
+// رسالة سداد بطاقة ائتمانية = حركة إضافة (تجدّد الرصيد)، مو خصم
+function parseCardPayment(txt) {
+  var amount = null, m;
+  m = txt.match(/بمبلغ\s*(?:SAR|SR)?\s*([\d,]+\.?\d*)/i);
+  if (m) amount = parseFloat(m[1].replace(/,/g, ''));
+  if (!amount) amount = extractAmount(txt);
+  m = txt.match(/\*+\s*(\d{4})/);
+  var card = m ? m[1] : extractCard(txt);
+  var bank = /alfursan|الفرسان|الأول|sab/i.test(txt) ? 'الأول (SAB)' : '';
+  return {
+    amount: amount,
+    merchant: 'سداد بطاقة ائتمانية',
+    bank: bank,
+    date: extractDate(txt),
+    balance: extractBalance(txt),
+    card: card,
+    method: extractMethod(txt),
+    txType: 'سداد بطاقة',
+    type: 'سداد بطاقة',
+    direction: 'credit'
+  };
+}
+
 function parseRAJHI(txt) {
   var isIncoming = /حوالة واردة|إيداع|واردة/.test(txt);
   var amount = null, m;
@@ -151,6 +174,7 @@ function parseSAB(txt) {
 }
 
 function detectAndParse(txt) {
+  if (/سداد/.test(txt) && /بطاقت/.test(txt) && /ائتمان/.test(txt)) return parseCardPayment(txt);
   var t = txt.toLowerCase();
   var isRajhi = t.includes('الراجحي') || t.includes('rajhi') || t.includes('رصيدك') || t.includes('تم خصم')
     || /ب?\s*sr\s*[\d]/i.test(txt) || /عبر:\s*\d/i.test(txt);

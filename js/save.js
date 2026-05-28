@@ -10,8 +10,10 @@ function fmtInt(n) {
 
 async function saveEntry() {
   if (!window._parsed) return;
-  var type = document.getElementById('type-select').value;
-  if (!type) {
+  var isCredit = window._parsed.direction === 'credit';
+  var typeEl = document.getElementById('type-select');
+  var type = isCredit ? (window._parsed.type || 'سداد بطاقة') : (typeEl ? typeEl.value : '');
+  if (!isCredit && !type) {
     document.getElementById('save-status').innerHTML = '<div class="alert alert-red">⚠️ الرجاء اختيار التصنيف أولاً</div>';
     return;
   }
@@ -79,7 +81,8 @@ async function doSave(p, statusId) {
     txType: p.txType || '',
     intl: (p.fxCurrency && p.fxAmount) ? (p.fxCurrency + ' ' + p.fxAmount + (p.fxRate ? ' @' + p.fxRate : '')) : '',
     note: p.note || '',
-    origAmount: (p.origAmount != null && p.origAmount !== '') ? p.origAmount : p.amount
+    origAmount: (p.origAmount != null && p.origAmount !== '') ? p.origAmount : p.amount,
+    direction: p.direction || 'debit'
   };
 
   expenses.unshift(entry);
@@ -106,7 +109,8 @@ async function doSave(p, statusId) {
       txType: encodeURIComponent(entry.txType),
       id: entry.id,
       note: encodeURIComponent(entry.note),
-      origAmount: entry.origAmount
+      origAmount: entry.origAmount,
+      direction: entry.direction
     });
     var resp = await fetch(settings.webapp + '?' + params.toString());
     var json = await resp.json();

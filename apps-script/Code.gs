@@ -22,7 +22,7 @@
  * Column map for المعاملات (column A is a left margin and stays empty):
  *   B التاريخ | C الوصف | D المبلغ | E النوع | F الشهر | G السنة | H البنك
  *   I طريقة الدفع | J الرصيد | K البطاقة | L العملة الدولية | M نوع العملية
- *   N المعرّف | O وقت التسجيل
+ *   N المعرّف | O وقت التسجيل | P المبلغ الأصلي | Q ملاحظة | R نوع الحركة
  *
  * Note: column E (النوع) is the category the USER chose for that transaction
  * (from the app's dropdown), stored as a value — because the same merchant can
@@ -37,7 +37,7 @@ var PLAN_SHEET = 'خطة التمويل';
 var DICT_SHEET = 'القاموس';
 var TX_START   = 4;          // first data row (headers are on row 3)
 var TX_FIRSTCOL = 2;         // column B
-var TX_WIDTH   = 16;         // columns B..Q
+var TX_WIDTH   = 17;         // columns B..R
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
@@ -119,7 +119,8 @@ function appendTx_(p) {
     String(p.id || Date.now()),           // N المعرّف (text, avoids precision loss)
     new Date(),                           // O وقت التسجيل
     orig,                                 // P المبلغ الأصلي (المخصوم من البنك)
-    dec_(p.note)                          // Q ملاحظة
+    dec_(p.note),                         // Q ملاحظة
+    (p.direction === 'credit' ? 'إضافة' : 'خصم')  // R نوع الحركة
   ];
 
   var writeRow = lastTxRow_(sh) + 1;
@@ -147,7 +148,7 @@ function readTx_() {
     var r = vals[i];
     // r indices (offset from column B): 0=B date,1=C merchant,2=D amount,3=E type,
     // 4=F month,5=G year,6=H bank,7=I method,8=J balance,9=K card,10=L intl,
-    // 11=M txType,12=N id,13=O timestamp,14=P origAmount,15=Q note
+    // 11=M txType,12=N id,13=O timestamp,14=P origAmount,15=Q note,16=R direction
     var hasDesc = String(r[1]).trim() !== '';
     var hasAmt  = !(r[2] === '' || r[2] == null);
     if (!hasDesc && !hasAmt) continue;
@@ -170,7 +171,8 @@ function readTx_() {
       txType:     String(r[11] == null ? '' : r[11]),
       intl:       String(r[10] == null ? '' : r[10]),
       origAmount: (r[14] === '' || r[14] == null) ? '' : Number(r[14]),
-      note:       String(r[15] == null ? '' : r[15])
+      note:       String(r[15] == null ? '' : r[15]),
+      direction:  (String(r[16]).trim() === 'إضافة') ? 'credit' : 'debit'
     });
   }
   rows.reverse();   // newest first, to match the app's unshift ordering
@@ -205,8 +207,8 @@ function readDict_() {
 function setupHeaders() {
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TX_SHEET);
   if (!sh) return;
-  sh.getRange(3, 9, 1, 9).setValues([[
-    'طريقة الدفع', 'الرصيد', 'البطاقة', 'العملة الدولية', 'نوع العملية', 'المعرّف', 'وقت التسجيل', 'المبلغ الأصلي', 'ملاحظة'
+  sh.getRange(3, 9, 1, 10).setValues([[
+    'طريقة الدفع', 'الرصيد', 'البطاقة', 'العملة الدولية', 'نوع العملية', 'المعرّف', 'وقت التسجيل', 'المبلغ الأصلي', 'ملاحظة', 'نوع الحركة'
   ]]);
 }
 
