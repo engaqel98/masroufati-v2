@@ -79,6 +79,11 @@ function filterHist(type, el) {
 function renderHistory() {
   var el = document.getElementById('history-content');
   var data = histFilter === 'all' ? expenses.slice() : expenses.filter(function(e) { return e.type === histFilter; });
+  data.sort(function(a,b) {
+    var da = a.date || '', db = b.date || '';
+    if (da !== db) return da < db ? 1 : -1;        // أحدث تاريخ أولاً
+    return (Number(b.id)||0) - (Number(a.id)||0);  // ثم الأحدث تسجيلاً
+  });
 
   if (!data.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + '</div></div>';

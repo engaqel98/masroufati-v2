@@ -84,6 +84,16 @@ function lastTxRow_(sh) {
   return last;
 }
 
+// Sort the transaction rows newest-first by date (col B), then by registration
+// time (col O). Safe with the formula columns because every formula references
+// only same-row cells (C/B) or named ranges, which stay correct after a sort.
+function sortTx_(sh) {
+  var last = lastTxRow_(sh);
+  if (last <= TX_START) return;
+  sh.getRange(TX_START, TX_FIRSTCOL, last - TX_START + 1, TX_WIDTH)
+    .sort([{ column: 2, ascending: false }, { column: 15, ascending: false }]);
+}
+
 function appendTx_(p) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(TX_SHEET);
@@ -118,6 +128,7 @@ function appendTx_(p) {
   }
   sh.getRange(writeRow, TX_FIRSTCOL, 1, TX_WIDTH).setValues([row]);
   sh.getRange(writeRow, TX_FIRSTCOL).setNumberFormat('yyyy-mm-dd');  // B display
+  sortTx_(sh);   // keep المعاملات newest-first by transaction date
   return { status: 'ok', row: writeRow };
 }
 
@@ -217,10 +228,16 @@ function expandPlanRanges() {
   rng.setFormulas(f);
 }
 
+function sortByDate() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TX_SHEET);
+  if (sh) sortTx_(sh);
+}
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('مصروفاتي')
     .addItem('تجهيز رؤوس الأعمدة الإضافية', 'setupHeaders')
     .addItem('توسيع نطاقات خطة التمويل', 'expandPlanRanges')
+    .addItem('ترتيب حسب التاريخ', 'sortByDate')
     .addToUi();
 }
