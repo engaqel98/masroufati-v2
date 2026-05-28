@@ -1,13 +1,13 @@
 // ============================================================
 // CONFIG & STATE
 // ============================================================
-var WEBAPP_DEFAULT = 'https://script.google.com/macros/s/AKfycbxNM_Sq14qDEqnrxj0yeZQicSb6x_eGQeZh7cZhHTzOLAFEJdJFMPlLdk_Oe-A4Bev3/exec';
+var WEBAPP_DEFAULT = 'https://script.google.com/macros/s/AKfycbzUJm5BgBNHGtoY0sbaAiSTCa2kvYLVPO8M-nYL1nJukgBqEQs4UDRjJYHFTACuq-oR/exec';
 
 var expenses = JSON.parse(localStorage.getItem('expenses_v2') || '[]');
 
 var settings = JSON.parse(localStorage.getItem('settings_v2') || 'null') || {
   webapp: WEBAPP_DEFAULT,
-  sheetUrl: 'https://docs.google.com/spreadsheets/d/1JfymqSmRZMG0fnHVRHrNf6Ru2_HGNY3H4pEnmSe8M58/edit',
+  sheetUrl: 'https://docs.google.com/spreadsheets/d/13yjVYW2J2mJmuZiqyX-5tehdexPke7EBN2OWpPbcOqQ/edit',
   total: 208500,
   payment: 7750,
   basic: 2750,

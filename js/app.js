@@ -5,7 +5,7 @@ function switchTab(t, el) {
   document.querySelectorAll('.tab').forEach(function(b) { b.classList.remove('active'); });
   el.classList.add('active');
   ['parse','history','finance','settings'].forEach(function(id) {
-    document.getElementById('sec-' + id).style.display = id === t ? '' : 'none';
+    document.getElementById('sec-' + id).style.display = id === t ? 'block' : 'none';
   });
   if (t === 'history') renderHistory();
   if (t === 'finance') renderFinance();

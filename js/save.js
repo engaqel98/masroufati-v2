@@ -78,7 +78,9 @@ async function doSave(p, statusId) {
       balance: entry.balance,
       card: entry.card,
       bank: encodeURIComponent(entry.bank),
-      intl: encodeURIComponent(entry.intl)
+      intl: encodeURIComponent(entry.intl),
+      txType: encodeURIComponent(entry.txType),
+      id: entry.id
     });
     var resp = await fetch(settings.webapp + '?' + params.toString());
     var json = await resp.json();
@@ -96,20 +98,22 @@ async function doSave(p, statusId) {
 
 async function syncFromSheets() {
   var statusEl = document.getElementById('s-data-status');
-  if (!settings.webapp) { statusEl.innerHTML = '<div class="alert alert-red">⚠️ لم يُحدَّد Web App URL</div>'; return; }
-  statusEl.innerHTML = '<div class="alert alert-blue">⏳ جاري التحديث...</div>';
+  function setStatus(h) { if (statusEl) statusEl.innerHTML = h; }
+  if (!settings.webapp) { setStatus('<div class="alert alert-red">⚠️ لم يُحدَّد Web App URL</div>'); return; }
+  setStatus('<div class="alert alert-blue">⏳ جاري التحديث...</div>');
   try {
     var resp = await fetch(settings.webapp + '?action=read');
     var json = await resp.json();
     if (json.status === 'ok' && json.rows && json.rows.length > 0) {
       expenses = json.rows;
       localStorage.setItem('expenses_v2', JSON.stringify(expenses));
-      statusEl.innerHTML = '<div class="alert alert-green">✅ تم التحديث · ' + expenses.length + ' عملية</div>';
+      if (typeof renderHistory === 'function' && document.getElementById('sec-history').style.display !== 'none') renderHistory();
+      setStatus('<div class="alert alert-green">✅ تم التحديث · ' + expenses.length + ' عملية</div>');
     } else {
-      statusEl.innerHTML = '<div class="alert alert-yellow">⚠️ لا توجد بيانات في Sheets</div>';
+      setStatus('<div class="alert alert-yellow">⚠️ لا توجد بيانات في Sheets</div>');
     }
   } catch(e) {
-    statusEl.innerHTML = '<div class="alert alert-red">⚠️ فشل الاتصال: ' + e.message + '</div>';
+    setStatus('<div class="alert alert-red">⚠️ فشل الاتصال: ' + e.message + '</div>');
   }
 }
 
@@ -120,7 +124,11 @@ async function loadDictFromSheets() {
     var json = await resp.json();
     if (json.status === 'ok' && json.dict) {
       ['أساسيات','كماليات','سداد التمويل'].forEach(function(k) {
-        if (json.dict[k] && json.dict[k].length > 0) DICT[k] = json.dict[k];
+        if (json.dict[k] && json.dict[k].length > 0) {
+          var merged = DICT[k] ? DICT[k].slice() : [];
+          json.dict[k].forEach(function(w) { if (merged.indexOf(w) === -1) merged.push(w); });
+          DICT[k] = merged;
+        }
       });
     }
   } catch(e) {}
