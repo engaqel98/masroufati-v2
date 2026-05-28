@@ -40,10 +40,14 @@ function analyze() {
   if (balStr) html += '<div class="drow"><span class="drow-key">الرصيد</span><span class="drow-val">' + balStr + '</span></div>';
 
   html += '<div class="card-body">';
+  html += '<div class="field"><label>المبلغ المُسجَّل (ر.س)</label>';
+  html += '<input type="number" id="amount-edit" value="' + parsed.amount + '" step="0.01">';
+  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">المخصوم: ' + fmt(parsed.amount) + ' ر.س — عدّله لو الخصم مشترك</div></div>';
   html += '<div class="field"><label>التصنيف</label>';
   html += '<select id="type-select" onchange="window._parsed.type=this.value">';
+  html += '<option value="" disabled selected>— اختر التصنيف —</option>';
   ['أساسيات','كماليات','سداد التمويل','غير محدد'].forEach(function(v) {
-    html += '<option value="' + v + '"' + (v === parsed.type ? ' selected' : '') + '>' + v + '</option>';
+    html += '<option value="' + v + '">' + v + '</option>';
   });
   html += '</select></div>';
   html += '<div class="btn-row">';

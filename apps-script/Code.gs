@@ -24,10 +24,12 @@
  *   I طريقة الدفع | J الرصيد | K البطاقة | L العملة الدولية | M نوع العملية
  *   N المعرّف | O وقت التسجيل
  *
- * Note: column E (النوع) is written as a STORED value coming from the app's
- * own classifier — it intentionally overwrites the old dictionary formula on
- * each written row. The financing plan's SUMIFS still works because it filters
- * on the text in E (categories are byte-identical to the app's).
+ * Note: column E (النوع) is the category the USER chose for that transaction
+ * (from the app's dropdown), stored as a value — because the same merchant can
+ * be essentials one time and a luxury the next, so a fixed dictionary mapping
+ * is wrong. The dictionary only pre-selects a SUGGESTED default in the app's
+ * dropdown; the user can override it per transaction. F/G (month/year) are
+ * computed from the date. The financing plan's SUMIFS filter on the text in E.
  */
 
 var TX_SHEET   = 'المعاملات';

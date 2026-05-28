@@ -10,8 +10,19 @@ function fmtInt(n) {
 
 async function saveEntry() {
   if (!window._parsed) return;
+  var type = document.getElementById('type-select').value;
+  if (!type) {
+    document.getElementById('save-status').innerHTML = '<div class="alert alert-red">⚠️ الرجاء اختيار التصنيف أولاً</div>';
+    return;
+  }
+  var amt = parseFloat(document.getElementById('amount-edit').value);
+  if (!amt || amt <= 0) {
+    document.getElementById('save-status').innerHTML = '<div class="alert alert-red">⚠️ أدخل مبلغاً صحيحاً</div>';
+    return;
+  }
   var p = window._parsed;
-  p.type = document.getElementById('type-select').value;
+  p.type = type;
+  p.amount = amt;
   await doSave(p);
 }
 
@@ -21,11 +32,16 @@ async function saveManual() {
     document.getElementById('manual-status').innerHTML = '<div class="alert alert-red">⚠️ أدخل مبلغاً صحيحاً</div>';
     return;
   }
+  var mType = document.getElementById('m-type').value;
+  if (!mType) {
+    document.getElementById('manual-status').innerHTML = '<div class="alert alert-red">⚠️ الرجاء اختيار التصنيف</div>';
+    return;
+  }
   var p = {
     date: document.getElementById('m-date').value || today(),
     merchant: document.getElementById('m-merchant').value || 'غير محدد',
     amount: amount,
-    type: document.getElementById('m-type').value,
+    type: mType,
     method: document.getElementById('m-method').value,
     balance: '', card: '', bank: 'يدوي',
     txType: 'إدخال يدوي'
@@ -35,6 +51,7 @@ async function saveManual() {
     document.getElementById('m-amount').value = '';
     document.getElementById('m-merchant').value = '';
     document.getElementById('m-method').value = '';
+    document.getElementById('m-type').value = '';
   }
 }
 
