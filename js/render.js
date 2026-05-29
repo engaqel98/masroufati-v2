@@ -95,8 +95,10 @@ function renderHistory() {
   var data = histFilter === 'all' ? expenses.slice() : expenses.filter(function(e) { return e.type === histFilter; });
   data.sort(function(a,b) {
     var da = a.date || '', db = b.date || '';
-    if (da !== db) return da < db ? 1 : -1;        // أحدث تاريخ أولاً
-    return (Number(b.id)||0) - (Number(a.id)||0);  // ثم الأحدث تسجيلاً
+    if (da !== db) return da < db ? 1 : -1;   // أحدث تاريخ أولاً
+    var ta = a.time || '', tb = b.time || '';
+    if (ta !== tb) return ta < tb ? 1 : -1;   // ثم أحدث وقت للعملية (مو وقت التسجيل)
+    return 0;
   });
 
   if (!data.length) {
@@ -133,7 +135,7 @@ function renderHistory() {
     rows += '<div class="hist-item">';
     rows += '<div class="hist-right"><div class="hist-amt"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
       + (edited ? '<div class="hist-date">من ' + fmt(e.origAmount) + '</div>' : '')
-      + '<div class="hist-date">' + (e.date||'') + '</div></div>';
+      + '<div class="hist-date">' + (e.date||'') + (e.time && e.time !== '00:00:00' ? ' · ' + e.time.substring(0,5) : '') + '</div></div>';
     rows += '<div style="flex:1;min-width:0;padding-right:8px">';
     rows += '<div class="hist-name">' + (e.merchant||'—') + '</div>';
     rows += '<div class="hist-sub"><span class="' + typeDot(e.type) + '">●</span> ' + (e.type||'') + (e.bank ? ' · ' + e.bank : '') + '</div>';

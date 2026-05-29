@@ -63,10 +63,13 @@ function dec_(v) {
   try { return decodeURIComponent(String(v)); } catch (e) { return String(v); }
 }
 
-function parseDate_(s) {
+function parseDate_(s, t) {
   s = String(s == null ? '' : s).trim();
+  var hh = 0, mm = 0, ss = 0;
+  var tm = String(t == null ? '' : t).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (tm) { hh = +tm[1]; mm = +tm[2]; ss = tm[3] ? +tm[3] : 0; }
   var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);   // local time, no TZ shift
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], hh, mm, ss);   // local, with time
   var d = new Date(s);
   return isNaN(d.getTime()) ? new Date() : d;
 }
@@ -99,7 +102,7 @@ function appendTx_(p) {
   var sh = ss.getSheetByName(TX_SHEET);
   if (!sh) return { status: 'error', message: 'sheet "' + TX_SHEET + '" not found' };
 
-  var date = parseDate_(p.date);
+  var date = parseDate_(p.date, p.time);
   var bal  = (p.balance == null || p.balance === '') ? '' : Number(p.balance);
   var amount = Number(p.amount) || 0;
   var orig = (p.origAmount == null || p.origAmount === '') ? amount : Number(p.origAmount);
@@ -157,10 +160,12 @@ function readTx_() {
     var dateStr = (d instanceof Date)
       ? Utilities.formatDate(d, tz, 'yyyy-MM-dd')
       : String(d == null ? '' : d);
+    var timeStr = (d instanceof Date) ? Utilities.formatDate(d, tz, 'HH:mm:ss') : '';
 
     rows.push({
       id:         String(r[12] || (TX_START + i)),
       date:       dateStr,
+      time:       timeStr,
       merchant:   String(r[1] == null ? '' : r[1]),
       amount:     Number(r[2]) || 0,
       type:       String(r[3] == null ? '' : r[3]),

@@ -78,6 +78,7 @@ async function doSave(p, statusId) {
   var entry = {
     id: Date.now(),
     date: p.date || today(),
+    time: p.time || '',
     merchant: p.merchant || '',
     amount: p.amount,
     type: p.type || 'غير محدد',
@@ -105,6 +106,7 @@ async function doSave(p, statusId) {
   try {
     var params = new URLSearchParams({
       date: entry.date,
+      time: entry.time,
       merchant: encodeURIComponent(entry.merchant),
       amount: entry.amount,
       type: encodeURIComponent(entry.type),

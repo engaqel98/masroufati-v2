@@ -30,6 +30,12 @@ function extractDate(txt) {
   return today();
 }
 
+function extractTime(txt) {
+  var m = txt.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return '';
+  return m[1].padStart(2,'0') + ':' + m[2] + ':' + (m[3] || '00');
+}
+
 function extractBalance(txt) {
   var m = txt.match(/(?:الرصيد|رصيدك)[:\s]*(?:SAR|SR)?\s*([\d,]+\.?\d*)/i);
   if (m) return parseFloat(m[1].replace(/,/g, ''));
@@ -65,6 +71,7 @@ function parseCardPayment(txt) {
     merchant: 'سداد بطاقة ائتمانية',
     bank: bank,
     date: extractDate(txt),
+    time: extractTime(txt),
     balance: extractBalance(txt),
     card: card,
     method: extractMethod(txt),
@@ -196,6 +203,7 @@ function detectAndParse(txt) {
   else if (isAhli) result = parseAHLI(txt) || parseSAB(txt);
   else result = parseSAB(txt) || parseRAJHI(txt) || parseAHLI(txt);
 
+  if (result && !result.time) result.time = extractTime(txt);
   return result;
 }
 
