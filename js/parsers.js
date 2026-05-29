@@ -20,12 +20,18 @@ function extractAmount(txt) {
 function extractDate(txt) {
   var m = txt.match(/(\d{4}-\d{2}-\d{2})/);
   if (m) return m[1];
-  m = txt.match(/(\d{2})\/(\d{1,2})\/(\d{2,4})/);
+  m = txt.match(/(\d{1,4})\/(\d{1,2})\/(\d{1,4})/);
   if (m) {
-    var a = m[1], b = m[2], c = m[3];
-    if (parseInt(a) > 31) return '20' + a + '-' + b.padStart(2,'0') + '-' + c.padStart(2,'0');
-    var yr = c.length === 2 ? '20' + c : c;
-    return yr + '-' + b.padStart(2,'0') + '-' + a.padStart(2,'0');
+    // السنة دائماً ٢٠٢٦+ (لا تُسجَّل عمليات قبل مايو ٢٠٢٦)، فجزء السنة قيمته ≥ 26.
+    // إن كان الأخير سنة صالحة → DD/MM/YY (الشائع)؛ وإلا إن كان الأول سنة → YY/MM/DD.
+    var p1 = parseInt(m[1], 10), p2 = parseInt(m[2], 10), p3 = parseInt(m[3], 10);
+    var y, mo, d;
+    if (m[1].length === 4) { y = p1; mo = p2; d = p3; }            // YYYY/MM/DD
+    else if (m[3].length === 4) { d = p1; mo = p2; y = p3; }       // DD/MM/YYYY
+    else if (p1 >= 26 && p3 < 26) { y = 2000 + p1; mo = p2; d = p3; } // YY/MM/DD (السنة أولاً)
+    else { d = p1; mo = p2; y = 2000 + p3; }                       // DD/MM/YY (السنة أخيراً)
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    return y + '-' + pad(mo) + '-' + pad(d);
   }
   return today();
 }
