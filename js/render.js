@@ -175,8 +175,13 @@ function renderHistory() {
     return;
   }
 
-  // الإجمالي = الصرف فقط (نستثني حركات الإضافة)
-  var total = data.reduce(function(s,e) { return s + (e.direction === 'credit' ? 0 : (e.amount||0)); }, 0);
+  // الصرف = مدين بدون القسط (نستثني الإضافات والقسط، تماشياً مع لوحة الملخّص)
+  var spendTotal = 0, loanTotal = 0;
+  data.forEach(function(e) {
+    if (e.direction === 'credit') return;
+    if (e.type === 'سداد التمويل') loanTotal += (e.amount || 0);
+    else spendTotal += (e.amount || 0);
+  });
 
   // أحدث رصيد متاح لكل بطاقة (من كل العمليات)
   var balByCard = {};
@@ -213,10 +218,17 @@ function renderHistory() {
     rows += '</div></div>';
   });
 
+  var totalCard = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
+  if (histFilter === 'سداد التمويل') {
+    totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · سداد التمويل</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
+  } else {
+    totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · الصرف</span><span style="font-weight:700">' + fmt(spendTotal) + ' ر.س</span></div>';
+    if (loanTotal > 0) totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">سداد التمويل (منفصل)</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
+  }
+  totalCard += '</div></div>';
+
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = summary
-    + '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;padding:12px 15px;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · الصرف</span><span style="font-weight:600">' + fmt(total) + ' ر.س</span></div></div>'
-    + '<div class="card">' + rows + '</div>' + sheetBtn;
+  el.innerHTML = summary + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
 }
 
 // ============================================================
