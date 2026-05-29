@@ -32,7 +32,7 @@ function analyze() {
   html += '<div class="amount-big">';
   html += '<div class="amount-num"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(parsed.amount) + ' <span style="font-size:18px;font-weight:400;color:var(--muted)">ر.س</span></div>';
   html += '<div class="amount-sub">' + (parsed.merchant || '—') + (parsed.txType ? ' · ' + parsed.txType : '') + '</div>';
-  html += '<span class="badge ' + (isCredit ? 'badge-blue' : typeBadge(parsed.type)) + '">' + (isCredit ? '➕ إضافة · سداد بطاقة' : parsed.type) + '</span>';
+  html += '<span class="badge ' + (isCredit ? 'badge-blue' : typeBadge(parsed.type)) + '">' + (isCredit ? '➕ ' + (parsed.type || 'إضافة') : parsed.type) + '</span>';
   html += '</div>';
 
   html += '<div class="card-body">';
@@ -49,7 +49,7 @@ function analyze() {
     if (hasAuto) html += '<div style="font-size:11px;color:var(--green);margin-top:4px">✓ صُنّفت تلقائياً من القاموس — غيّرها إن لزم</div>';
     html += '</div>';
   } else {
-    html += '<div class="alert alert-green" style="margin-bottom:8px">➕ حركة إضافة (سداد بطاقة) — تجدّد رصيد البطاقة وغير محسوبة في الصرف.</div>';
+    html += '<div class="alert alert-green" style="margin-bottom:8px">➕ حركة إضافة (' + (parsed.type || 'إضافة') + ') — تزيد الرصيد وغير محسوبة في الصرف.</div>';
   }
   html += '<div class="btn-row">';
   html += '<button class="btn btn-green" onclick="saveEntry()">💾 حفظ وإرسال</button>';

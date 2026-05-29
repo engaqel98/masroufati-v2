@@ -43,7 +43,7 @@ function extractBalance(txt) {
 }
 
 function extractCard(txt) {
-  var m = txt.match(/\((\d{4})\)/);
+  var m = txt.match(/\((?:\*+\s*)?(\d{4})\)/) || txt.match(/\*+\s*(\d{4})/) || txt.match(/عبر:\s*(\d{3,4})/);
   return m ? m[1] : '';
 }
 
@@ -94,7 +94,10 @@ function parseRAJHI(txt) {
     m = txt.match(/من\s*:\s*([^\n\r]+)/i) || txt.match(/من\s+([A-Za-z\u0600-\u06FF][^\n\r،,]{2,40})/);
     if (m) merchant = m[1].trim();
   } else {
-    m = txt.match(/لدى\s+([^\n\r،,*#]{3,50})/i) || txt.match(/عبر:\s*([^\n\r،,]{3,40})/i) || txt.match(/من\s+([^\n\r،,]{3,40})/i);
+    // التاجر بعد "لـ" (لام + تطويل) — "عبر:" قناة الدفع مو التاجر فلا نستخدمها
+    m = txt.match(/لـ\s*([^\n\r،,؛;]{2,40})/)
+      || txt.match(/لدى\s+([^\n\r،,*#]{3,50})/i)
+      || txt.match(/من\s+([^\n\r،,]{3,40})/i);
     if (m) merchant = m[1].split(/\s{2,}|تاريخ|الرصيد/)[0].trim();
   }
 
@@ -181,6 +184,16 @@ function parseSAB(txt) {
 }
 
 function detectAndParse(txt) {
+  var result = _detectBank(txt);
+  if (result) {
+    if (!result.direction) result.direction = detectDirection(txt);
+    if (result.direction === 'credit' && (!result.type || result.type === 'غير محدد')) result.type = 'إضافة';
+    if (!result.time) result.time = extractTime(txt);
+  }
+  return result;
+}
+
+function _detectBank(txt) {
   if (/سداد/.test(txt) && /بطاقت/.test(txt) && /ائتمان/.test(txt)) return parseCardPayment(txt);
   var t = txt.toLowerCase();
   var isRajhi = t.includes('الراجحي') || t.includes('rajhi') || t.includes('رصيدك') || t.includes('تم خصم')
@@ -203,7 +216,6 @@ function detectAndParse(txt) {
   else if (isAhli) result = parseAHLI(txt) || parseSAB(txt);
   else result = parseSAB(txt) || parseRAJHI(txt) || parseAHLI(txt);
 
-  if (result && !result.time) result.time = extractTime(txt);
   return result;
 }
 
@@ -212,17 +224,29 @@ function detectAndParse(txt) {
 // ============================================================
 function classifyMerchant(merchant, txType) {
   var text = ((merchant || '') + ' ' + (txType || '')).toLowerCase();
-  var i;
-  for (i = 0; i < DICT['سداد التمويل'].length; i++) {
-    if (text.includes(DICT['سداد التمويل'][i].toLowerCase())) return 'سداد التمويل';
+  var mer = (merchant || '').toLowerCase().trim();
+  function hit(list) {
+    for (var i = 0; i < list.length; i++) {
+      var kw = (list[i] || '').toLowerCase().trim();
+      if (!kw) continue;
+      if (text.indexOf(kw) !== -1) return true;          // الكلمة موجودة في النص
+      if (mer.length >= 5 && kw.indexOf(mer) === 0) return true;  // اسم القاموس يبدأ بوصف مختصر (الراجحي يختصر)
+    }
+    return false;
   }
-  for (i = 0; i < DICT['أساسيات'].length; i++) {
-    if (text.includes(DICT['أساسيات'][i].toLowerCase())) return 'أساسيات';
-  }
-  for (i = 0; i < DICT['كماليات'].length; i++) {
-    if (text.includes(DICT['كماليات'][i].toLowerCase())) return 'كماليات';
-  }
+  if (hit(DICT['سداد التمويل'])) return 'سداد التمويل';
+  if (hit(DICT['أساسيات'])) return 'أساسيات';
+  if (hit(DICT['كماليات'])) return 'كماليات';
   return 'غير محدد';
+}
+
+// كشف اتجاه الحركة من كلمات الرسالة: إضافة (credit) أو خصم (debit)
+function detectDirection(txt) {
+  var t = (txt || '').toLowerCase();
+  if (/استرداد|استرجاع|مرتجع|اضافة|إضافة|إيداع|ايداع|حوالة واردة|تحويل وارد|عملية واردة|واردة|راتب|refund|reversal|deposit|salary|incoming/.test(t)) {
+    return 'credit';
+  }
+  return 'debit';   // شراء / خصم / حوالة صادرة / مدفوعات = خصم (الافتراضي)
 }
 
 function typeDot(type) {
