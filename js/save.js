@@ -95,6 +95,7 @@ async function doSave(p, statusId) {
 
   expenses.unshift(entry);
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (typeof renderDashboard === 'function') renderDashboard();
 
   var statusEl = document.getElementById(statusId);
   if (!settings.webapp) {
@@ -146,6 +147,7 @@ async function syncFromSheets() {
     if (json.status === 'ok' && json.rows && json.rows.length > 0) {
       expenses = json.rows;
       localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+      if (typeof renderDashboard === 'function') renderDashboard();
       if (typeof renderHistory === 'function' && document.getElementById('sec-history').style.display !== 'none') renderHistory();
       setStatus('<div class="alert alert-green">✅ تم التحديث · ' + expenses.length + ' عملية</div>');
     } else {
@@ -177,6 +179,7 @@ function clearData() {
   if (!confirm('هل أنت متأكد من مسح جميع البيانات المحلية؟')) return;
   expenses = [];
   localStorage.removeItem('expenses_v2');
+  if (typeof renderDashboard === 'function') renderDashboard();
   document.getElementById('s-data-status').innerHTML = '<div class="alert alert-green">✅ تم مسح البيانات المحلية</div>';
   renderSettings();
 }

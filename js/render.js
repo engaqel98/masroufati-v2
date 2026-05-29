@@ -80,6 +80,72 @@ function clearSMS() {
   document.getElementById('result-area').innerHTML = '';
 }
 
+var MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+// ============================================================
+// DASHBOARD (top of parse tab)
+// ============================================================
+function renderDashboard() {
+  var el = document.getElementById('dashboard');
+  if (!el) return;
+  var now = new Date();
+  var curM = today().substring(0, 7);
+  var monthLabel = MONTH_NAMES[now.getMonth()];
+
+  var month = expenses.filter(function(e) { return e.date && e.date.indexOf(curM) === 0 && e.direction !== 'credit'; });
+  var byType = { 'أساسيات': 0, 'كماليات': 0, 'سداد التمويل': 0, 'غير محدد': 0 };
+  month.forEach(function(e) {
+    var t = byType.hasOwnProperty(e.type) ? e.type : 'غير محدد';
+    byType[t] += (e.amount || 0);
+  });
+  var spent = byType['أساسيات'] + byType['كماليات'] + byType['سداد التمويل'] + byType['غير محدد'];
+  var remaining = settings.salary - spent;
+  var count = month.length;
+
+  var html = '';
+
+  // Hero
+  html += '<div class="hero stagger">';
+  html += '<div class="hero-top"><span class="hero-label">💸 صرفت خلال ' + monthLabel + '</span><span class="hero-chip">' + count + ' عملية</span></div>';
+  html += '<div class="hero-amount"><span class="cur">ر.س</span><span data-count="' + spent.toFixed(2) + '" data-decimals="2">0</span></div>';
+  html += '<div class="hero-grid">';
+  html += '<div class="hero-stat"><div class="hero-stat-label">المتبقي من الراتب</div><div class="hero-stat-val">' + fmtInt(remaining) + ' ر.س</div><div class="hero-stat-sub">من ' + fmtInt(settings.salary) + '</div></div>';
+  html += '<div class="hero-stat"><div class="hero-stat-label">الأساسيات</div><div class="hero-stat-val">' + fmtInt(byType['أساسيات']) + ' ر.س</div><div class="hero-stat-sub">الحد ' + fmtInt(settings.basic) + '</div></div>';
+  html += '</div></div>';
+
+  // Donut distribution
+  html += '<div class="card stagger"><div class="card-body">';
+  html += '<div class="card-title">📊 توزيع المصروفات · ' + monthLabel + '</div>';
+  if (spent <= 0) {
+    html += '<div class="empty" style="padding:18px"><div class="empty-icon">🧾</div><div class="empty-text">لا توجد مصروفات هذا الشهر بعد</div></div>';
+  } else {
+    var segs = [
+      { label: 'أساسيات', value: byType['أساسيات'], colorVar: 'var(--c-ess)' },
+      { label: 'كماليات', value: byType['كماليات'], colorVar: 'var(--c-lux)' },
+      { label: 'سداد التمويل', value: byType['سداد التمويل'], colorVar: 'var(--c-loan)' },
+      { label: 'غير محدد', value: byType['غير محدد'], colorVar: 'var(--c-unk)' }
+    ];
+    html += '<div class="donut-wrap">';
+    html += donutChart(segs, count, 'عملية');
+    html += '<div class="legend">';
+    segs.forEach(function(s) {
+      if (s.value <= 0) return;
+      var pct = Math.round((s.value / spent) * 100);
+      html += '<div class="legend-row">'
+        + '<span class="legend-dot" style="background:' + s.colorVar + '"></span>'
+        + '<span class="legend-name">' + s.label + '</span>'
+        + '<span class="legend-val">' + fmtInt(s.value) + '</span>'
+        + '<span class="legend-pct">' + pct + '%</span>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  }
+  html += '</div></div>';
+
+  el.innerHTML = html;
+  if (typeof animateCounts === 'function') animateCounts(el);
+}
+
 // ============================================================
 // HISTORY TAB
 // ============================================================
@@ -226,6 +292,21 @@ function renderFinance() {
   html += '<div class="progress-track"><div class="progress-fill ' + progClass + '" style="width:' + progress + '%"></div></div>';
   html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">متبقي ' + monthsLeft + ' شهر · ينتهي ' + endLabel + '</div>';
   html += '</div></div></div>';
+
+  // مخطط تناقص الرصيد عبر الزمن
+  if (typeof financeChart === 'function') {
+    var pts = [];
+    for (var k = 0; k <= 24; k++) {
+      var d = new Date(sy, sm - 1 + k);
+      pts.push({ label: (d.getMonth() + 1) + '/' + String(d.getFullYear()).slice(2), value: Math.max(0, total - k * payment) });
+    }
+    var markerIdx = Math.max(0, Math.min(24, monthNum - 1));
+    html += '<div class="card"><div class="card-body">';
+    html += '<div class="card-title">📉 تناقص الرصيد المتبقي</div>';
+    html += financeChart(pts, markerIdx);
+    html += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:8px"><span>البداية: ' + fmtInt(total) + ' ر.س</span><span>الحين: ' + fmtInt(Math.max(0, total - markerIdx * payment)) + ' ر.س</span></div>';
+    html += '</div></div>';
+  }
 
   // بطاقة الشهر الحالي
   html += '<div class="card"><div class="card-body">';

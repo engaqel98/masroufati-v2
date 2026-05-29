@@ -3,7 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#4f46e5">
 <title>مصروفاتي 💳</title>
+<script>
+  // set theme before paint to avoid flash
+  (function(){
+    try {
+      var t = localStorage.getItem('theme_v2');
+      if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch(e) { document.documentElement.setAttribute('data-theme', 'light'); }
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -11,7 +25,8 @@
 
   <div class="header">
     <h1>مصروفاتي 💳</h1>
-    <div style="display:flex;gap:8px">
+    <div class="header-actions">
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="تبديل الوضع" aria-label="تبديل الوضع">🌙</button>
       <a id="sheet-link" href="#" class="hlink" onclick="openSheet();return false">Sheets ↗</a>
     </div>
   </div>
@@ -25,6 +40,7 @@
 
   <!-- TAB: PARSE -->
   <div id="sec-parse">
+    <div id="dashboard"></div>
     <div class="card">
       <div class="card-body">
         <div class="field">
@@ -104,6 +120,7 @@
 
 <script src="js/config.js"></script>
 <script src="js/parsers.js"></script>
+<script src="js/charts.js"></script>
 <script src="js/save.js"></script>
 <script src="js/render.js"></script>
 <script src="js/app.js"></script>
