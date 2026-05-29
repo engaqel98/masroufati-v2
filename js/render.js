@@ -16,9 +16,9 @@ function analyze() {
   if (!isCredit) parsed.type = classifyMerchant(parsed.merchant, parsed.txType);
   window._parsed = parsed;
 
-  var balStr = parsed.balance ? 'الرصيد: ' + fmt(parsed.balance) + ' ر.س' : '';
+  var hasAuto = !isCredit && parsed.type && parsed.type !== 'غير محدد';
+  var balStr = (parsed.balance !== '' && parsed.balance != null) ? fmt(parsed.balance) + ' ر.س' : '';
   var cardStr = parsed.card ? '•••• ' + parsed.card : '';
-  var methodStr = parsed.method || '';
   var fxStr = '';
   if (parsed.fxCurrency && parsed.fxAmount) {
     fxStr = parsed.fxCurrency + ' ' + fmt(parsed.fxAmount);
@@ -27,40 +27,49 @@ function analyze() {
 
   var html = '';
   html += '<div class="card" style="margin-top:12px">';
+
+  // رأس: المبلغ + التاجر + الشارة
   html += '<div class="amount-big">';
   html += '<div class="amount-num"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(parsed.amount) + ' <span style="font-size:18px;font-weight:400;color:var(--muted)">ر.س</span></div>';
-  html += '<div class="amount-sub">' + (parsed.txType || '') + '</div>';
+  html += '<div class="amount-sub">' + (parsed.merchant || '—') + (parsed.txType ? ' · ' + parsed.txType : '') + '</div>';
   html += '<span class="badge ' + (isCredit ? 'badge-blue' : typeBadge(parsed.type)) + '">' + (isCredit ? '➕ إضافة · سداد بطاقة' : parsed.type) + '</span>';
   html += '</div>';
-  html += '<div class="drow"><span class="drow-key">التاجر</span><span class="drow-val">' + (parsed.merchant||'—') + '</span></div>';
-  html += '<div class="drow"><span class="drow-key">التاريخ</span><span class="drow-val">' + parsed.date + '</span></div>';
-  html += '<div class="drow"><span class="drow-key">البنك</span><span class="drow-val">' + parsed.bank + '</span></div>';
-  if (cardStr) html += '<div class="drow"><span class="drow-key">البطاقة</span><span class="drow-val">' + cardStr + '</span></div>';
-  if (methodStr) html += '<div class="drow"><span class="drow-key">طريقة الدفع</span><span class="drow-val">' + methodStr + '</span></div>';
-  if (fxStr) html += '<div class="drow"><span class="drow-key">العملة الدولية</span><span class="drow-val">' + fxStr + '</span></div>';
-  if (balStr) html += '<div class="drow"><span class="drow-key">الرصيد</span><span class="drow-val">' + balStr + '</span></div>';
 
   html += '<div class="card-body">';
-  html += '<div class="field"><label>المبلغ المُسجَّل (ر.س)</label>';
-  html += '<input type="number" id="amount-edit" value="' + parsed.amount + '" step="0.01">';
-  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (isCredit ? 'مبلغ السداد: ' : 'المخصوم: ') + fmt(parsed.amount) + ' ر.س' + (isCredit ? '' : ' — عدّله لو الخصم مشترك') + '</div></div>';
+
+  // === الأعلى: التصنيف + الحفظ (بدون سكرول) ===
   if (!isCredit) {
     html += '<div class="field"><label>التصنيف</label>';
     html += '<select id="type-select" onchange="window._parsed.type=this.value">';
-    html += '<option value="" disabled selected>— اختر التصنيف —</option>';
+    if (!hasAuto) html += '<option value="" disabled selected>— اختر التصنيف —</option>';
     ['أساسيات','كماليات','سداد التمويل','غير محدد'].forEach(function(v) {
-      html += '<option value="' + v + '">' + v + '</option>';
+      html += '<option value="' + v + '"' + (hasAuto && v === parsed.type ? ' selected' : '') + '>' + v + '</option>';
     });
-    html += '</select></div>';
+    html += '</select>';
+    if (hasAuto) html += '<div style="font-size:11px;color:var(--green);margin-top:4px">✓ صُنّفت تلقائياً من القاموس — غيّرها إن لزم</div>';
+    html += '</div>';
   } else {
-    html += '<div class="alert alert-green" style="margin:8px 0">➕ حركة إضافة (سداد بطاقة) — تجدّد رصيد البطاقة وغير محسوبة في الصرف.</div>';
+    html += '<div class="alert alert-green" style="margin-bottom:8px">➕ حركة إضافة (سداد بطاقة) — تجدّد رصيد البطاقة وغير محسوبة في الصرف.</div>';
   }
-  html += '<div class="field"><label>ملاحظة (اختياري)</label><input type="text" id="note-edit" placeholder="مثال: قسمتها مع فلان"></div>';
   html += '<div class="btn-row">';
   html += '<button class="btn btn-green" onclick="saveEntry()">💾 حفظ وإرسال</button>';
   html += '<button class="btn btn-outline" onclick="clearSMS()">مسح</button>';
   html += '</div>';
   html += '<div id="save-status"></div>';
+
+  // === التفاصيل / التعديل (سكرول للأسفل عند الحاجة) ===
+  html += '<div class="divider"></div>';
+  html += '<div class="field"><label>المبلغ المُسجَّل (ر.س)</label>';
+  html += '<input type="number" id="amount-edit" value="' + parsed.amount + '" step="0.01">';
+  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (isCredit ? 'مبلغ السداد: ' : 'المخصوم: ') + fmt(parsed.amount) + ' ر.س' + (isCredit ? '' : ' — عدّله لو الخصم مشترك') + '</div></div>';
+  html += '<div class="field"><label>ملاحظة (اختياري)</label><input type="text" id="note-edit" placeholder="مثال: قسمتها مع فلان"></div>';
+  html += '<div class="drow"><span class="drow-key">التاريخ</span><span class="drow-val">' + parsed.date + '</span></div>';
+  html += '<div class="drow"><span class="drow-key">البنك</span><span class="drow-val">' + (parsed.bank || '—') + '</span></div>';
+  if (cardStr) html += '<div class="drow"><span class="drow-key">البطاقة</span><span class="drow-val">' + cardStr + '</span></div>';
+  if (parsed.method) html += '<div class="drow"><span class="drow-key">طريقة الدفع</span><span class="drow-val">' + parsed.method + '</span></div>';
+  if (fxStr) html += '<div class="drow"><span class="drow-key">العملة الدولية</span><span class="drow-val">' + fxStr + '</span></div>';
+  if (balStr) html += '<div class="drow"><span class="drow-key">الرصيد</span><span class="drow-val">' + balStr + '</span></div>';
+
   html += '</div></div>';
 
   area.innerHTML = html;

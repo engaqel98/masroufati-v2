@@ -29,6 +29,13 @@ async function saveEntry() {
   p.type = type;
   p.amount = amt;
   await doSave(p);
+  var st = document.getElementById('save-status');
+  if (st && st.innerHTML.indexOf('alert-green') !== -1) {
+    var sms = document.getElementById('sms-input');
+    if (sms) sms.value = '';
+    window._parsed = null;
+    document.getElementById('result-area').innerHTML = '<div class="alert alert-green">✅ حُفظت — الصق الرسالة التالية</div>';
+  }
 }
 
 async function saveManual() {
