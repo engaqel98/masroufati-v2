@@ -43,7 +43,8 @@ function extractBalance(txt) {
 }
 
 function extractCard(txt) {
-  var m = txt.match(/\((?:\*+\s*)?(\d{4})\)/) || txt.match(/\*+\s*(\d{4})/) || txt.match(/عبر:\s*(\d{3,4})/);
+  var m = txt.match(/\((?:\*+\s*)?(\d{4})\)/) || txt.match(/\*+\s*(\d{4})/)
+    || txt.match(/عبر:\s*(\d{3,4})/) || txt.match(/بطاقة:\s*(\d{3,4})/);
   return m ? m[1] : '';
 }
 
@@ -183,6 +184,67 @@ function parseSAB(txt) {
   return result;
 }
 
+// ============================================================
+// المحلّل العام الذكي (بدون اعتماد على صيغة بنك معيّن)
+// يتعرّف على المبلغ + العملة + الاتجاه + التاجر بالأنماط، فلو تغيّرت
+// صيغة أي بنك أو جاء بنك جديد يظل قادراً على القراءة.
+// ============================================================
+function extractAmountSmart(txt) {
+  var fxCur = null, fxAmt = null, fxRate = null, sar = null, total = null, m;
+  // عملات معروفة فقط (تفادي التقاط أسماء/أكواد عشوائية)
+  m = txt.match(/\b(AED|USD|EUR|GBP|QAR|KWD|BHD|OMR|JOD|EGP|TRY|INR|PKR|CNY|JPY|CHF|CAD|AUD|MAD|TND|THB|MYR|IDR)\s*[: ]?\s*([\d,]+\.?\d*)/);
+  if (m) { fxCur = m[1]; fxAmt = parseFloat(m[2].replace(/,/g, '')); }
+  m = txt.match(/ب?مبلغ\s*:?\s*(?:SAR|SR)\s*([\d,]+\.?\d*)/i)
+    || txt.match(/(?:SAR|SR)\s*([\d,]+\.?\d*)/i)
+    || txt.match(/([\d,]+\.?\d*)\s*(?:SAR|SR|ريال)/i);
+  if (m) sar = parseFloat(m[1].replace(/,/g, ''));
+  m = txt.match(/(?:المبلغ الإجمالي|الإجمالي|إجمالي|total)\D*([\d,]+\.?\d*)/i);
+  if (m) total = parseFloat(m[1].replace(/,/g, ''));
+  m = txt.match(/سعر الصرف[:\s]*([\d.]+)/);
+  if (m) fxRate = parseFloat(m[1]);
+  return { amount: (total || sar || fxAmt), fxCurrency: fxCur, fxAmount: fxAmt, fxRate: fxRate };
+}
+
+function extractMerchant(txt, direction) {
+  var m, pats;
+  if (direction === 'credit') {
+    m = txt.match(/من\s*:?\s*([^\n\r،,]{3,40})/);
+    return m ? m[1].split(/\s{2,}|في:|تاريخ|الرصيد/)[0].trim() : 'غير محدد';
+  }
+  pats = [/لـ\s*([^\n\r،,؛;]{2,40})/, /لدى\s*:?\s*([^\n\r،,*#]{3,50})/i, /\bat\s+([^\n\r،,]{3,40})/i, /من\s+([^\n\r،,]{3,40})/];
+  for (var i = 0; i < pats.length; i++) {
+    m = txt.match(pats[i]);
+    if (m) return m[1].split(/\s{2,}|في:|تاريخ|الرصيد/)[0].trim();
+  }
+  return 'غير محدد';
+}
+
+function detectBankLabel(txt) {
+  var t = txt.toLowerCase();
+  if (t.indexOf('الراجحي') !== -1 || t.indexOf('rajhi') !== -1 || /;\s*مدى/.test(txt) || /عبر:\s*\d/.test(txt)) return 'الراجحي';
+  if (t.indexOf('الأول') !== -1 || t.indexOf('sab') !== -1 || t.indexOf('alfursan') !== -1) return 'الأول (SAB)';
+  if (t.indexOf('الأهلي') !== -1 || t.indexOf('ahli') !== -1 || t.indexOf('ncb') !== -1) return 'الأهلي';
+  return '';
+}
+
+function parseGeneric(txt) {
+  var amt = extractAmountSmart(txt);
+  if (!amt.amount) return null;
+  var dir = detectDirection(txt);
+  var r = {
+    amount: amt.amount,
+    merchant: extractMerchant(txt, dir),
+    bank: detectBankLabel(txt),
+    date: extractDate(txt), time: extractTime(txt),
+    balance: extractBalance(txt), card: extractCard(txt),
+    method: extractMethod(txt),
+    txType: (txt.trim().split('\n')[0] || '').slice(0, 40),
+    direction: dir
+  };
+  if (amt.fxCurrency && amt.fxAmount) { r.fxCurrency = amt.fxCurrency; r.fxAmount = amt.fxAmount; if (amt.fxRate) r.fxRate = amt.fxRate; }
+  return r;
+}
+
 function detectAndParse(txt) {
   var result = _detectBank(txt);
   if (result) {
@@ -211,10 +273,10 @@ function _detectBank(txt) {
   );
 
   var result = null;
-  if (isRajhi) result = parseRAJHI(txt) || parseSAB(txt);
-  else if (isSAB) result = parseSAB(txt) || parseRAJHI(txt);
-  else if (isAhli) result = parseAHLI(txt) || parseSAB(txt);
-  else result = parseSAB(txt) || parseRAJHI(txt) || parseAHLI(txt);
+  if (isRajhi) result = parseRAJHI(txt) || parseGeneric(txt);
+  else if (isSAB) result = parseSAB(txt) || parseGeneric(txt);
+  else if (isAhli) result = parseAHLI(txt) || parseGeneric(txt);
+  else result = parseGeneric(txt) || parseSAB(txt) || parseRAJHI(txt) || parseAHLI(txt);
 
   return result;
 }
