@@ -94,23 +94,27 @@ function renderDashboard() {
 
   var month = expenses.filter(function(e) { return e.date && e.date.indexOf(curM) === 0 && e.direction !== 'credit'; });
   var byType = { 'أساسيات': 0, 'كماليات': 0, 'سداد التمويل': 0, 'غير محدد': 0 };
+  var countSpend = 0;
   month.forEach(function(e) {
     var t = byType.hasOwnProperty(e.type) ? e.type : 'غير محدد';
     byType[t] += (e.amount || 0);
+    if (t !== 'سداد التمويل') countSpend++;
   });
-  var spent = byType['أساسيات'] + byType['كماليات'] + byType['سداد التمويل'] + byType['غير محدد'];
-  var remaining = settings.salary - spent;
-  var count = month.length;
+  var loan = byType['سداد التمويل'];                                  // قسط التمويل الفعلي هذا الشهر — يُعرض منفصلاً
+  var spent = byType['أساسيات'] + byType['كماليات'] + byType['غير محدد']; // "صرفت" = مصروف معيشي صافٍ بدون القسط
+  // الميزانية: الفائض الحر المخطّط (راتب − قسط مخطّط − حد الأساسيات)، يُستهلك بالكماليات
+  var freeBudget = settings.salary - settings.payment - settings.basic;
+  var budgetLeft = freeBudget - byType['كماليات'];
 
   var html = '';
 
   // Hero
   html += '<div class="hero stagger">';
-  html += '<div class="hero-top"><span class="hero-label">💸 صرفت خلال ' + monthLabel + '</span><span class="hero-chip">' + count + ' عملية</span></div>';
+  html += '<div class="hero-top"><span class="hero-label">💸 صرفت خلال ' + monthLabel + '</span><span class="hero-chip">' + countSpend + ' عملية</span></div>';
   html += '<div class="hero-amount"><span class="cur">ر.س</span><span data-count="' + spent.toFixed(2) + '" data-decimals="2">0</span></div>';
   html += '<div class="hero-grid">';
-  html += '<div class="hero-stat"><div class="hero-stat-label">المتبقي من الراتب</div><div class="hero-stat-val">' + fmtInt(remaining) + ' ر.س</div><div class="hero-stat-sub">من ' + fmtInt(settings.salary) + '</div></div>';
-  html += '<div class="hero-stat"><div class="hero-stat-label">الأساسيات</div><div class="hero-stat-val">' + fmtInt(byType['أساسيات']) + ' ر.س</div><div class="hero-stat-sub">الحد ' + fmtInt(settings.basic) + '</div></div>';
+  html += '<div class="hero-stat"><div class="hero-stat-label">المتبقي من الميزانية</div><div class="hero-stat-val">' + fmtInt(budgetLeft) + ' ر.س</div><div class="hero-stat-sub">من فائض ' + fmtInt(freeBudget) + '</div></div>';
+  html += '<div class="hero-stat"><div class="hero-stat-label">سداد التمويل</div><div class="hero-stat-val">' + fmtInt(loan) + ' ر.س</div><div class="hero-stat-sub">قسط هذا الشهر</div></div>';
   html += '</div></div>';
 
   // Donut distribution
@@ -122,11 +126,10 @@ function renderDashboard() {
     var segs = [
       { label: 'أساسيات', value: byType['أساسيات'], colorVar: 'var(--c-ess)' },
       { label: 'كماليات', value: byType['كماليات'], colorVar: 'var(--c-lux)' },
-      { label: 'سداد التمويل', value: byType['سداد التمويل'], colorVar: 'var(--c-loan)' },
       { label: 'غير محدد', value: byType['غير محدد'], colorVar: 'var(--c-unk)' }
     ];
     html += '<div class="donut-wrap">';
-    html += donutChart(segs, count, 'عملية');
+    html += donutChart(segs, countSpend, 'عملية');
     html += '<div class="legend">';
     segs.forEach(function(s) {
       if (s.value <= 0) return;
