@@ -24,7 +24,9 @@ async function saveEntry() {
   }
   var p = window._parsed;
   var noteEl = document.getElementById('note-edit');
+  var behalfEl = document.getElementById('behalf-edit');
   p.note = noteEl ? noteEl.value : '';
+  p.behalf = behalfEl ? behalfEl.value.trim() : '';
   p.origAmount = p.amount;
   p.type = type;
   p.amount = amt;
@@ -57,7 +59,8 @@ async function saveManual() {
     method: document.getElementById('m-method').value,
     balance: '', card: '', bank: 'يدوي',
     txType: 'إدخال يدوي',
-    note: (document.getElementById('m-note') ? document.getElementById('m-note').value : '')
+    note: (document.getElementById('m-note') ? document.getElementById('m-note').value : ''),
+    behalf: (document.getElementById('m-behalf') ? document.getElementById('m-behalf').value.trim() : '')
   };
   await doSave(p, 'manual-status');
   if (document.getElementById('manual-status').innerHTML.includes('alert-green')) {
@@ -66,6 +69,7 @@ async function saveManual() {
     document.getElementById('m-method').value = '';
     document.getElementById('m-type').value = '';
     if (document.getElementById('m-note')) document.getElementById('m-note').value = '';
+    if (document.getElementById('m-behalf')) document.getElementById('m-behalf').value = '';
   }
 }
 
@@ -90,7 +94,8 @@ async function doSave(p, statusId) {
     intl: (p.fxCurrency && p.fxAmount) ? (p.fxCurrency + ' ' + p.fxAmount + (p.fxRate ? ' @' + p.fxRate : '')) : '',
     note: p.note || '',
     origAmount: (p.origAmount != null && p.origAmount !== '') ? p.origAmount : p.amount,
-    direction: p.direction || 'debit'
+    direction: p.direction || 'debit',
+    behalf: (p.behalf || '').toString().trim()
   };
 
   expenses.unshift(entry);
@@ -120,7 +125,8 @@ async function doSave(p, statusId) {
       id: entry.id,
       note: encodeURIComponent(entry.note),
       origAmount: entry.origAmount,
-      direction: entry.direction
+      direction: entry.direction,
+      behalf: encodeURIComponent(entry.behalf)
     });
     var resp = await fetch(settings.webapp + '?' + params.toString());
     var json = await resp.json();
@@ -145,6 +151,12 @@ async function syncFromSheets() {
     var resp = await fetch(settings.webapp + '?action=read');
     var json = await resp.json();
     if (json.status === 'ok' && json.rows && json.rows.length > 0) {
+      // احفظ حقل "نيابة" محلياً قبل الاستبدال — يبقى موجوداً حتى لو الـbackend ما يخزّنه
+      var localBehalf = {};
+      expenses.forEach(function(e) { if (e && e.behalf) localBehalf[String(e.id)] = e.behalf; });
+      json.rows.forEach(function(r) {
+        if (r && !r.behalf && localBehalf[String(r.id)]) r.behalf = localBehalf[String(r.id)];
+      });
       expenses = json.rows;
       localStorage.setItem('expenses_v2', JSON.stringify(expenses));
       if (typeof renderDashboard === 'function') renderDashboard();

@@ -51,6 +51,9 @@ function analyze() {
   } else {
     html += '<div class="alert alert-green" style="margin-bottom:8px">➕ حركة إضافة (' + (parsed.type || 'إضافة') + ') — تزيد الرصيد وغير محسوبة في الصرف.</div>';
   }
+  html += '<div class="field" style="margin-top:8px"><label>👥 نيابة عن (اختياري)</label>';
+  html += '<input type="text" id="behalf-edit" placeholder="اكتب اسم الشخص — تُستثنى من حسابك"' + (parsed.behalf ? ' value="' + htmlEsc(parsed.behalf) + '"' : '') + '>';
+  html += '</div>';
   html += '<div class="btn-row">';
   html += '<button class="btn btn-green" onclick="saveEntry()">💾 حفظ وإرسال</button>';
   html += '<button class="btn btn-outline" onclick="clearSMS()">مسح</button>';
@@ -82,6 +85,12 @@ function clearSMS() {
 
 var MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
+function htmlEsc(s) {
+  return String(s == null ? '' : s).replace(/[<>&"']/g, function(c){
+    return { '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+
 // ============================================================
 // DASHBOARD (top of parse tab)
 // ============================================================
@@ -92,7 +101,10 @@ function renderDashboard() {
   var curM = today().substring(0, 7);
   var monthLabel = MONTH_NAMES[now.getMonth()];
 
-  var month = expenses.filter(function(e) { return e.date && e.date.indexOf(curM) === 0 && e.direction !== 'credit'; });
+  // عمليات الشهر المدينة (نستثني الإضافات والنيابة عن آخرين)
+  var month = expenses.filter(function(e) {
+    return e.date && e.date.indexOf(curM) === 0 && e.direction !== 'credit' && !e.behalf;
+  });
   var byType = { 'أساسيات': 0, 'كماليات': 0, 'سداد التمويل': 0, 'غير محدد': 0 };
   var countSpend = 0;
   month.forEach(function(e) {
@@ -145,6 +157,38 @@ function renderDashboard() {
   }
   html += '</div></div>';
 
+  // بطاقة "نيابة عن آخرين" — تجميع لكل اسم عبر كل الفترات (ليس الشهر فقط)
+  var byPerson = {};
+  expenses.forEach(function(e) {
+    var name = e.behalf ? String(e.behalf).trim() : '';
+    if (!name) return;
+    if (!byPerson[name]) byPerson[name] = { paid: 0, refunded: 0, count: 0 };
+    var amt = e.amount || 0;
+    if (e.direction === 'credit') byPerson[name].refunded += amt;
+    else byPerson[name].paid += amt;
+    byPerson[name].count++;
+  });
+  var people = Object.keys(byPerson).map(function(n) {
+    return { name: n, paid: byPerson[n].paid, refunded: byPerson[n].refunded, count: byPerson[n].count, owed: byPerson[n].paid - byPerson[n].refunded };
+  });
+  people.sort(function(a, b) { return b.owed - a.owed; });
+
+  if (people.length) {
+    html += '<div class="card stagger"><div class="card-body">';
+    html += '<div class="card-title">👥 نيابة عن آخرين</div>';
+    people.forEach(function(p) {
+      var cls = p.owed > 0.005 ? ' owe-pos' : ' owe-zero';
+      html += '<div class="behalf-row">';
+      html += '<div class="behalf-head"><span class="behalf-name">' + htmlEsc(p.name) + '</span><span class="behalf-count">' + p.count + ' عملية</span></div>';
+      html += '<div class="behalf-stats">';
+      html += '<div><span>دفعت</span><b>' + fmt(p.paid) + '</b></div>';
+      html += '<div><span>استرد</span><b>' + fmt(p.refunded) + '</b></div>';
+      html += '<div class="behalf-owed' + cls + '"><span>المتبقي عليه</span><b>' + fmt(p.owed) + '</b></div>';
+      html += '</div></div>';
+    });
+    html += '</div></div>';
+  }
+
   el.innerHTML = html;
   if (typeof animateCounts === 'function') animateCounts(el);
 }
@@ -161,7 +205,10 @@ function filterHist(type, el) {
 
 function renderHistory() {
   var el = document.getElementById('history-content');
-  var data = histFilter === 'all' ? expenses.slice() : expenses.filter(function(e) { return e.type === histFilter; });
+  var data;
+  if (histFilter === 'all') data = expenses.slice();
+  else if (histFilter === 'behalf') data = expenses.filter(function(e) { return e.behalf; });
+  else data = expenses.filter(function(e) { return e.type === histFilter && !e.behalf; });
   data.sort(function(a,b) {
     var da = a.date || '', db = b.date || '';
     if (da !== db) return da < db ? 1 : -1;   // أحدث تاريخ أولاً
@@ -175,12 +222,19 @@ function renderHistory() {
     return;
   }
 
-  // الصرف = مدين بدون القسط (نستثني الإضافات والقسط، تماشياً مع لوحة الملخّص)
-  var spendTotal = 0, loanTotal = 0;
+  // الصرف = مدين بدون القسط وبدون نيابة (تماشياً مع لوحة الملخّص)
+  // ونحسب أيضاً مجاميع النيابة (دفعت/استرد) لعرضها تحت فلتر النيابة
+  var spendTotal = 0, loanTotal = 0, behalfPaid = 0, behalfRefund = 0;
   data.forEach(function(e) {
+    var amt = e.amount || 0;
+    if (e.behalf) {
+      if (e.direction === 'credit') behalfRefund += amt;
+      else behalfPaid += amt;
+      return;
+    }
     if (e.direction === 'credit') return;
-    if (e.type === 'سداد التمويل') loanTotal += (e.amount || 0);
-    else spendTotal += (e.amount || 0);
+    if (e.type === 'سداد التمويل') loanTotal += amt;
+    else spendTotal += amt;
   });
 
   // أحدث رصيد متاح لكل بطاقة (من كل العمليات)
@@ -213,17 +267,24 @@ function renderHistory() {
     rows += '<div style="flex:1;min-width:0;padding-right:8px">';
     rows += '<div class="hist-name">' + (e.merchant||'—') + '</div>';
     rows += '<div class="hist-sub"><span class="' + typeDot(e.type) + '">●</span> ' + (e.type||'') + (e.bank ? ' · ' + e.bank : '') + '</div>';
+    if (e.behalf) rows += '<div class="hist-sub" style="margin-top:5px"><span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span></div>';
     if (e.balance !== '' && e.balance != null) rows += '<div class="hist-sub" style="color:var(--muted)">الرصيد: ' + fmt(e.balance) + ' ر.س</div>';
-    if (e.note) rows += '<div class="hist-sub" style="color:var(--muted)">📝 ' + e.note + '</div>';
+    if (e.note) rows += '<div class="hist-sub" style="color:var(--muted)">📝 ' + htmlEsc(e.note) + '</div>';
     rows += '</div></div>';
   });
 
   var totalCard = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
   if (histFilter === 'سداد التمويل') {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · سداد التمويل</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
+  } else if (histFilter === 'behalf') {
+    var net = behalfPaid - behalfRefund;
+    totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · دفعت نيابة</span><span style="font-weight:700;color:var(--hero-1)">' + fmt(behalfPaid) + ' ر.س</span></div>';
+    totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">استرد</span><span style="font-weight:700;color:var(--green)">' + fmt(behalfRefund) + ' ر.س</span></div>';
+    totalCard += '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="font-weight:700">المتبقي على الآخرين</span><span style="font-weight:800;color:' + (net > 0.005 ? 'var(--hero-1)' : 'var(--green)') + '">' + fmt(net) + ' ر.س</span></div>';
   } else {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · الصرف</span><span style="font-weight:700">' + fmt(spendTotal) + ' ر.س</span></div>';
     if (loanTotal > 0) totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">سداد التمويل (منفصل)</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
+    if (behalfPaid > 0 || behalfRefund > 0) totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">نيابة عن آخرين (مستثناة)</span><span style="font-weight:700;color:var(--hero-1)">' + fmt(behalfPaid - behalfRefund) + ' ر.س</span></div>';
   }
   totalCard += '</div></div>';
 
@@ -274,7 +335,7 @@ function renderFinance() {
   var sy = parseInt(parts[0]), sm = parseInt(parts[1]);
   var monthNum = (now.getFullYear()-sy)*12 + (now.getMonth()+1-sm) + 1;
   var monthsLeft = Math.max(0, 24 - monthNum + 1);
-  var totalPaid = expenses.filter(function(e) { return e.type === 'سداد التمويل'; }).reduce(function(s,e) { return s + (e.amount||0); }, 0);
+  var totalPaid = expenses.filter(function(e) { return e.type === 'سداد التمويل' && !e.behalf; }).reduce(function(s,e) { return s + (e.amount||0); }, 0);
   var paidEst = Math.min(totalPaid, total);
   var remaining = Math.max(0, total - paidEst);
   var progress = Math.min(100, Math.round((paidEst/total)*100));
@@ -285,7 +346,7 @@ function renderFinance() {
   var endD = new Date(sy, sm - 1 + 23); // الشهر الـ24 (آخر قسط)
   var endLabel = mNames[endD.getMonth()] + ' ' + endD.getFullYear();
   var curM = today().substring(0,7);
-  var thisMonth = expenses.filter(function(e) { return e.date && e.date.startsWith(curM); });
+  var thisMonth = expenses.filter(function(e) { return e.date && e.date.startsWith(curM) && !e.behalf; });
   var essAct = thisMonth.filter(function(e) { return e.type==='أساسيات'; }).reduce(function(s,e) { return s+e.amount; },0);
   var luxAct = thisMonth.filter(function(e) { return e.type==='كماليات'; }).reduce(function(s,e) { return s+e.amount; },0);
   var loanAct = thisMonth.filter(function(e) { return e.type==='سداد التمويل'; }).reduce(function(s,e) { return s+e.amount; },0);

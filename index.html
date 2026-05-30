@@ -89,6 +89,10 @@
           <label>ملاحظة (اختياري)</label>
           <input type="text" id="m-note" placeholder="مثال: قسمتها مع فلان">
         </div>
+        <div class="field">
+          <label>👥 نيابة عن (اختياري)</label>
+          <input type="text" id="m-behalf" placeholder="اكتب اسم الشخص — تُستثنى من حسابك">
+        </div>
         <button class="btn btn-green" onclick="saveManual()">💾 حفظ</button>
         <div id="manual-status"></div>
       </div>
@@ -102,6 +106,7 @@
       <button class="filt-btn" id="filt-ess" onclick="filterHist('أساسيات',this)">أساسيات</button>
       <button class="filt-btn" id="filt-lux" onclick="filterHist('كماليات',this)">كماليات</button>
       <button class="filt-btn" id="filt-loan" onclick="filterHist('سداد التمويل',this)">سداد التمويل</button>
+      <button class="filt-btn" id="filt-behalf" onclick="filterHist('behalf',this)">👥 نيابة</button>
     </div>
     <div id="history-content"></div>
   </div>

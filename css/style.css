@@ -294,6 +294,28 @@ select { cursor: pointer; }
 .settings-row:last-child { border-bottom: none; }
 .settings-val { font-weight: 700; color: var(--blue-text); font-size: 12px; direction: ltr; text-align: left; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ============================================================ Behalf (نيابة عن آخرين) */
+.behalf-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--hero-1) 14%, transparent);
+  color: var(--hero-1); border: 1px solid color-mix(in srgb, var(--hero-1) 32%, transparent);
+}
+html[data-theme="dark"] .behalf-tag { color: #c4b5fd; background: color-mix(in srgb, var(--hero-1) 28%, transparent); border-color: color-mix(in srgb, var(--hero-1) 55%, transparent); }
+.behalf-row { padding: 12px 0; border-bottom: 1px solid var(--border-soft); }
+.behalf-row:last-child { border-bottom: none; }
+.behalf-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.behalf-name { font-weight: 800; font-size: 14px; }
+.behalf-count { font-size: 11px; color: var(--muted); background: var(--bg-soft); padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+.behalf-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.behalf-stats > div { background: var(--card-2); border: 1px solid var(--border); border-radius: var(--rxs); padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
+.behalf-stats span { font-size: 10.5px; color: var(--muted); font-weight: 600; }
+.behalf-stats b { font-size: 14px; font-weight: 800; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.behalf-owed { background: color-mix(in srgb, var(--hero-1) 9%, var(--card-2)) !important; border-color: color-mix(in srgb, var(--hero-1) 32%, var(--border)) !important; }
+.behalf-owed.owe-pos b { color: var(--hero-1); }
+html[data-theme="dark"] .behalf-owed.owe-pos b { color: #c4b5fd; }
+.behalf-owed.owe-zero b { color: var(--green); }
+
 /* ============================================================ Animations */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
