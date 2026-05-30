@@ -339,6 +339,39 @@ html[data-theme="dark"] .behalf-tag { color: #c4b5fd; background: color-mix(in s
 html[data-theme="dark"] .behalf-owed.owe-pos b { color: #c4b5fd; }
 .behalf-owed.owe-zero b { color: var(--green); }
 
+/* ============================================================ History action buttons */
+.hist-actions { display: flex; flex-direction: column; gap: 5px; margin-inline-start: 8px; flex-shrink: 0; }
+.hist-act-btn {
+  width: 30px; height: 30px; display: grid; place-items: center; font-size: 13px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--card-2);
+  color: var(--text-soft); cursor: pointer; transition: transform .12s, background-color .2s, color .2s, border-color .2s;
+}
+.hist-act-btn:active { transform: scale(.9); }
+.hist-act-btn:hover { background: var(--bg-soft); }
+.hist-act-btn.hist-del:hover { background: var(--red-bg); color: var(--red-text); border-color: var(--red-border); }
+
+/* ============================================================ Modal */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(15,23,42,.55); backdrop-filter: blur(3px);
+  display: flex; align-items: flex-end; justify-content: center; z-index: 100;
+  animation: fadeUp .25s ease;
+}
+html[data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,.7); }
+.modal-backdrop.hidden { display: none; }
+.modal-card {
+  background: var(--card); width: 100%; max-width: 520px;
+  border-radius: 22px 22px 0 0; padding: 18px 18px 22px;
+  border: 1px solid var(--border); border-bottom: none; box-shadow: var(--shadow-lg);
+  max-height: 90vh; overflow-y: auto;
+  animation: slideUp .3s cubic-bezier(.22,1,.36,1);
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (min-width: 600px) {
+  .modal-backdrop { align-items: center; }
+  .modal-card { border-radius: var(--r); border-bottom: 1px solid var(--border); }
+}
+.modal-title { font-size: 16px; font-weight: 800; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); }
+
 /* ============================================================ Animations */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }

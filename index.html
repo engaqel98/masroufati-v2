@@ -123,6 +123,43 @@
 
 </div>
 
+<!-- Edit modal -->
+<div id="edit-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeEdit()">
+  <div class="modal-card">
+    <div class="modal-title">✎ تعديل العملية</div>
+    <div class="field"><label>التاجر</label><input type="text" id="e-merchant"></div>
+    <div class="field-row">
+      <div class="field"><label>المبلغ (ر.س)</label><input type="number" id="e-amount" step="0.01"></div>
+      <div class="field"><label>التاريخ</label><input type="date" id="e-date"></div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>التصنيف</label>
+        <select id="e-type">
+          <option value="أساسيات">أساسيات</option>
+          <option value="كماليات">كماليات</option>
+          <option value="سداد التمويل">سداد التمويل</option>
+          <option value="غير محدد">غير محدد</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>الاتجاه</label>
+        <select id="e-direction">
+          <option value="debit">خصم</option>
+          <option value="credit">إضافة</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>ملاحظة</label><input type="text" id="e-note"></div>
+    <div class="field"><label>👥 نيابة عن (اختياري)</label><input type="text" id="e-behalf"></div>
+    <div id="edit-status"></div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn btn-green" onclick="saveEdit()">💾 حفظ التعديلات</button>
+      <button class="btn btn-outline" onclick="closeEdit()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/config.js"></script>
 <script src="js/parsers.js"></script>
 <script src="js/charts.js"></script>

@@ -187,6 +187,109 @@ async function loadDictFromSheets() {
   } catch(e) {}
 }
 
+// ============================================================
+// DELETE / EDIT
+// ============================================================
+async function deleteEntry(id) {
+  if (!id) return;
+  var entry = expenses.find(function(e) { return String(e.id) === String(id); });
+  if (!entry) return;
+  if (!confirm('حذف العملية «' + (entry.merchant || '—') + '» بمبلغ ' + fmt(entry.amount) + ' ر.س؟')) return;
+
+  // احذف محلياً أولاً (response سريع)
+  expenses = expenses.filter(function(e) { return String(e.id) !== String(id); });
+  localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderHistory === 'function') renderHistory();
+
+  if (!settings.webapp) return;
+  try {
+    var resp = await fetch(settings.webapp + '?action=delete&id=' + encodeURIComponent(id));
+    var json = await resp.json();
+    if (json.status !== 'ok') console.warn('Sheet delete failed:', json.message);
+  } catch (e) {
+    console.warn('Sheet delete error:', e.message);
+  }
+}
+
+function editEntry(id) {
+  var entry = expenses.find(function(e) { return String(e.id) === String(id); });
+  if (!entry) return;
+  document.getElementById('e-merchant').value = entry.merchant || '';
+  document.getElementById('e-amount').value = entry.amount != null ? entry.amount : '';
+  document.getElementById('e-date').value = entry.date || '';
+  document.getElementById('e-type').value = entry.type || 'غير محدد';
+  document.getElementById('e-direction').value = entry.direction === 'credit' ? 'credit' : 'debit';
+  document.getElementById('e-note').value = entry.note || '';
+  document.getElementById('e-behalf').value = entry.behalf || '';
+  document.getElementById('edit-status').innerHTML = '';
+  window._editingId = id;
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEdit() {
+  document.getElementById('edit-modal').classList.add('hidden');
+  window._editingId = null;
+}
+
+async function saveEdit() {
+  var id = window._editingId;
+  if (!id) return;
+  var entry = expenses.find(function(e) { return String(e.id) === String(id); });
+  if (!entry) return;
+
+  var newAmt = parseFloat(document.getElementById('e-amount').value);
+  if (!newAmt || newAmt <= 0) {
+    document.getElementById('edit-status').innerHTML = '<div class="alert alert-red">⚠️ أدخل مبلغاً صحيحاً</div>';
+    return;
+  }
+  var fields = {
+    merchant: document.getElementById('e-merchant').value.trim() || entry.merchant,
+    amount: newAmt,
+    date: document.getElementById('e-date').value || entry.date,
+    type: document.getElementById('e-type').value,
+    direction: document.getElementById('e-direction').value,
+    note: document.getElementById('e-note').value,
+    behalf: document.getElementById('e-behalf').value.trim()
+  };
+
+  // حدّث محلياً
+  Object.keys(fields).forEach(function(k) { entry[k] = fields[k]; });
+  localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderHistory === 'function') renderHistory();
+
+  if (!settings.webapp) {
+    closeEdit();
+    return;
+  }
+
+  document.getElementById('edit-status').innerHTML = '<div class="alert alert-blue">⏳ جاري حفظ التعديلات في Sheets...</div>';
+  try {
+    var params = new URLSearchParams({
+      action: 'update',
+      id: id,
+      merchant: encodeURIComponent(fields.merchant),
+      amount: fields.amount,
+      date: fields.date,
+      type: encodeURIComponent(fields.type),
+      direction: fields.direction,
+      note: encodeURIComponent(fields.note),
+      behalf: encodeURIComponent(fields.behalf)
+    });
+    var resp = await fetch(settings.webapp + '?' + params.toString());
+    var json = await resp.json();
+    if (json.status === 'ok') {
+      document.getElementById('edit-status').innerHTML = '<div class="alert alert-green">✅ تم التحديث في Sheets</div>';
+      setTimeout(closeEdit, 800);
+    } else {
+      document.getElementById('edit-status').innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. Sheets: ' + (json.message || 'فشل') + '</div>';
+    }
+  } catch (e) {
+    document.getElementById('edit-status').innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. فشل الرفع: ' + e.message + '</div>';
+  }
+}
+
 function clearData() {
   if (!confirm('هل أنت متأكد من مسح جميع البيانات المحلية؟')) return;
   expenses = [];

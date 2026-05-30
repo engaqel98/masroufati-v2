@@ -328,6 +328,7 @@ function renderHistory() {
   data.forEach(function(e) {
     var isCredit = e.direction === 'credit';
     var edited = !isCredit && e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
+    var eid = String(e.id || '').replace(/'/g, "\\'");
     rows += '<div class="hist-item">';
     rows += '<div class="hist-right"><div class="hist-amt"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
       + (edited ? '<div class="hist-date">من ' + fmt(e.origAmount) + '</div>' : '')
@@ -338,7 +339,12 @@ function renderHistory() {
     if (e.behalf) rows += '<div class="hist-sub" style="margin-top:5px"><span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span></div>';
     if (e.balance !== '' && e.balance != null) rows += '<div class="hist-sub" style="color:var(--muted)">الرصيد: ' + fmt(e.balance) + ' ر.س</div>';
     if (e.note) rows += '<div class="hist-sub" style="color:var(--muted)">📝 ' + htmlEsc(e.note) + '</div>';
-    rows += '</div></div>';
+    rows += '</div>';
+    rows += '<div class="hist-actions">';
+    rows += '<button class="hist-act-btn" title="تعديل" onclick="editEntry(\'' + eid + '\')">✎</button>';
+    rows += '<button class="hist-act-btn hist-del" title="حذف" onclick="deleteEntry(\'' + eid + '\')">🗑</button>';
+    rows += '</div>';
+    rows += '</div>';
   });
 
   var totalCard = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
