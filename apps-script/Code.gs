@@ -42,8 +42,10 @@ var TX_WIDTH   = 17;         // columns B..R
 function doGet(e) {
   var p = (e && e.parameter) || {};
   try {
-    if (p.action === 'read') return json_(readTx_());
-    if (p.action === 'dict') return json_(readDict_());
+    if (p.action === 'read')   return json_(readTx_());
+    if (p.action === 'dict')   return json_(readDict_());
+    if (p.action === 'delete') return json_(deleteTx_(p));
+    if (p.action === 'update') return json_(updateTx_(p));
     return json_(appendTx_(p));
   } catch (err) {
     return json_({ status: 'error', message: String(err) });
@@ -134,6 +136,62 @@ function appendTx_(p) {
   sh.getRange(writeRow, TX_FIRSTCOL).setNumberFormat('yyyy-mm-dd');  // B display
   sortTx_(sh);   // keep المعاملات newest-first by transaction date
   return { status: 'ok', row: writeRow };
+}
+
+// Find the spreadsheet row whose id (column N) matches `id`; -1 if not found.
+// The app stores ids as text in N, so we compare as strings (no precision loss).
+function findRowById_(sh, id) {
+  var last = lastTxRow_(sh);
+  if (last < TX_START) return -1;
+  id = String(id);
+  var idCol = TX_FIRSTCOL + 12;   // N (B=2 -> N=14)
+  var vals = sh.getRange(TX_START, idCol, last - TX_START + 1, 1).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]) === id) return TX_START + i;
+  }
+  return -1;
+}
+
+// ?action=delete&id=N  -> removes the matching row from المعاملات.
+function deleteTx_(p) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TX_SHEET);
+  if (!sh) return { status: 'error', message: 'sheet "' + TX_SHEET + '" not found' };
+  var id = String(p.id == null ? '' : p.id);
+  if (!id) return { status: 'error', message: 'missing id' };
+  var row = findRowById_(sh, id);
+  if (row < 0) return { status: 'error', message: 'id ' + id + ' not found' };
+  sh.deleteRow(row);
+  return { status: 'ok', deleted: row };
+}
+
+// ?action=update&id=N&merchant=&amount=&date=&type=&direction=&note=&behalf=
+// Updates only the fields the edit form sends. behalf has no column in the
+// sheet (it's app-local), so it's ignored here on purpose.
+function updateTx_(p) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TX_SHEET);
+  if (!sh) return { status: 'error', message: 'sheet "' + TX_SHEET + '" not found' };
+  var id = String(p.id == null ? '' : p.id);
+  if (!id) return { status: 'error', message: 'missing id' };
+  var row = findRowById_(sh, id);
+  if (row < 0) return { status: 'error', message: 'id ' + id + ' not found' };
+
+  if (p.merchant != null) sh.getRange(row, 3).setValue(dec_(p.merchant));               // C الوصف
+  if (p.amount != null && p.amount !== '') sh.getRange(row, 4).setValue(Number(p.amount) || 0);  // D المبلغ
+  if (p.type != null) sh.getRange(row, 5).setValue(dec_(p.type) || 'غير محدد');         // E النوع
+  if (p.date != null && p.date !== '') {
+    var d = parseDate_(p.date, '');
+    var old = sh.getRange(row, 2).getValue();   // keep the original time-of-day
+    if (old instanceof Date) d.setHours(old.getHours(), old.getMinutes(), old.getSeconds());
+    sh.getRange(row, 2).setValue(d).setNumberFormat('yyyy-mm-dd');                       // B التاريخ
+    sh.getRange(row, 6).setValue(d.getMonth() + 1);                                      // F الشهر
+    sh.getRange(row, 7).setValue(d.getFullYear());                                       // G السنة
+  }
+  if (p.note != null) sh.getRange(row, 17).setValue(dec_(p.note));                       // Q ملاحظة
+  if (p.direction != null && p.direction !== '') {
+    sh.getRange(row, 18).setValue(p.direction === 'credit' ? 'إضافة' : 'خصم');           // R نوع الحركة
+  }
+  sortTx_(sh);   // date may have changed -> keep newest-first
+  return { status: 'ok', row: row };
 }
 
 function readTx_() {
