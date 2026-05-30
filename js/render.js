@@ -101,16 +101,17 @@ function renderDashboard() {
   var curM = today().substring(0, 7);
   var monthLabel = MONTH_NAMES[now.getMonth()];
 
-  // عمليات الشهر المدينة (نستثني الإضافات والنيابة عن آخرين)
-  var month = expenses.filter(function(e) {
-    return e.date && e.date.indexOf(curM) === 0 && e.direction !== 'credit' && !e.behalf;
+  // كل عمليات الشهر (للعدّ — يطابق السجل بدون النيابة فقط)
+  var monthAll = expenses.filter(function(e) {
+    return e.date && e.date.indexOf(curM) === 0 && !e.behalf;
   });
+  var monthCount = monthAll.length;
+  // العمليات المدينة فقط للتجميع المالي (نستثني الدائن)
+  var month = monthAll.filter(function(e) { return e.direction !== 'credit'; });
   var byType = { 'أساسيات': 0, 'كماليات': 0, 'سداد التمويل': 0, 'غير محدد': 0 };
-  var countSpend = 0;
   month.forEach(function(e) {
     var t = byType.hasOwnProperty(e.type) ? e.type : 'غير محدد';
     byType[t] += (e.amount || 0);
-    if (t !== 'سداد التمويل') countSpend++;
   });
   var loan = byType['سداد التمويل'];                                  // قسط التمويل الفعلي هذا الشهر — يُعرض منفصلاً
   var spent = byType['أساسيات'] + byType['كماليات'] + byType['غير محدد']; // "صرفت" = مصروف معيشي صافٍ بدون القسط
@@ -122,30 +123,32 @@ function renderDashboard() {
 
   // Hero
   html += '<div class="hero stagger">';
-  html += '<div class="hero-top"><span class="hero-label">💸 صرفت خلال ' + monthLabel + '</span><span class="hero-chip">' + countSpend + ' عملية</span></div>';
+  html += '<div class="hero-top"><span class="hero-label">💸 صرفت خلال ' + monthLabel + '</span><span class="hero-chip">' + monthCount + ' عملية</span></div>';
   html += '<div class="hero-amount"><span class="cur">ر.س</span><span data-count="' + spent.toFixed(2) + '" data-decimals="2">0</span></div>';
   html += '<div class="hero-grid">';
   html += '<div class="hero-stat"><div class="hero-stat-label">المتبقي من الميزانية</div><div class="hero-stat-val">' + fmtInt(budgetLeft) + ' ر.س</div><div class="hero-stat-sub">من فائض ' + fmtInt(freeBudget) + '</div></div>';
   html += '<div class="hero-stat"><div class="hero-stat-label">سداد التمويل</div><div class="hero-stat-val">' + fmtInt(loan) + ' ر.س</div><div class="hero-stat-sub">قسط هذا الشهر</div></div>';
   html += '</div></div>';
 
-  // Donut distribution
+  // Donut distribution (يشمل القسط كشريحة منفصلة)
   html += '<div class="card stagger"><div class="card-body">';
   html += '<div class="card-title">📊 توزيع المصروفات · ' + monthLabel + '</div>';
-  if (spent <= 0) {
+  var outflowTotal = spent + loan; // إجمالي المدين (ess+lux+unk+loan)
+  if (outflowTotal <= 0) {
     html += '<div class="empty" style="padding:18px"><div class="empty-icon">🧾</div><div class="empty-text">لا توجد مصروفات هذا الشهر بعد</div></div>';
   } else {
     var segs = [
       { label: 'أساسيات', value: byType['أساسيات'], colorVar: 'var(--c-ess)' },
       { label: 'كماليات', value: byType['كماليات'], colorVar: 'var(--c-lux)' },
-      { label: 'غير محدد', value: byType['غير محدد'], colorVar: 'var(--c-unk)' }
+      { label: 'غير محدد', value: byType['غير محدد'], colorVar: 'var(--c-unk)' },
+      { label: 'سداد التمويل', value: byType['سداد التمويل'], colorVar: 'var(--c-loan)' }
     ];
     html += '<div class="donut-wrap">';
-    html += donutChart(segs, countSpend, 'عملية');
+    html += donutChart(segs, monthCount, 'عملية');
     html += '<div class="legend">';
     segs.forEach(function(s) {
       if (s.value <= 0) return;
-      var pct = Math.round((s.value / spent) * 100);
+      var pct = Math.round((s.value / outflowTotal) * 100);
       html += '<div class="legend-row">'
         + '<span class="legend-dot" style="background:' + s.colorVar + '"></span>'
         + '<span class="legend-name">' + s.label + '</span>'
