@@ -335,7 +335,7 @@ function renderFinance() {
   var sy = parseInt(parts[0]), sm = parseInt(parts[1]);
   var monthNum = (now.getFullYear()-sy)*12 + (now.getMonth()+1-sm) + 1;
   var monthsLeft = Math.max(0, 24 - monthNum + 1);
-  var totalPaid = expenses.filter(function(e) { return e.type === 'سداد التمويل' && !e.behalf; }).reduce(function(s,e) { return s + (e.amount||0); }, 0);
+  var totalPaid = expenses.filter(function(e) { return e.type === 'سداد التمويل' && !e.behalf && e.direction !== 'credit'; }).reduce(function(s,e) { return s + (e.amount||0); }, 0);
   var paidEst = Math.min(totalPaid, total);
   var remaining = Math.max(0, total - paidEst);
   var progress = Math.min(100, Math.round((paidEst/total)*100));
@@ -346,10 +346,10 @@ function renderFinance() {
   var endD = new Date(sy, sm - 1 + 23); // الشهر الـ24 (آخر قسط)
   var endLabel = mNames[endD.getMonth()] + ' ' + endD.getFullYear();
   var curM = today().substring(0,7);
-  var thisMonth = expenses.filter(function(e) { return e.date && e.date.startsWith(curM) && !e.behalf; });
-  var essAct = thisMonth.filter(function(e) { return e.type==='أساسيات'; }).reduce(function(s,e) { return s+e.amount; },0);
-  var luxAct = thisMonth.filter(function(e) { return e.type==='كماليات'; }).reduce(function(s,e) { return s+e.amount; },0);
-  var loanAct = thisMonth.filter(function(e) { return e.type==='سداد التمويل'; }).reduce(function(s,e) { return s+e.amount; },0);
+  var thisMonth = expenses.filter(function(e) { return e.date && e.date.startsWith(curM) && !e.behalf && e.direction !== 'credit'; });
+  var essAct = thisMonth.filter(function(e) { return e.type==='أساسيات'; }).reduce(function(s,e) { return s+(e.amount||0); },0);
+  var luxAct = thisMonth.filter(function(e) { return e.type==='كماليات'; }).reduce(function(s,e) { return s+(e.amount||0); },0);
+  var loanAct = thisMonth.filter(function(e) { return e.type==='سداد التمويل'; }).reduce(function(s,e) { return s+(e.amount||0); },0);
 
   var committed = loanAct >= payment;
   var budgetOK = (essAct + luxAct) <= (salary - payment);
