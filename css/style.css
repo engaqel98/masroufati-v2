@@ -294,6 +294,29 @@ select { cursor: pointer; }
 .settings-row:last-child { border-bottom: none; }
 .settings-val { font-weight: 700; color: var(--blue-text); font-size: 12px; direction: ltr; text-align: left; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ============================================================ Month navigation */
+.month-nav {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  margin: 0 0 12px; padding: 6px 10px;
+}
+.month-nav-btn {
+  width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 20px; font-weight: 700;
+  cursor: pointer; display: grid; place-items: center; transition: transform .12s, background-color .2s, opacity .2s;
+}
+.month-nav-btn:active { transform: scale(.92); }
+.month-nav-btn:disabled { opacity: .35; cursor: not-allowed; }
+.month-nav-label { font-size: 14px; font-weight: 700; min-width: 120px; text-align: center; }
+
+/* قائمة الشهر في السجل */
+.hist-month-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.hist-month-bar label { font-size: 12px; color: var(--muted); font-weight: 600; margin: 0; }
+.hist-month-bar select {
+  flex: 1; max-width: 240px; padding: 8px 12px; font-size: 13px; font-family: inherit;
+  border: 1.5px solid var(--border); border-radius: var(--rs);
+  background: var(--card); color: var(--text); cursor: pointer;
+}
+
 /* ============================================================ Behalf (نيابة عن آخرين) */
 .behalf-tag {
   display: inline-flex; align-items: center; gap: 4px;

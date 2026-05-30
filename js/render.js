@@ -85,6 +85,42 @@ function clearSMS() {
 
 var MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
+// حالة الفلتر للشهر — افتراضي: الشهر الحالي للوحة، "all" للسجل
+var dashMonth = today().substring(0, 7);
+var histMonth = 'all';
+
+function ymLabel(ym) {
+  if (ym === 'all') return 'كل الأشهر';
+  var p = String(ym).split('-');
+  var mi = parseInt(p[1], 10) - 1;
+  return (MONTH_NAMES[mi] || p[1]) + ' ' + p[0];
+}
+
+function availableMonths() {
+  var s = {};
+  expenses.forEach(function(e) {
+    if (e.date && /^\d{4}-\d{2}/.test(e.date)) s[e.date.substring(0, 7)] = true;
+  });
+  // الأحدث أولاً
+  return Object.keys(s).sort().reverse();
+}
+
+function navDash(delta) {
+  var months = availableMonths();
+  if (!months.length) return;
+  var idx = months.indexOf(dashMonth);
+  if (idx < 0) idx = 0;
+  var ni = idx + delta;
+  if (ni < 0 || ni >= months.length) return;
+  dashMonth = months[ni];
+  renderDashboard();
+}
+
+function setHistMonth(ym) {
+  histMonth = ym || 'all';
+  renderHistory();
+}
+
 function htmlEsc(s) {
   return String(s == null ? '' : s).replace(/[<>&"']/g, function(c){
     return { '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;' }[c];
@@ -97,9 +133,10 @@ function htmlEsc(s) {
 function renderDashboard() {
   var el = document.getElementById('dashboard');
   if (!el) return;
-  var now = new Date();
-  var curM = today().substring(0, 7);
-  var monthLabel = MONTH_NAMES[now.getMonth()];
+  var curM = dashMonth || today().substring(0, 7);
+  var ymp = curM.split('-');
+  var monthLabel = (MONTH_NAMES[parseInt(ymp[1], 10) - 1] || ymp[1]);
+  var fullMonthLabel = monthLabel + ' ' + ymp[0];
 
   // كل عمليات الشهر (للعدّ — يطابق السجل بدون النيابة فقط)
   var monthAll = expenses.filter(function(e) {
@@ -120,6 +157,20 @@ function renderDashboard() {
   var budgetLeft = freeBudget - byType['كماليات'];
 
   var html = '';
+
+  // شريط التنقّل بين الأشهر (لو فيه أكثر من شهر بيانات)
+  var monthsAvail = availableMonths();
+  if (monthsAvail.length > 1) {
+    var idx = monthsAvail.indexOf(curM);
+    if (idx < 0) idx = 0;
+    var canNewer = idx > 0;            // أحدث = idx أقل (مصفوفة معكوسة)
+    var canOlder = idx < monthsAvail.length - 1;
+    html += '<div class="month-nav stagger">';
+    html += '<button class="month-nav-btn" ' + (canOlder ? 'onclick="navDash(1)"' : 'disabled') + ' aria-label="شهر أقدم">‹</button>';
+    html += '<span class="month-nav-label">' + fullMonthLabel + '</span>';
+    html += '<button class="month-nav-btn" ' + (canNewer ? 'onclick="navDash(-1)"' : 'disabled') + ' aria-label="شهر أحدث">›</button>';
+    html += '</div>';
+  }
 
   // Hero
   html += '<div class="hero stagger">';
@@ -208,10 +259,14 @@ function filterHist(type, el) {
 
 function renderHistory() {
   var el = document.getElementById('history-content');
-  var data;
-  if (histFilter === 'all') data = expenses.slice();
-  else if (histFilter === 'behalf') data = expenses.filter(function(e) { return e.behalf; });
-  else data = expenses.filter(function(e) { return e.type === histFilter && !e.behalf; });
+  var data = expenses.filter(function(e) {
+    // فلتر الشهر
+    if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return false;
+    // فلتر التصنيف
+    if (histFilter === 'all') return true;
+    if (histFilter === 'behalf') return !!e.behalf;
+    return e.type === histFilter && !e.behalf;
+  });
   data.sort(function(a,b) {
     var da = a.date || '', db = b.date || '';
     if (da !== db) return da < db ? 1 : -1;   // أحدث تاريخ أولاً
@@ -220,8 +275,18 @@ function renderHistory() {
     return 0;
   });
 
+  // قائمة الشهور (نبنيها مرة، تُستخدم في كل الحالات)
+  var monthsAvail = availableMonths();
+  var monthBar = '<div class="hist-month-bar"><label for="hist-month-sel">📅 الشهر</label>'
+    + '<select id="hist-month-sel" onchange="setHistMonth(this.value)">'
+    + '<option value="all"' + (histMonth === 'all' ? ' selected' : '') + '>كل الأشهر</option>';
+  monthsAvail.forEach(function(m) {
+    monthBar += '<option value="' + m + '"' + (histMonth === m ? ' selected' : '') + '>' + ymLabel(m) + '</option>';
+  });
+  monthBar += '</select></div>';
+
   if (!data.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + '</div></div>';
+    el.innerHTML = monthBar + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '') + '</div></div>';
     return;
   }
 
@@ -292,7 +357,7 @@ function renderHistory() {
   totalCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = summary + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
+  el.innerHTML = monthBar + summary + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
 }
 
 // ============================================================
