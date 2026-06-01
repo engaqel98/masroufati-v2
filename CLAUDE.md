@@ -24,7 +24,7 @@ SMS text → `detectAndParse()` → parsed object (`amount`, `merchant`, `bank`,
 
 ### Backend
 
-The backend is a Google Apps Script Web App (reference source checked in as `apps-script.gs`; the live copy is in the sheet-bound editor) reached over `fetch`. Actions on one URL: a bare GET with entry params (append a row, inserted in date order with month separators), `?action=read` (return all rows), `?action=dict` (return the keyword dictionary), `?action=update`/`?action=delete` (by `id`), plus diagnostics `?action=info`/`headers`/`preview`/`tabs` and the one-time `?action=backfillmy`. Unknown actions are rejected — older deployments instead appended a junk row, so always redeploy a **New version** of the existing deployment (not "New deployment"). The default URL and the linked sheet URL live in `js/config.js` and are overridable in the Settings tab (persisted to `settings`).
+The backend is a Google Apps Script Web App (reference source checked in as `apps-script.gs`; the live copy is in the sheet-bound editor) reached over `fetch`. Actions on one URL: a bare GET with entry params (append a row, inserted in date order with month separators), `?action=read` (return all rows), `?action=dict` (return the keyword dictionary), `?action=update`/`?action=delete` (by `id`), plus diagnostics `?action=info`/`headers`/`preview`/`tabs` and the one-time maintenance actions `?action=backfillmy` (fill `month`/`year`), `?action=reordercols` (enforce `COLUMN_ORDER`), `?action=fixtime` (set the time column to a `HH:mm` format). Unknown actions are rejected — older deployments instead appended a junk row, so always redeploy a **New version** of the existing deployment (not "New deployment"). The default URL and the linked sheet URL live in `js/config.js` and are overridable in the Settings tab (persisted to `settings`).
 
 ## Conventions
 
@@ -76,7 +76,7 @@ These are the defaults in `js/config.js`'s `settings` object and reflect the use
   | Q | المعرّف | `id` |
   | R | وقت التسجيل | `registeredAt` |
 
-  `month`/`year` are **not sent by the frontend** — the backend (`apps-script.gs`) derives them from the entry date on append/update. A one-time backfill for legacy rows is exposed at `?action=backfillmy`. The above column order is enforced by `?action=reordercols` (constant `COLUMN_ORDER` in `apps-script.gs`); since the backend maps by header *name*, columns can be reordered freely without breaking reads/writes.
+  `month`/`year` are **not sent by the frontend** — the backend (`apps-script.gs`) derives them from the entry date on append/update. A one-time backfill for legacy rows is exposed at `?action=backfillmy`. The above column order is enforced by `?action=reordercols` (constant `COLUMN_ORDER` in `apps-script.gs`); since the backend maps by header *name*, columns can be reordered freely without breaking reads/writes. `time` (col P) is stored as a Sheets day-fraction serial (e.g. `0.517` = 12:25); `readRows` converts it to an `HH:mm:ss` string, and `?action=fixtime` formats the column so the sheet shows readable times instead of raw decimals.
 
 ## Canonical category strings (exact bytes — used as object keys and dict values)
 

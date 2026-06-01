@@ -96,6 +96,7 @@ function doGet(e) {
     if (action === 'cleancolumns') return jsonOut(cleanEmptyColumns());
     if (action === 'backfillmy')   return jsonOut(backfillMonthYear());
     if (action === 'reordercols')  return jsonOut(reorderColumns());
+    if (action === 'fixtime')      return jsonOut(fixTimeColumn());
     if (action === 'update')  return jsonOut(updateRow(p));
     if (action === 'delete')  return jsonOut(deleteRow(p));
     // أكشن غير معروف → ارفض، لا تكتب
@@ -312,6 +313,20 @@ function reorderColumns() {
   return { status: 'ok', movedCount: moved.length, moved: moved, finalOrder: order };
 }
 
+// يضبط تنسيق عمود "وقت العملية" إلى تنسيق وقت (HH:mm) ليُعرض الكسر اليومي كوقت مقروء
+function fixTimeColumn() {
+  const sh = getTxnSheet();
+  const map = getHeaderMap(sh);
+  const tcol = map.keyToCol['time'];
+  if (!tcol) return { status: 'error', message: 'no time column' };
+  const headerRow = map.headerRow;
+  const maxRows = sh.getMaxRows();
+  const n = maxRows - headerRow;
+  if (n < 1) return { status: 'ok', formatted: 0 };
+  sh.getRange(headerRow + 1, tcol, n, 1).setNumberFormat('HH:mm');
+  return { status: 'ok', col: tcol, rows: n };
+}
+
 // =================== UPDATE / DELETE BY ID ===================
 
 function findRowById(sh, id) {
@@ -435,6 +450,14 @@ function yearNum(v) {
   const s = asDateStr(v);
   const m = s.match(/^(\d{4})/);
   return m ? Number(m[1]) : '';
+}
+
+// كسر اليوم (0–1، صيغة Sheets للوقت) → "HH:mm:ss" مقروء
+function fracToHMS(f) {
+  const secs = Math.round(Number(f) * 86400);
+  const hh = Math.floor(secs / 3600) % 24, mm = Math.floor(secs / 60) % 60, ss = secs % 60;
+  const p = function (n) { return ('0' + n).slice(-2); };
+  return p(hh) + ':' + p(mm) + ':' + p(ss);
 }
 
 // أقرب صف بيانات غير فارغ (لنسخ تنسيقه للصف الجديد)
@@ -596,6 +619,8 @@ function readRows() {
       }
       if (key === 'id' && typeof v === 'number') v = String(v);
       if (key === 'card' && typeof v === 'number') v = String(v);
+      // الوقت مخزَّن أحياناً ككسر يوم (0.517) — حوّله لنص مقروء بدل الرقم الخام
+      if (key === 'time' && typeof v === 'number') v = fracToHMS(v);
       // ترجمة قيم direction العربية → الإنجليزية المعتمدة في الفرونت
       if (key === 'direction' && typeof v === 'string') {
         const norm = v.trim();
