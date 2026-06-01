@@ -98,6 +98,7 @@ function doGet(e) {
     if (action === 'reordercols')  return jsonOut(reorderColumns());
     if (action === 'fixtime')      return jsonOut(fixTimeColumn());
     if (action === 'sortrows')     return jsonOut(sortRows());
+    if (action === 'settz')        return jsonOut(setTimeZoneRiyadh());
     if (action === 'normalizetime') return jsonOut(normalizeTimeColumn());
     if (action === 'sortdebug')    return jsonOut(sortDebug());
     if (action === 'update')  return jsonOut(updateRow(p));
@@ -314,6 +315,15 @@ function reorderColumns() {
     order.splice(p - 1, 0, item);
   }
   return { status: 'ok', movedCount: moved.length, moved: moved, finalOrder: order };
+}
+
+// يغيّر المنطقة الزمنية للشيت إلى توقيت الرياض (GMT+03:00). آمن: عمود الوقت نص لا يتأثر،
+// والتاريخ يظل يعرض نفس اليوم.
+function setTimeZoneRiyadh() {
+  const ss = getSS();
+  const before = ss.getSpreadsheetTimeZone();
+  ss.setSpreadsheetTimeZone('Asia/Riyadh');
+  return { status: 'ok', before: before, after: ss.getSpreadsheetTimeZone() };
 }
 
 // يضبط تنسيق عمود "وقت العملية" إلى تنسيق وقت (HH:mm) ليُعرض الكسر اليومي كوقت مقروء
