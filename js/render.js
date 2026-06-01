@@ -127,6 +127,17 @@ function htmlEsc(s) {
   });
 }
 
+// عرض الوقت HH:MM — يتعامل مع نص "HH:MM:SS" أو رقم (كسر يوم من Google Sheets)
+function fmtTime(t) {
+  if (t == null || t === '') return '';
+  if (typeof t === 'number') {
+    var mins = Math.round(t * 24 * 60);
+    var hh = Math.floor(mins / 60) % 24, mm = mins % 60;
+    return ('0' + hh).slice(-2) + ':' + ('0' + mm).slice(-2);
+  }
+  return String(t).substring(0, 5);
+}
+
 // ============================================================
 // DASHBOARD (top of parse tab)
 // ============================================================
@@ -263,7 +274,7 @@ function renderHistory() {
   data.sort(function(a,b) {
     var da = a.date || '', db = b.date || '';
     if (da !== db) return da < db ? 1 : -1;   // أحدث تاريخ أولاً
-    var ta = a.time || '', tb = b.time || '';
+    var ta = fmtTime(a.time), tb = fmtTime(b.time);
     if (ta !== tb) return ta < tb ? 1 : -1;   // ثم أحدث وقت للعملية (مو وقت التسجيل)
     return 0;
   });
@@ -322,10 +333,11 @@ function renderHistory() {
     var isCredit = e.direction === 'credit';
     var edited = !isCredit && e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
     var eid = String(e.id || '').replace(/'/g, "\\'");
+    var tdisp = fmtTime(e.time);
     rows += '<div class="hist-item">';
     rows += '<div class="hist-right"><div class="hist-amt"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
       + (edited ? '<div class="hist-date">من ' + fmt(e.origAmount) + '</div>' : '')
-      + '<div class="hist-date">' + (e.date||'') + (e.time && e.time !== '00:00:00' ? ' · ' + e.time.substring(0,5) : '') + '</div></div>';
+      + '<div class="hist-date">' + (e.date||'') + (tdisp && tdisp !== '00:00' ? ' · ' + tdisp : '') + '</div></div>';
     rows += '<div style="flex:1;min-width:0;padding-right:8px">';
     rows += '<div class="hist-name">' + (e.merchant||'—') + '</div>';
     rows += '<div class="hist-sub"><span class="' + typeDot(e.type) + '">●</span> ' + (e.type||'') + (e.bank ? ' · ' + e.bank : '') + '</div>';
