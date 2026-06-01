@@ -132,7 +132,15 @@ function appendTx_(p) {
   if (writeRow > sh.getMaxRows()) {
     sh.insertRowsAfter(sh.getMaxRows(), writeRow - sh.getMaxRows());
   }
-  sh.getRange(writeRow, TX_FIRSTCOL, 1, TX_WIDTH).setValues([row]);
+  var dest = sh.getRange(writeRow, TX_FIRSTCOL, 1, TX_WIDTH);
+  // Carry the table's look (fill, font, borders, number formats) from the row
+  // above onto the new row, so rows added past the original styled block
+  // (the xlsx pre-formatted ~row 203) still match the rest of the table.
+  if (writeRow - 1 >= TX_START) {
+    sh.getRange(writeRow - 1, TX_FIRSTCOL, 1, TX_WIDTH)
+      .copyTo(dest, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+  }
+  dest.setValues([row]);
   sh.getRange(writeRow, TX_FIRSTCOL).setNumberFormat('yyyy-mm-dd');  // B display
   sortTx_(sh);   // keep المعاملات newest-first by transaction date
   return { status: 'ok', row: writeRow };
@@ -298,11 +306,26 @@ function sortByDate() {
   if (sh) sortTx_(sh);
 }
 
+// Re-applies the first data row's styling (fill, font, borders, number formats)
+// to every data row — fixes rows that were appended unstyled before the
+// format-copy fix in appendTx_. Run once from the مصروفاتي menu.
+function fixRowFormatting() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TX_SHEET);
+  if (!sh) return;
+  var last = lastTxRow_(sh);
+  if (last <= TX_START) return;
+  sh.getRange(TX_START, TX_FIRSTCOL, 1, TX_WIDTH)
+    .copyTo(sh.getRange(TX_START + 1, TX_FIRSTCOL, last - TX_START, TX_WIDTH),
+            SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+  sh.getRange(TX_START, 2, last - TX_START + 1, 1).setNumberFormat('yyyy-mm-dd');  // B
+}
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('مصروفاتي')
     .addItem('تجهيز رؤوس الأعمدة الإضافية', 'setupHeaders')
     .addItem('توسيع نطاقات خطة التمويل', 'expandPlanRanges')
     .addItem('ترتيب حسب التاريخ', 'sortByDate')
+    .addItem('توحيد تنسيق الصفوف', 'fixRowFormatting')
     .addToUi();
 }
