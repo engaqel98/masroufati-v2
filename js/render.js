@@ -187,15 +187,6 @@ function renderDashboard() {
     html += '</div>';
   }
 
-  // Hero
-  html += '<div class="hero stagger">';
-  html += '<div class="hero-top"><span class="hero-label">💸 صرفت خلال ' + monthLabel + '</span><span class="hero-chip">' + monthCount + ' عملية</span></div>';
-  html += '<div class="hero-amount"><span class="cur">ر.س</span><span data-count="' + spent.toFixed(2) + '" data-decimals="2">0</span></div>';
-  html += '<div class="hero-grid">';
-  html += '<div class="hero-stat"><div class="hero-stat-label">المتبقي للصرف</div><div class="hero-stat-val"' + ((essLeft + luxLeft) < 0 ? ' style="color:#fecaca"' : '') + '>' + fmtInt(essLeft + luxLeft) + ' ر.س</div><div class="hero-stat-sub">أساسيات + كماليات</div></div>';
-  html += '<div class="hero-stat"><div class="hero-stat-label">سداد التمويل</div><div class="hero-stat-val">' + fmtInt(loan) + ' ر.س</div><div class="hero-stat-sub">قسط هذا الشهر</div></div>';
-  html += '</div></div>';
-
   // بطاقة شاملة: المتبقي حسب كل تصنيف (مع غير محدد + نيابة)
   var unk = byType['غير محدد'];
   var nPaid = 0, nRefund = 0;
@@ -211,36 +202,6 @@ function renderDashboard() {
   html += catBudgetRow('سداد التمويل', 'dot-loan', 'var(--c-loan)', byType['سداد التمويل'], settings.payment);
   html += '<div class="cat-row"><div class="cat-head"><span class="cat-name"><span class="dot-unk">●</span> غير محدد</span><span class="cat-left">صُرف ' + fmtInt(unk) + ' ر.س</span></div><div class="cat-sub">بدون سقف — صنّفها لتدخل أحد المظاريف</div></div>';
   html += '<div class="cat-row"><div class="cat-head"><span class="cat-name">👥 نيابة عن آخرين</span><span class="cat-left' + (nOwed > 0.005 ? '' : ' ') + '">باقي على الآخرين ' + fmtInt(nOwed) + ' ر.س</span></div><div class="cat-sub">دفعت ' + fmt(nPaid) + ' · استرد ' + fmt(nRefund) + ' · تراكمي (مستثناة من ميزانيتك)</div></div>';
-  html += '</div></div>';
-
-  // Donut distribution (يشمل القسط كشريحة منفصلة)
-  html += '<div class="card stagger"><div class="card-body">';
-  html += '<div class="card-title">📊 توزيع المصروفات · ' + monthLabel + '</div>';
-  var outflowTotal = spent + loan; // إجمالي المدين (ess+lux+unk+loan)
-  if (outflowTotal <= 0) {
-    html += '<div class="empty" style="padding:18px"><div class="empty-icon">🧾</div><div class="empty-text">لا توجد مصروفات هذا الشهر بعد</div></div>';
-  } else {
-    var segs = [
-      { label: 'أساسيات', value: byType['أساسيات'], colorVar: 'var(--c-ess)' },
-      { label: 'كماليات', value: byType['كماليات'], colorVar: 'var(--c-lux)' },
-      { label: 'غير محدد', value: byType['غير محدد'], colorVar: 'var(--c-unk)' },
-      { label: 'سداد التمويل', value: byType['سداد التمويل'], colorVar: 'var(--c-loan)' }
-    ];
-    html += '<div class="donut-wrap">';
-    html += donutChart(segs, monthCount, 'عملية');
-    html += '<div class="legend">';
-    segs.forEach(function(s) {
-      if (s.value <= 0) return;
-      var pct = Math.round((s.value / outflowTotal) * 100);
-      html += '<div class="legend-row">'
-        + '<span class="legend-dot" style="background:' + s.colorVar + '"></span>'
-        + '<span class="legend-name">' + s.label + '</span>'
-        + '<span class="legend-val">' + fmtInt(s.value) + '</span>'
-        + '<span class="legend-pct">' + pct + '%</span>'
-        + '</div>';
-    });
-    html += '</div></div>';
-  }
   html += '</div></div>';
 
   // بطاقة "نيابة عن آخرين" — تجميع لكل اسم عبر كل الفترات (ليس الشهر فقط)
