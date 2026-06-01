@@ -58,25 +58,25 @@ These are the defaults in `js/config.js`'s `settings` object and reflect the use
   | Col | Header (Arabic) | Key |
   |-----|-----------------|-----|
   | A | التاريخ | `date` |
-  | B | الملاحظة / الوصف | `merchant` |
-  | C | المبلغ (ريال) | `amount` |
-  | D | النوع (تلقائي) | `type` |
-  | E | الشهر (تلقائي) | `month` — **auto-derived from date** (number, no leading zero) |
-  | F | السنة (تلقائي) | `year` — **auto-derived from date** (4-digit) |
-  | G | البنك/ البطاقة | `bank` |
+  | B | الشهر (تلقائي) | `month` — **auto-derived from date** (number, no leading zero) |
+  | C | السنة (تلقائي) | `year` — **auto-derived from date** (4-digit) |
+  | D | المبلغ (ريال) | `amount` |
+  | E | الملاحظة / الوصف | `merchant` |
+  | F | النوع (تلقائي) | `type` |
+  | G | الاتجاه | `direction` |
   | H | طريقة الدفع | `method` |
-  | I | الرصيد | `balance` |
-  | J | البطاقة | `card` |
-  | K | العملة الدولية | `intl` |
-  | L | نوع العملية | `txType` |
-  | M | المعرّف | `id` |
-  | N | وقت التسجيل | `registeredAt` |
+  | I | البطاقة | `card` |
+  | J | البنك/ البطاقة | `bank` |
+  | K | الرصيد | `balance` |
+  | L | العملة الدولية | `intl` |
+  | M | نوع العملية | `txType` |
+  | N | ملاحظة | `note` |
   | O | المبلغ الأصلي | `origAmount` |
-  | P | ملاحظة | `note` |
-  | Q | الاتجاه | `direction` |
-  | R | وقت العملية | `time` |
+  | P | وقت العملية | `time` |
+  | Q | المعرّف | `id` |
+  | R | وقت التسجيل | `registeredAt` |
 
-  `month`/`year` are **not sent by the frontend** — the backend (`apps-script.gs`) derives them from the entry date on append/update. A one-time backfill for legacy rows is exposed at `?action=backfillmy` (or call `backfillMonthYear()` in the editor).
+  `month`/`year` are **not sent by the frontend** — the backend (`apps-script.gs`) derives them from the entry date on append/update. A one-time backfill for legacy rows is exposed at `?action=backfillmy`. The above column order is enforced by `?action=reordercols` (constant `COLUMN_ORDER` in `apps-script.gs`); since the backend maps by header *name*, columns can be reordered freely without breaking reads/writes.
 
 ## Canonical category strings (exact bytes — used as object keys and dict values)
 
@@ -102,7 +102,7 @@ A SAB message is treated as international when it contains `نقاط البيع 
 
 - **Final amount = `المبلغ الإجمالي`** (after fees) — *not* `المبلغ بالريال` (before fees) and *not* the balance.
 - **Merchant** is the text between `لدى` and the first of: `من خلال` / `بمبلغ` / `في <CAPITAL>`.
-- Extract `fxCurrency` (e.g. `QAR`), `fxAmount` (e.g. `60.00`), and `fxRate` (e.g. `1.03117`). These are combined into the `intl` string field saved to Sheets **column K** (`العملة الدولية`) as `QAR 60 @1.03117`.
+- Extract `fxCurrency` (e.g. `QAR`), `fxAmount` (e.g. `60.00`), and `fxRate` (e.g. `1.03117`). These are combined into the `intl` string field saved to Sheets **column L** (`العملة الدولية`) as `QAR 60 @1.03117`.
 
 ## Local conventions
 

@@ -79,6 +79,10 @@ const NUMERIC_KEYS = { amount:1, balance:1, origAmount:1 };
 // المفاتيح التي نضمن وجود أعمدتها عند الكتابة (الأساسية للتطبيق)
 const ENSURE_KEYS = ['date','merchant','amount','type','method','balance','card','bank','intl','registeredAt','time','txType','id','note','origAmount','direction','behalf'];
 
+// الترتيب المنطقي المطلوب لأعمدة "المعاملات" (يُطبَّق عبر action=reordercols).
+// أي عمود معروف غير مذكور هنا، أو عمود مجهول، يُترك في النهاية بترتيبه الحالي.
+const COLUMN_ORDER = ['date','month','year','amount','merchant','type','direction','method','card','bank','balance','intl','txType','note','origAmount','time','id','registeredAt'];
+
 function doGet(e) {
   try {
     const p = (e && e.parameter) || {};
@@ -91,6 +95,7 @@ function doGet(e) {
     if (action === 'preview') return jsonOut(previewRows());
     if (action === 'cleancolumns') return jsonOut(cleanEmptyColumns());
     if (action === 'backfillmy')   return jsonOut(backfillMonthYear());
+    if (action === 'reordercols')  return jsonOut(reorderColumns());
     if (action === 'update')  return jsonOut(updateRow(p));
     if (action === 'delete')  return jsonOut(deleteRow(p));
     // أكشن غير معروف → ارفض، لا تكتب
@@ -270,6 +275,41 @@ function backfillMonthYear() {
   if (mos) sh.getRange(headerRow + 1, moCol, n, 1).setValues(mos);
   if (yrs) sh.getRange(headerRow + 1, yrCol, n, 1).setValues(yrs);
   return { status: 'ok', filled: filled, dataRows: n };
+}
+
+// يعيد ترتيب أعمدة "المعاملات" حسب COLUMN_ORDER (يطابق بالاسم، ينقل العمود كاملاً
+// بتنسيقه وبياناته). يتحرّك يساراً فقط (selection sort) لتفادي غموض فهارس moveColumns.
+function reorderColumns() {
+  const sh = getTxnSheet();
+  const map = getHeaderMap(sh);
+  const lastCol = map.lastCol;
+  const maxRows = sh.getMaxRows();
+
+  // عمود (1-indexed) → مفتاح
+  const colToKey = {};
+  Object.keys(map.keyToCol).forEach(function (k) { colToKey[map.keyToCol[k]] = k; });
+
+  // الترتيب الحالي للمفاتيح حسب الموضع (null لأي عمود مجهول)
+  const order = [];
+  for (let c = 1; c <= lastCol; c++) order.push(colToKey[c] || null);
+
+  // المستهدف: المفاتيح المذكورة الموجودة فعلاً، ثم الباقي (مجهول/غير مدرج) بترتيبه الحالي
+  const present = COLUMN_ORDER.filter(function (k) { return order.indexOf(k) !== -1; });
+  const leftovers = order.filter(function (k) { return present.indexOf(k) === -1; });
+  const target = present.concat(leftovers);
+
+  const moved = [];
+  for (let p = 1; p <= target.length; p++) {
+    const desired = target[p - 1];
+    let c = -1;
+    for (let i = p - 1; i < order.length; i++) { if (order[i] === desired) { c = i + 1; break; } }
+    if (c === -1 || c === p) continue;               // أصلاً في مكانه
+    sh.moveColumns(sh.getRange(1, c, maxRows, 1), p); // c > p دائماً ⇒ حركة يسار آمنة
+    moved.push({ key: desired, from: c, to: p });
+    const item = order.splice(c - 1, 1)[0];
+    order.splice(p - 1, 0, item);
+  }
+  return { status: 'ok', movedCount: moved.length, moved: moved, finalOrder: order };
 }
 
 // =================== UPDATE / DELETE BY ID ===================
