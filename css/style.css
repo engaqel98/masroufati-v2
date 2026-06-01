@@ -255,6 +255,15 @@ select { cursor: pointer; }
 .hist-date { font-size: 11px; color: var(--muted); }
 .dot-ess { color: var(--c-ess); } .dot-lux { color: var(--c-lux); } .dot-loan { color: var(--c-loan); } .dot-unk { color: var(--c-unk); }
 
+/* صفوف "المتبقي حسب التصنيف" في اللوحة */
+.cat-row { margin-bottom: 14px; }
+.cat-row:last-child { margin-bottom: 0; }
+.cat-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+.cat-name { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.cat-left { font-weight: 700; white-space: nowrap; }
+.cat-left.neg { color: var(--red-text); }
+.cat-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
 /* ============================================================ Finance */
 .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-bottom: 13px; }
 .metric { background: var(--card-2); border: 1px solid var(--border); border-radius: var(--rs); padding: 14px; }

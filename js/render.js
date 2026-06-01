@@ -130,6 +130,20 @@ function htmlEsc(s) {
 // ============================================================
 // DASHBOARD (top of parse tab)
 // ============================================================
+// صف تصنيف بميزانية: شريط تقدّم + كم صُرف وكم باقي من السقف
+function catBudgetRow(name, dotCls, colorVar, spent, budget) {
+  var left = budget - spent;
+  var over = left < -0.005;
+  var pct = budget > 0 ? Math.min(100, Math.max(0, (spent / budget) * 100)) : (spent > 0 ? 100 : 0);
+  var html = '<div class="cat-row">';
+  html += '<div class="cat-head"><span class="cat-name"><span class="' + dotCls + '">●</span> ' + name + '</span>';
+  html += '<span class="cat-left' + (over ? ' neg' : '') + '">باقي ' + fmtInt(left) + ' ر.س</span></div>';
+  html += '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;background:' + (over ? 'var(--red-text)' : colorVar) + '"></div></div>';
+  html += '<div class="cat-sub">صُرف ' + fmt(spent) + ' من ' + fmtInt(budget) + ' ر.س' + (over ? ' · تجاوزت بـ ' + fmt(-left) : '') + '</div>';
+  html += '</div>';
+  return html;
+}
+
 function renderDashboard() {
   var el = document.getElementById('dashboard');
   if (!el) return;
@@ -154,7 +168,8 @@ function renderDashboard() {
   var spent = byType['أساسيات'] + byType['كماليات'] + byType['غير محدد']; // "صرفت" = مصروف معيشي صافٍ بدون القسط
   // الميزانية: الفائض الحر المخطّط (راتب − قسط مخطّط − حد الأساسيات)، يُستهلك بالكماليات
   var freeBudget = settings.salary - settings.payment - settings.basic;
-  var budgetLeft = freeBudget - byType['كماليات'];
+  var essLeft = settings.basic - byType['أساسيات'];   // متبقي مظروف الأساسيات (سقف 2750)
+  var luxLeft = freeBudget - byType['كماليات'];        // متبقي الفائض الحر (للكماليات)
 
   var html = '';
 
@@ -177,8 +192,25 @@ function renderDashboard() {
   html += '<div class="hero-top"><span class="hero-label">💸 صرفت خلال ' + monthLabel + '</span><span class="hero-chip">' + monthCount + ' عملية</span></div>';
   html += '<div class="hero-amount"><span class="cur">ر.س</span><span data-count="' + spent.toFixed(2) + '" data-decimals="2">0</span></div>';
   html += '<div class="hero-grid">';
-  html += '<div class="hero-stat"><div class="hero-stat-label">المتبقي من الميزانية</div><div class="hero-stat-val">' + fmtInt(budgetLeft) + ' ر.س</div><div class="hero-stat-sub">من فائض ' + fmtInt(freeBudget) + '</div></div>';
+  html += '<div class="hero-stat"><div class="hero-stat-label">المتبقي للصرف</div><div class="hero-stat-val"' + ((essLeft + luxLeft) < 0 ? ' style="color:#fecaca"' : '') + '>' + fmtInt(essLeft + luxLeft) + ' ر.س</div><div class="hero-stat-sub">أساسيات + كماليات</div></div>';
   html += '<div class="hero-stat"><div class="hero-stat-label">سداد التمويل</div><div class="hero-stat-val">' + fmtInt(loan) + ' ر.س</div><div class="hero-stat-sub">قسط هذا الشهر</div></div>';
+  html += '</div></div>';
+
+  // بطاقة شاملة: المتبقي حسب كل تصنيف (مع غير محدد + نيابة)
+  var unk = byType['غير محدد'];
+  var nPaid = 0, nRefund = 0;
+  expenses.forEach(function(e) {
+    if (!e.behalf) return;
+    if (e.direction === 'credit') nRefund += (e.amount || 0); else nPaid += (e.amount || 0);
+  });
+  var nOwed = nPaid - nRefund;
+  html += '<div class="card stagger"><div class="card-body">';
+  html += '<div class="card-title">📊 المتبقي حسب التصنيف · ' + monthLabel + '</div>';
+  html += catBudgetRow('أساسيات', 'dot-ess', 'var(--c-ess)', byType['أساسيات'], settings.basic);
+  html += catBudgetRow('كماليات', 'dot-lux', 'var(--c-lux)', byType['كماليات'], freeBudget);
+  html += catBudgetRow('سداد التمويل', 'dot-loan', 'var(--c-loan)', byType['سداد التمويل'], settings.payment);
+  html += '<div class="cat-row"><div class="cat-head"><span class="cat-name"><span class="dot-unk">●</span> غير محدد</span><span class="cat-left">صُرف ' + fmtInt(unk) + ' ر.س</span></div><div class="cat-sub">بدون سقف — صنّفها لتدخل أحد المظاريف</div></div>';
+  html += '<div class="cat-row"><div class="cat-head"><span class="cat-name">👥 نيابة عن آخرين</span><span class="cat-left' + (nOwed > 0.005 ? '' : ' ') + '">باقي على الآخرين ' + fmtInt(nOwed) + ' ر.س</span></div><div class="cat-sub">دفعت ' + fmt(nPaid) + ' · استرد ' + fmt(nRefund) + ' · تراكمي (مستثناة من ميزانيتك)</div></div>';
   html += '</div></div>';
 
   // Donut distribution (يشمل القسط كشريحة منفصلة)
