@@ -97,6 +97,9 @@ function doGet(e) {
     if (action === 'backfillmy')   return jsonOut(backfillMonthYear());
     if (action === 'reordercols')  return jsonOut(reorderColumns());
     if (action === 'fixtime')      return jsonOut(fixTimeColumn());
+    if (action === 'sortrows')     return jsonOut(sortRows());
+    if (action === 'normalizetime') return jsonOut(normalizeTimeColumn());
+    if (action === 'sortdebug')    return jsonOut(sortDebug());
     if (action === 'update')  return jsonOut(updateRow(p));
     if (action === 'delete')  return jsonOut(deleteRow(p));
     // أكشن غير معروف → ارفض، لا تكتب
@@ -325,6 +328,143 @@ function fixTimeColumn() {
   if (n < 1) return { status: 'ok', formatted: 0 };
   sh.getRange(headerRow + 1, tcol, n, 1).setNumberFormat('HH:mm');
   return { status: 'ok', col: tcol, rows: n };
+}
+
+// يحوّل عمود الوقت إلى نص "HH:mm:ss" مشتقّ من السيريال الخام (الكسر × 24 = الوقت الحقيقي
+// المعروض، محايد للمنطقة الزمنية). يقرأ السيريال بإجبار التنسيق رقمياً، ثم يكتب نصاً بتنسيق @.
+// النتيجة: الشيت والتطبيق يعرضان نفس الوقت، والفرز يصير نصّياً صحيحاً، وتختفي لخبطة الـ Date/tz.
+function normalizeTimeColumn() {
+  const sh = getTxnSheet();
+  const map = getHeaderMap(sh);
+  const tcol = map.keyToCol['time'];
+  if (!tcol) return { status: 'error', message: 'no time column' };
+  const headerRow = map.headerRow;
+  const lastRow = sh.getLastRow();
+  if (lastRow <= headerRow) return { status: 'ok', normalized: 0 };
+  const n = lastRow - headerRow;
+  const rng = sh.getRange(headerRow + 1, tcol, n, 1);
+  rng.setNumberFormat('0.############'); SpreadsheetApp.flush();  // اقرأ السيريال الخام
+  const raw = rng.getValues();
+  const out = [];
+  let changed = 0;
+  for (let i = 0; i < n; i++) {
+    const v = raw[i][0];
+    let hms = '';
+    if (typeof v === 'number' && v !== 0) {
+      hms = fracToHMS(v - Math.floor(v));
+    } else {
+      const m = String(v).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (m) hms = ('0' + m[1]).slice(-2) + ':' + m[2] + ':' + (m[3] || '00');
+    }
+    out.push([hms]);
+    if (hms) changed++;
+  }
+  rng.setNumberFormat('@');   // نص أولاً حتى لا يُعاد تحويله لسيريال
+  rng.setValues(out);
+  return { status: 'ok', normalized: changed, rows: n };
+}
+
+// ثواني وقت-اليوم (0–86399) من قيمة الوقت أيًّا كان نوعها. قيم الوقت في الشيت مخزّنة
+// ككسر يوم يُمثَّل بتوقيت UTC (GMT+0)، فنقرأ HH:mm:ss بـ UTC دون أي تحويل منطقة زمنية
+// (المنطقة الزمنية للشيت قد تكون غير الرياض). القيمة الفارغة → -1 (تنزل لأسفل المجموعة).
+function timeSecOfDay(v) {
+  if (v === '' || v == null) return -1;
+  let hms;
+  if (v && typeof v === 'object' && typeof v.getTime === 'function') {
+    hms = Utilities.formatDate(v, 'UTC', 'HH:mm:ss');
+  } else if (typeof v === 'number') {
+    hms = fracToHMS(v - Math.floor(v));
+  } else {
+    const m = String(v).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return -1;
+    hms = m[1] + ':' + m[2] + ':' + (m[3] || '00');
+  }
+  const p = hms.split(':');
+  return Number(p[0]) * 3600 + Number(p[1]) * 60 + Number(p[2] || 0);
+}
+
+// تشخيص (قراءة فقط): يقرأ السيريال الخام لعمود الوقت (يُجبر التنسيق رقمياً) ويعرض ثواني اليوم
+function sortDebug() {
+  const sh = getTxnSheet();
+  const map = getHeaderMap(sh);
+  const timeCol = map.keyToCol['time'];
+  const headerRow = map.headerRow, lastRow = sh.getLastRow();
+  const n = lastRow - headerRow;
+  const tr = sh.getRange(headerRow + 1, timeCol, n, 1);
+  const fmt = tr.getNumberFormats();
+  tr.setNumberFormat('0.############'); SpreadsheetApp.flush();
+  const raw = tr.getValues();
+  tr.setNumberFormats(fmt);
+  const merch = sh.getRange(headerRow + 1, 2, n, 1).getValues();
+  const out = [];
+  for (let i = 0; i < Math.min(12, n); i++) {
+    const v = raw[i][0];
+    let sec = -1;
+    if (typeof v === 'number' && v !== 0) sec = Math.round((v - Math.floor(v)) * 86400);
+    else { const m = String(v).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); if (m) sec = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] || 0); }
+    out.push({ i: i, merchant: String(merch[i][0]).slice(0, 18), rawType: typeof v, rawVal: String(v).slice(0, 18), sec: sec });
+  }
+  return { status: 'ok', version: 'sort-text-v6', timeCol: timeCol, rows: out };
+}
+
+// يرتّب صفوف البيانات: التاريخ تنازلياً (الأحدث فوق) ثم وقت-اليوم تنازلياً (الأحدث وقتاً
+// فوق داخل نفس اليوم؛ بلا وقت → أسفل المجموعة). فرز في JS ثم إعادة كتابة القيم مع
+// الحفاظ على التنسيق (خلفية/لون خط/سماكة/تنسيق رقم/محاذاة). لا يعتمد على Range.sort.
+function sortRows() {
+  const sh = getTxnSheet();
+  let map = getHeaderMap(sh);
+  if (!map.keyToCol['date']) return { status: 'error', message: 'no date column' };
+  const timeCol0 = map.keyToCol['time'];
+
+  // وحّد عمود الوقت لنص "HH:mm:ss" أولاً (يصلح العرض ويجعل الفرز نصياً متّسقاً)
+  const normRes = timeCol0 ? normalizeTimeColumn() : null;
+  SpreadsheetApp.flush();
+  map = getHeaderMap(sh);
+  const dateCol = map.keyToCol['date'];
+  const timeCol = map.keyToCol['time'];
+  const headerRow = map.headerRow;
+  const lastRow = sh.getLastRow();
+  const lastCol = map.lastCol;
+  const n = lastRow - headerRow;
+  if (n <= 1) return { status: 'ok', sortedRows: n, note: 'nothing to sort', normalize: normRes };
+
+  const rng = sh.getRange(headerRow + 1, 1, n, lastCol);
+  const values = rng.getValues();
+  const backgrounds = rng.getBackgrounds();
+  const fontColors = rng.getFontColors();
+  const fontWeights = rng.getFontWeights();
+  const numberFormats = rng.getNumberFormats();
+  const hAligns = rng.getHorizontalAlignments();
+
+  // مفتاح التاريخ: نص yyyy-MM-dd (تواريخ حديثة آمنة من إزاحة المنطقة الزمنية)
+  const dkey = values.map(function (r) {
+    const v = r[dateCol - 1];
+    return (v && typeof v === 'object' && typeof v.getTime === 'function')
+      ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : asDateStr(v);
+  });
+
+  // مفتاح الوقت: الوقت الآن نص "HH:mm:ss" → نحوّله لثوانٍ. الفارغ/غير الصالح → -1 (أسفل المجموعة).
+  const tkey = values.map(function (r) {
+    if (!timeCol) return -1;
+    const m = String(r[timeCol - 1]).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    return m ? (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] || 0)) : -1;
+  });
+
+  const idx = values.map(function (_, i) { return i; });
+  idx.sort(function (a, b) {
+    if (dkey[a] !== dkey[b]) return dkey[a] < dkey[b] ? 1 : -1;   // تاريخ تنازلي
+    if (tkey[a] !== tkey[b]) return tkey[a] < tkey[b] ? 1 : -1;   // وقت تنازلي
+    return a - b;                                                // فرز ثابت
+  });
+
+  const pick = function (arr) { return idx.map(function (i) { return arr[i]; }); };
+  rng.setValues(pick(values));
+  rng.setBackgrounds(pick(backgrounds));
+  rng.setFontColors(pick(fontColors));
+  rng.setFontWeights(pick(fontWeights));
+  rng.setNumberFormats(pick(numberFormats));
+  rng.setHorizontalAlignments(pick(hAligns));
+  return { status: 'ok', sortedRows: n, normalize: normRes };
 }
 
 // =================== UPDATE / DELETE BY ID ===================
