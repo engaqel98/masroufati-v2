@@ -133,6 +133,7 @@ async function doSave(p, statusId) {
     if (btn) btn.innerHTML = origText;
     if (json.status === 'ok') {
       statusEl.innerHTML = '<div class="alert alert-green">✅ حُفظ محلياً وفي Sheets (صف ' + json.row + ')</div>';
+      sortSheetsInBackground();   // إعادة ترتيب الصفوف تلقائياً (تاريخ ثم وقت)
     } else {
       statusEl.innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. خطأ في Sheets: ' + (json.message||'') + '</div>';
     }
@@ -140,6 +141,14 @@ async function doSave(p, statusId) {
     if (btn) btn.innerHTML = origText;
     statusEl.innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. فشل الرفع: ' + e.message + '</div>';
   }
+}
+
+// فرز تلقائي لصفوف Sheets بعد الحفظ/التعديل — في الخلفية، بدون انتظار أو واجهة.
+// يضمن بقاء العمليات مرتّبة (التاريخ تنازلياً ثم الوقت تنازلياً) حتى لو أُضيفت عملية
+// وقتها أبكر من غيرها في نفس اليوم.
+function sortSheetsInBackground() {
+  if (!settings.webapp) return;
+  try { fetch(settings.webapp + '?action=sortrows'); } catch (e) {}
 }
 
 async function syncFromSheets() {
@@ -281,6 +290,7 @@ async function saveEdit() {
     var json = await resp.json();
     if (json.status === 'ok') {
       document.getElementById('edit-status').innerHTML = '<div class="alert alert-green">✅ تم التحديث في Sheets</div>';
+      sortSheetsInBackground();   // قد يتغيّر التاريخ → أعِد الترتيب
       setTimeout(closeEdit, 800);
     } else {
       document.getElementById('edit-status').innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. Sheets: ' + (json.message || 'فشل') + '</div>';
