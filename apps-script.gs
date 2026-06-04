@@ -96,6 +96,7 @@ function doGet(e) {
     if (action === 'fixplan') return jsonOut(fixPlanRanges());
     if (action === 'cfrules') return jsonOut(diagConditionalFormat(p));
     if (action === 'cleanfmt') return jsonOut(cleanFormatting());
+    if (action === 'tidy')     return jsonOut(tidySheets());
     if (action === 'preview') return jsonOut(previewRows());
     if (action === 'cleancolumns') return jsonOut(cleanEmptyColumns());
     if (action === 'backfillmy')   return jsonOut(backfillMonthYear());
@@ -245,6 +246,56 @@ function cleanFormatting() {
   if (regCol) sh.getRange(headerRow + 1, regCol, n, 1).setBackground(null);
 
   return { status: 'ok', rulesSet: rules.length, typeRange: typeRange.getA1Notation() };
+}
+
+// ألوان التصنيف الموحّدة (دلالات التطبيق)
+const CAT_COLORS = [
+  { kw: 'أساسيات', bg: '#C6EFCE', fc: '#1F6B1F' },
+  { kw: 'كماليات', bg: '#FCE4D6', fc: '#C65911' },
+  { kw: 'سداد التمويل', bg: '#DEEAF1', fc: '#1F4E79' },
+  { kw: 'غير محدد', bg: '#F2F2F2', fc: '#7F7F7F' }
+];
+function catRules(range) {
+  return CAT_COLORS.map(function (c) {
+    return SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo(c.kw).setBackground(c.bg).setFontColor(c.fc)
+      .setRanges([range]).build();
+  });
+}
+
+// ترتيب وتنظيف عام: حذف تبويب "العمليات" الفارغ + تلوين نظيف للقاموس وخطة التمويل
+function tidySheets() {
+  const ss = getSS();
+  const out = { status: 'ok', deleted: null, dictRules: 0, planRules: 0 };
+
+  // 1) احذف تبويب "العمليات" المهجور إن كان بلا بيانات (رؤوس فقط)
+  const old = ss.getSheetByName('العمليات');
+  if (old) {
+    if (old.getLastRow() <= 3) { ss.deleteSheet(old); out.deleted = 'العمليات'; }
+    else out.deleted = 'skipped (lastRow=' + old.getLastRow() + ')';
+  }
+
+  // 2) القاموس — لوّن عمود "النوع" (C، صف الرؤوس 3) بالتصنيفات على العمود كاملاً
+  const dict = ss.getSheetByName(SHEET_DICT);
+  if (dict) {
+    const rng = dict.getRange(4, 3, dict.getMaxRows() - 3, 1);
+    dict.setConditionalFormatRules(catRules(rng));
+    out.dictRules = 4;
+  }
+
+  // 3) خطة التمويل — لوّن عمود مؤشر الالتزام (L) للأشهر الـ24 (الصفوف 13–36)
+  const plan = ss.getSheetByName('خطة التمويل');
+  if (plan) {
+    const rng = plan.getRange(13, 12, 24, 1);
+    plan.setConditionalFormatRules([
+      SpreadsheetApp.newConditionalFormatRule().whenTextContains('✅')
+        .setBackground('#C6EFCE').setFontColor('#1F6B1F').setRanges([rng]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenTextContains('❌')
+        .setBackground('#FFC7CE').setFontColor('#9C0006').setRanges([rng]).build()
+    ]);
+    out.planRules = 2;
+  }
+  return out;
 }
 
 function listTabs() {
