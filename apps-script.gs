@@ -92,6 +92,8 @@ function doGet(e) {
     if (action === 'headers') return jsonOut(readHeaders());
     if (action === 'info')    return jsonOut(diagInfo());
     if (action === 'tabs')    return jsonOut(listTabs());
+    if (action === 'peektab') return jsonOut(peekTab(p));
+    if (action === 'fixplan') return jsonOut(fixPlanRanges());
     if (action === 'preview') return jsonOut(previewRows());
     if (action === 'cleancolumns') return jsonOut(cleanEmptyColumns());
     if (action === 'backfillmy')   return jsonOut(backfillMonthYear());
@@ -131,6 +133,50 @@ function readHeaders() {
   const headers = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0];
   const mapped = headers.map(function (h) { return { header: h, key: HEADER_TO_KEY[normalizeHeader(h)] || null }; });
   return { status: 'ok', count: headers.length, headers: mapped };
+}
+
+// تشخيص (قراءة فقط): يرجّع قيَم ومعادلات تبويب مُحدَّد (?action=peektab&tab=الاسم)
+function peekTab(p) {
+  const name = (p && p.tab) ? dec(p.tab) : '';
+  if (!name) return { status: 'error', message: 'missing tab param' };
+  const ss = getSS();
+  const sh = ss.getSheetByName(name);
+  if (!sh) return { status: 'error', message: 'no tab: ' + name };
+  const lr = Math.min(sh.getLastRow(), 60);
+  const lc = Math.min(sh.getLastColumn(), 14);
+  if (lr < 1 || lc < 1) return { status: 'ok', name: name, rows: [] };
+  const rng = sh.getRange(1, 1, lr, lc);
+  return {
+    status: 'ok', name: name,
+    lastRow: sh.getLastRow(), lastCol: sh.getLastColumn(),
+    values: rng.getDisplayValues(),
+    formulas: rng.getFormulas()
+  };
+}
+
+// يصلّح معادلات تبويب "خطة التمويل": يحوّل نطاقات 'المعاملات'!$X$23:$X$152 إلى أعمدة
+// كاملة $X:$X حتى تشمل كل الصفوف بغضّ النظر عن الترتيب/العدد (يلمس خلايا المعادلات فقط).
+function fixPlanRanges() {
+  const ss = getSS();
+  const sh = ss.getSheetByName('خطة التمويل');
+  if (!sh) return { status: 'error', message: 'no tab: خطة التمويل' };
+  const lr = sh.getLastRow(), lc = sh.getLastColumn();
+  if (lr < 1 || lc < 1) return { status: 'ok', changed: 0 };
+  const fx = sh.getRange(1, 1, lr, lc).getFormulas();
+  const re = /\$([A-Z]+)\$\d+:\$[A-Z]+\$\d+/g;   // $X$n:$Y$m → عمود كامل $X:$X
+  let changed = 0;
+  for (let i = 0; i < fx.length; i++) {
+    for (let j = 0; j < fx[i].length; j++) {
+      const f = fx[i][j];
+      if (f && f.indexOf('المعاملات') !== -1 && re.test(f)) {
+        re.lastIndex = 0;
+        const nf = f.replace(re, '$$$1:$$$1');
+        if (nf !== f) { sh.getRange(i + 1, j + 1).setFormula(nf); changed++; }
+      }
+      re.lastIndex = 0;
+    }
+  }
+  return { status: 'ok', changed: changed };
 }
 
 function listTabs() {
