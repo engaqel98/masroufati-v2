@@ -94,6 +94,8 @@ function doGet(e) {
     if (action === 'tabs')    return jsonOut(listTabs());
     if (action === 'peektab') return jsonOut(peekTab(p));
     if (action === 'fixplan') return jsonOut(fixPlanRanges());
+    if (action === 'cfrules') return jsonOut(diagConditionalFormat(p));
+    if (action === 'cleanfmt') return jsonOut(cleanFormatting());
     if (action === 'preview') return jsonOut(previewRows());
     if (action === 'cleancolumns') return jsonOut(cleanEmptyColumns());
     if (action === 'backfillmy')   return jsonOut(backfillMonthYear());
@@ -177,6 +179,72 @@ function fixPlanRanges() {
     }
   }
   return { status: 'ok', changed: changed };
+}
+
+// تشخيص (قراءة فقط): يكشف قواعد التنسيق الشرطي لكل تبويب + قيمة/خلفية خلية مُحدَّدة
+// (?action=cfrules&cell=D75). يساعد في معرفة سبب تلوّن خلية معيّنة.
+function diagConditionalFormat(p) {
+  const cell = (p && p.cell) ? dec(p.cell) : 'D75';
+  const ss = getSS();
+  const out = [];
+  ss.getSheets().forEach(function (sh) {
+    const rules = sh.getConditionalFormatRules().map(function (r) {
+      const ranges = r.getRanges().map(function (rg) { return rg.getA1Notation(); });
+      const b = r.getBooleanCondition();
+      const info = { ranges: ranges };
+      if (b) {
+        info.type = String(b.getCriteriaType());
+        info.values = (b.getCriteriaValues() || []).map(String);
+        info.bg = b.getBackground();
+        info.fontColor = b.getFontColor();
+      }
+      if (r.getGradientCondition()) info.gradient = true;
+      return info;
+    });
+    let cellInfo = null;
+    if (sh.getMaxRows() >= 75 && sh.getMaxColumns() >= 4) {
+      const rg = sh.getRange(cell);
+      cellInfo = { value: String(rg.getValue()).slice(0, 40), background: rg.getBackground(), formula: rg.getFormula() };
+    }
+    out.push({ tab: sh.getName(), cell: cell, cellInfo: cellInfo, ruleCount: rules.length, rules: rules });
+  });
+  return { status: 'ok', byTab: out };
+}
+
+// ينظّف التنسيق الشرطي في "المعاملات": يحذف كل القواعد القديمة (المجزّأة/الخاطئة/قاعدة
+// تلوين عمود وقت التسجيل) ويطبّق تلوين تصنيف نظيف على عمود التصنيف بالكامل بألوان التطبيق.
+// كما يمسح أي خلفية يدوية على عمود وقت التسجيل.
+function cleanFormatting() {
+  const ss = getSS();
+  const sh = ss.getSheetByName(SHEET_TXN);
+  if (!sh) return { status: 'error', message: 'no tab: ' + SHEET_TXN };
+  const map = getHeaderMap(sh);
+  const typeCol = map.keyToCol['type'];
+  if (!typeCol) return { status: 'error', message: 'no type column' };
+  const headerRow = map.headerRow;
+  const n = sh.getMaxRows() - headerRow;
+  const typeRange = sh.getRange(headerRow + 1, typeCol, n, 1);
+
+  // ألوان التصنيف (تطابق دلالات التطبيق): أساسيات أخضر · كماليات برتقالي · سداد أزرق · غير محدد رمادي
+  const CATS = [
+    { kw: 'أساسيات', bg: '#C6EFCE', fc: '#1F6B1F' },
+    { kw: 'كماليات', bg: '#FCE4D6', fc: '#C65911' },
+    { kw: 'سداد التمويل', bg: '#DEEAF1', fc: '#1F4E79' },
+    { kw: 'غير محدد', bg: '#F2F2F2', fc: '#7F7F7F' }
+  ];
+  const rules = CATS.map(function (c) {
+    return SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo(c.kw)
+      .setBackground(c.bg).setFontColor(c.fc)
+      .setRanges([typeRange]).build();
+  });
+  sh.setConditionalFormatRules(rules);   // يستبدل جميع القواعد السابقة على هذا التبويب
+
+  // امسح أي خلفية يدوية على عمود وقت التسجيل (اللون الأخضر المزعج)
+  const regCol = map.keyToCol['registeredAt'];
+  if (regCol) sh.getRange(headerRow + 1, regCol, n, 1).setBackground(null);
+
+  return { status: 'ok', rulesSet: rules.length, typeRange: typeRange.getA1Notation() };
 }
 
 function listTabs() {
