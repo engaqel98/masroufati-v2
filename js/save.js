@@ -8,6 +8,49 @@ function fmtInt(n) {
   return Number(n).toLocaleString('ar-SA', {maximumFractionDigits:0});
 }
 
+// ============================================================
+// أرشيف الرسائل الفاشلة (لمعالجتها لاحقاً دفعة واحدة)
+// ============================================================
+function saveFailedParse(text) {
+  var t = String(text == null ? '' : text).trim();
+  if (!t) return;
+  if (!Array.isArray(window.failedMsgs)) window.failedMsgs = [];
+  if (failedMsgs.some(function(m) { return m.text === t; })) return;   // تفادي التكرار
+  failedMsgs.unshift({ id: Date.now(), at: (typeof today === 'function' ? today() : ''), text: t });
+  if (failedMsgs.length > 200) failedMsgs = failedMsgs.slice(0, 200);
+  localStorage.setItem('failed_parses_v2', JSON.stringify(failedMsgs));
+}
+
+function failedParsesBlob() {
+  return failedMsgs.map(function(m, i) {
+    return '----- [' + (i + 1) + '] ' + (m.at || '') + ' -----\n' + m.text;
+  }).join('\n\n');
+}
+
+function deleteFailedParse(id) {
+  failedMsgs = failedMsgs.filter(function(m) { return String(m.id) !== String(id); });
+  localStorage.setItem('failed_parses_v2', JSON.stringify(failedMsgs));
+  if (typeof renderSettings === 'function') renderSettings();
+}
+
+function clearFailedParses() {
+  if (!failedMsgs.length) return;
+  if (!confirm('مسح كل الرسائل غير المحلَّلة؟')) return;
+  failedMsgs = [];
+  localStorage.removeItem('failed_parses_v2');
+  if (typeof renderSettings === 'function') renderSettings();
+}
+
+function copyFailedParses() {
+  if (!failedMsgs.length) return;
+  var blob = failedParsesBlob();
+  var s = document.getElementById('s-failed-status');
+  function done() { if (s) s.innerHTML = '<div class="alert alert-green">✅ نُسخت ' + failedMsgs.length + ' رسالة — ألصقها في المحادثة لأعالجها</div>'; }
+  function fail() { if (s) s.innerHTML = '<div class="alert alert-yellow">⚠️ انسخها يدوياً من المربّع أعلاه</div>'; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(blob).then(done, fail);
+  else done();
+}
+
 async function saveEntry() {
   if (!window._parsed) return;
   var isCredit = window._parsed.direction === 'credit';
@@ -100,6 +143,7 @@ async function doSave(p, statusId) {
 
   expenses.unshift(entry);
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (entry.behalf && typeof registerPerson === 'function') registerPerson(entry.behalf);
   if (typeof renderDashboard === 'function') renderDashboard();
 
   var statusEl = document.getElementById(statusId);
@@ -168,6 +212,7 @@ async function syncFromSheets() {
       });
       expenses = json.rows;
       localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+      if (typeof refreshPeopleList === 'function') refreshPeopleList();
       if (typeof renderDashboard === 'function') renderDashboard();
       if (typeof renderHistory === 'function' && document.getElementById('sec-history').style.display !== 'none') renderHistory();
       setStatus('<div class="alert alert-green">✅ تم التحديث · ' + expenses.length + ' عملية</div>');
@@ -265,6 +310,7 @@ async function saveEdit() {
   // حدّث محلياً
   Object.keys(fields).forEach(function(k) { entry[k] = fields[k]; });
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (fields.behalf && typeof registerPerson === 'function') registerPerson(fields.behalf);
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof renderHistory === 'function') renderHistory();
 

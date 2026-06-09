@@ -5,14 +5,27 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
+// توحيد الأرقام العربية/الفارسية إلى لاتينية + فواصل عربية — سبب شائع لفشل
+// التحليل: رسالة فيها ٠١٢٣ لا تطابق أنماط [\d] فتفشل تماماً.
+function normalizeDigits(s) {
+  if (s == null) return s;
+  return String(s)
+    .replace(/[٠-٩]/g, function(d) { return String.fromCharCode(d.charCodeAt(0) - 0x0660 + 48); }) // ٠-٩
+    .replace(/[۰-۹]/g, function(d) { return String.fromCharCode(d.charCodeAt(0) - 0x06F0 + 48); }) // ۰-۹ (فارسية)
+    .replace(/٫/g, '.')   // الفاصلة العشرية العربية ٫
+    .replace(/٬/g, ',')   // فاصلة الآلاف العربية ٬
+    .replace(/‏|‎|‪|‫|‬/g, ''); // محارف الاتجاه (RTL/LTR) المخفية
+}
+
+// نمط موحّد لرموز عملة الريال: SAR / SR / ريال / ر.س / ﷼
+var SAR_TOKEN = '(?:SAR|SR|ريال(?:\\s*سعودي)?|ر\\.?\\s?س|﷼)';
+
 function extractAmount(txt) {
-  var m = txt.match(/(?:SAR|SR)\s*([\d,]+\.?\d*)/i);
+  var m = txt.match(new RegExp(SAR_TOKEN + '\\s*([\\d,]+\\.?\\d*)', 'i'));
   if (m) return parseFloat(m[1].replace(/,/g, ''));
-  m = txt.match(/([\d,]+\.?\d*)\s*(?:SAR|SR)/i);
+  m = txt.match(new RegExp('([\\d,]+\\.?\\d*)\\s*' + SAR_TOKEN, 'i'));
   if (m) return parseFloat(m[1].replace(/,/g, ''));
-  m = txt.match(/مبلغ\s*([\d,]+\.?\d*)/i);
-  if (m) return parseFloat(m[1].replace(/,/g, ''));
-  m = txt.match(/([\d,]+\.?\d*)\s*ريال/i);
+  m = txt.match(/ب?مبلغ\s*:?\s*([\d,]+\.?\d*)/i);
   if (m) return parseFloat(m[1].replace(/,/g, ''));
   return null;
 }
@@ -103,9 +116,9 @@ function parseRAJHI(txt) {
   } else {
     // التاجر بعد "لـ" (لام + تطويل) — "عبر:" قناة الدفع مو التاجر فلا نستخدمها
     m = txt.match(/لـ\s*([^\n\r،,؛;]{2,40})/)
-      || txt.match(/لدى\s+([^\n\r،,*#]{3,50})/i)
+      || txt.match(/لدى\s*:?\s*([^\n\r،,*#]{3,50})/i)
       || txt.match(/من\s+([^\n\r،,]{3,40})/i);
-    if (m) merchant = m[1].split(/\s{2,}|تاريخ|الرصيد/)[0].trim();
+    if (m) merchant = m[1].split(/\s{2,}|تاريخ|الرصيد|عبر/)[0].trim();
   }
 
   return {
@@ -200,9 +213,10 @@ function extractAmountSmart(txt) {
   // عملات معروفة فقط (تفادي التقاط أسماء/أكواد عشوائية)
   m = txt.match(/\b(AED|USD|EUR|GBP|QAR|KWD|BHD|OMR|JOD|EGP|TRY|INR|PKR|CNY|JPY|CHF|CAD|AUD|MAD|TND|THB|MYR|IDR)\s*[: ]?\s*([\d,]+\.?\d*)/);
   if (m) { fxCur = m[1]; fxAmt = parseFloat(m[2].replace(/,/g, '')); }
-  m = txt.match(/ب?مبلغ\s*:?\s*(?:SAR|SR)\s*([\d,]+\.?\d*)/i)
-    || txt.match(/(?:SAR|SR)\s*([\d,]+\.?\d*)/i)
-    || txt.match(/([\d,]+\.?\d*)\s*(?:SAR|SR|ريال)/i);
+  m = txt.match(new RegExp('ب?مبلغ\\s*:?\\s*' + SAR_TOKEN + '\\s*([\\d,]+\\.?\\d*)', 'i'))
+    || txt.match(new RegExp(SAR_TOKEN + '\\s*([\\d,]+\\.?\\d*)', 'i'))
+    || txt.match(new RegExp('([\\d,]+\\.?\\d*)\\s*' + SAR_TOKEN, 'i'))
+    || txt.match(/ب?مبلغ\s*:?\s*([\d,]+\.?\d*)/i);
   if (m) sar = parseFloat(m[1].replace(/,/g, ''));
   m = txt.match(/(?:المبلغ الإجمالي|الإجمالي|إجمالي|total)\D*([\d,]+\.?\d*)/i);
   if (m) total = parseFloat(m[1].replace(/,/g, ''));
@@ -213,14 +227,20 @@ function extractAmountSmart(txt) {
 
 function extractMerchant(txt, direction) {
   var m, pats;
+  function clean(s) { return s.split(/\s{2,}|في:|تاريخ|الرصيد|رقم|عبر|من خلال/)[0].trim(); }
   if (direction === 'credit') {
-    m = txt.match(/من\s*:?\s*([^\n\r،,]{3,40})/);
-    return m ? m[1].split(/\s{2,}|في:|تاريخ|الرصيد/)[0].trim() : 'غير محدد';
+    // وارد: المرسِل بعد "من / مرسل / المرسل / من حساب"
+    pats = [/(?:من|مرسل|المرسل)\s*:?\s*([^\n\r،,]{3,40})/, /من\s+حساب\s*:?\s*([^\n\r،,]{3,40})/, /received from\s+([^\n\r،,]{3,40})/i];
+    for (var j = 0; j < pats.length; j++) { m = txt.match(pats[j]); if (m) return clean(m[1]); }
+    return 'غير محدد';
   }
-  pats = [/لـ\s*([^\n\r،,؛;]{2,40})/, /لدى\s*:?\s*([^\n\r،,*#]{3,50})/i, /\bat\s+([^\n\r،,]{3,40})/i, /من\s+([^\n\r،,]{3,40})/];
+  // صادر/شراء: المستفيد أو التاجر بعد "لـ / لدى / الى / إلى / المستفيد / لحساب / at"
+  pats = [/لـ\s*([^\n\r،,؛;]{2,40})/, /لدى\s*:?\s*([^\n\r،,*#]{3,50})/i,
+          /(?:إلى|الى|المستفيد|لحساب)\s*:?\s*([^\n\r،,]{3,40})/, /\bat\s+([^\n\r،,]{3,40})/i,
+          /من\s+([^\n\r،,]{3,40})/];
   for (var i = 0; i < pats.length; i++) {
     m = txt.match(pats[i]);
-    if (m) return m[1].split(/\s{2,}|في:|تاريخ|الرصيد/)[0].trim();
+    if (m) return clean(m[1]);
   }
   return 'غير محدد';
 }
@@ -228,8 +248,22 @@ function extractMerchant(txt, direction) {
 function detectBankLabel(txt) {
   var t = txt.toLowerCase();
   if (t.indexOf('الراجحي') !== -1 || t.indexOf('rajhi') !== -1 || /;\s*مدى/.test(txt) || /عبر:\s*\d/.test(txt)) return 'الراجحي';
-  if (t.indexOf('الأول') !== -1 || t.indexOf('sab') !== -1 || t.indexOf('alfursan') !== -1) return 'الأول (SAB)';
-  if (t.indexOf('الأهلي') !== -1 || t.indexOf('ahli') !== -1 || t.indexOf('ncb') !== -1) return 'الأهلي';
+  if (t.indexOf('الأول') !== -1 || t.indexOf('sab') !== -1 || t.indexOf('alfursan') !== -1 || t.indexOf('الفرسان') !== -1) return 'الأول (SAB)';
+  if (t.indexOf('الأهلي') !== -1 || t.indexOf('ahli') !== -1 || t.indexOf('ncb') !== -1 || t.indexOf('snb') !== -1) return 'الأهلي';
+  if (t.indexOf('الإنماء') !== -1 || t.indexOf('الانماء') !== -1 || t.indexOf('alinma') !== -1) return 'الإنماء';
+  if (t.indexOf('الرياض') !== -1 || t.indexOf('riyad') !== -1) return 'الرياض';
+  if (t.indexOf('الفرنسي') !== -1 || t.indexOf('bsf') !== -1 || t.indexOf('fransi') !== -1) return 'الفرنسي';
+  if (t.indexOf('البلاد') !== -1 || t.indexOf('albilad') !== -1) return 'البلاد';
+  if (t.indexOf('الجزيرة') !== -1 || t.indexOf('aljazira') !== -1 || t.indexOf('jazira') !== -1) return 'الجزيرة';
+  if (t.indexOf('سامبا') !== -1 || t.indexOf('samba') !== -1) return 'سامبا';
+  // ملاحظة: لا نعتمد على «ساب» المجرّدة لأنها تتصادم مع «حساب»
+  // المحافظ الرقمية
+  if (t.indexOf('stc pay') !== -1 || t.indexOf('stcpay') !== -1 || t.indexOf('اس تي سي') !== -1) return 'STC Pay';
+  if (t.indexOf('urpay') !== -1 || t.indexOf('يور باي') !== -1) return 'urpay';
+  if (t.indexOf('barq') !== -1 || t.indexOf('بارق') !== -1) return 'بارق';
+  if (t.indexOf('d360') !== -1) return 'D360';
+  if (t.indexOf('mobily pay') !== -1 || t.indexOf('موبايلي') !== -1) return 'Mobily Pay';
+  if (t.indexOf('tweeq') !== -1 || t.indexOf('تويق') !== -1) return 'Tweeq';
   return '';
 }
 
@@ -252,6 +286,7 @@ function parseGeneric(txt) {
 }
 
 function detectAndParse(txt) {
+  txt = normalizeDigits(txt);   // وحّد الأرقام/الرموز أولاً حتى تطابق كل الأنماط
   var result = _detectBank(txt);
   if (result) {
     if (!result.direction) result.direction = detectDirection(txt);
@@ -264,27 +299,24 @@ function detectAndParse(txt) {
 function _detectBank(txt) {
   if (/سداد/.test(txt) && /بطاقت/.test(txt) && /ائتمان/.test(txt)) return parseCardPayment(txt);
   var t = txt.toLowerCase();
-  var isRajhi = t.includes('الراجحي') || t.includes('rajhi') || t.includes('رصيدك') || t.includes('تم خصم')
+
+  // 1) الاسم الصريح للبنك/المحفظة يغلب أي إشارة لينة (يمنع توجيه بنك آخر للراجحي
+  //    لمجرد ورود "رصيدك" أو "تم خصم").
+  var label = detectBankLabel(txt);
+  if (label === 'الأول (SAB)') return parseSAB(txt) || parseGeneric(txt);
+  if (label === 'الأهلي')      return parseAHLI(txt) || parseGeneric(txt);
+  if (label === 'الراجحي')     return parseRAJHI(txt) || parseGeneric(txt);
+  if (label) return parseGeneric(txt) || parseSAB(txt);   // بنك/محفظة معروفة بالاسم → المحلّل العام (يضبط اسم البنك بنفسه)
+
+  // 2) لا اسم بنك صريح — استعن بالإشارات اللينة (صيغ بلا اسم بنك واضح)
+  var softSAB = t.includes('إيداع حوالة') || t.includes('نقاط البيع الدولي')
+    || (t.includes('لدى') && (t.includes('sar') || t.includes('usd') || t.includes('qar') || t.includes('سعر الصرف')));
+  var softRajhi = t.includes('رصيدك') || t.includes('تم خصم')
     || /ب?\s*sr\s*[\d]/i.test(txt) || /عبر:\s*\d/i.test(txt);
 
-  var isSAB = !isRajhi && (
-    t.includes('الأول') || t.includes('sab') || t.includes('alfursan')
-    || t.includes('إيداع حوالة') || t.includes('نقاط البيع الدولي')
-    || (t.includes('لدى') && (t.includes('sar') || t.includes('usd') || t.includes('qar') || t.includes('سعر الصرف')))
-  );
-
-  var isAhli = !isRajhi && !isSAB && (
-    t.includes('الأهلي') || t.includes('ahli') || t.includes('ncb')
-    || t.includes('مرسل:')
-  );
-
-  var result = null;
-  if (isRajhi) result = parseRAJHI(txt) || parseGeneric(txt);
-  else if (isSAB) result = parseSAB(txt) || parseGeneric(txt);
-  else if (isAhli) result = parseAHLI(txt) || parseGeneric(txt);
-  else result = parseGeneric(txt) || parseSAB(txt) || parseRAJHI(txt) || parseAHLI(txt);
-
-  return result;
+  if (softSAB) return parseSAB(txt) || parseGeneric(txt);
+  if (softRajhi) return parseRAJHI(txt) || parseGeneric(txt);
+  return parseGeneric(txt) || parseSAB(txt) || parseRAJHI(txt) || parseAHLI(txt);
 }
 
 // ============================================================
@@ -311,10 +343,15 @@ function classifyMerchant(merchant, txType) {
 // كشف اتجاه الحركة من كلمات الرسالة: إضافة (credit) أو خصم (debit)
 function detectDirection(txt) {
   var t = (txt || '').toLowerCase();
-  if (/استرداد|استرجاع|مرتجع|اضافة|إضافة|إيداع|ايداع|حوالة واردة|تحويل وارد|عملية واردة|واردة|راتب|refund|reversal|deposit|salary|incoming/.test(t)) {
+  // أولاً: إشارات خصم صريحة تغلب أي كلمة وارد قد ترد في نفس النص (مثل "حوالة صادرة")
+  if (/حوالة صادرة|تحويل صادر|حوالة مرسلة|صادرة|سحب نقدي|شراء|مشتريات|نقاط بيع|نقاط البيع|خصم|دفعت|سداد فاتورة|تسديد فاتورة|purchase|withdrawal|pos|sent|debit/.test(t)) {
+    return 'debit';
+  }
+  // ثانياً: إشارات إضافة (وارد)
+  if (/استرداد|استرجاع|مرتجع|اضافة|إضافة|أضيف|اضيف|تمت اضافة|تمت إضافة|إيداع|ايداع|أودع|اودع|حوالة واردة|تحويل وارد|عملية واردة|واردة|استلمت|تم استلام|استلام|مستلم|راتب|refund|reversal|deposit|received|credited|salary|incoming/.test(t)) {
     return 'credit';
   }
-  return 'debit';   // شراء / خصم / حوالة صادرة / مدفوعات = خصم (الافتراضي)
+  return 'debit';   // الافتراضي = خصم
 }
 
 function typeDot(type) {

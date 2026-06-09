@@ -92,7 +92,7 @@
         </div>
         <div class="field">
           <label>👥 نيابة عن (اختياري)</label>
-          <input type="text" id="m-behalf" placeholder="اكتب اسم الشخص — تُستثنى من حسابك">
+          <input type="text" id="m-behalf" list="people-list" placeholder="اكتب اسم الشخص أو اختر من القائمة">
         </div>
         <button class="btn btn-green" onclick="saveManual()">💾 حفظ</button>
         <div id="manual-status"></div>
@@ -124,6 +124,9 @@
 
 </div>
 
+<!-- قائمة اقتراحات الأسماء المشتركة لكل حقول "نيابة عن" — تُملأ من js/render.js -->
+<datalist id="people-list"></datalist>
+
 <!-- Edit modal -->
 <div id="edit-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeEdit()">
   <div class="modal-card">
@@ -152,7 +155,7 @@
       </div>
     </div>
     <div class="field"><label>ملاحظة</label><input type="text" id="e-note"></div>
-    <div class="field"><label>👥 نيابة عن (اختياري)</label><input type="text" id="e-behalf"></div>
+    <div class="field"><label>👥 نيابة عن (اختياري)</label><input type="text" id="e-behalf" list="people-list"></div>
     <div id="edit-status"></div>
     <div class="btn-row" style="margin-top:14px">
       <button class="btn btn-green" onclick="saveEdit()">💾 حفظ التعديلات</button>

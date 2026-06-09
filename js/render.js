@@ -8,7 +8,9 @@ function analyze() {
 
   var parsed = detectAndParse(txt);
   if (!parsed || !parsed.amount) {
-    area.innerHTML = '<div class="alert alert-red">⚠️ تعذّر استخراج البيانات. تأكد أن الرسالة من بنك سعودي (الراجحي / الأهلي / SAB / الأول).</div>';
+    if (typeof saveFailedParse === 'function') saveFailedParse(txt);   // احفظها للمعالجة لاحقاً
+    area.innerHTML = '<div class="alert alert-red">⚠️ تعذّر استخراج البيانات — حُفظت الرسالة في «الإعدادات ← رسائل لم تُحلَّل» لمعالجتها لاحقاً.</div>'
+      + '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="manualFromSMS()">✍️ أدخلها يدوياً الآن</button></div>';
     return;
   }
 
@@ -51,8 +53,9 @@ function analyze() {
   } else {
     html += '<div class="alert alert-green" style="margin-bottom:8px">➕ حركة إضافة (' + (parsed.type || 'إضافة') + ') — تزيد الرصيد وغير محسوبة في الصرف.</div>';
   }
-  html += '<div class="field" style="margin-top:8px"><label>👥 نيابة عن (اختياري)</label>';
-  html += '<input type="text" id="behalf-edit" placeholder="اكتب اسم الشخص — تُستثنى من حسابك"' + (parsed.behalf ? ' value="' + htmlEsc(parsed.behalf) + '"' : '') + '>';
+  // للإيداع الوارد: الحقل يمثّل "سداد من شخص" (يُخصم من المتبقي عليه)؛ للخصم: "نيابة عن"
+  html += '<div class="field" style="margin-top:8px"><label>' + (isCredit ? '👥 سداد من شخص (اختياري)' : '👥 نيابة عن (اختياري)') + '</label>';
+  html += '<input type="text" id="behalf-edit" list="people-list" placeholder="' + (isCredit ? 'اسم الشخص — يُخصم من المتبقي عليه' : 'اكتب اسم الشخص أو اختر من القائمة') + '"' + (parsed.behalf ? ' value="' + htmlEsc(parsed.behalf) + '"' : '') + '>';
   html += '</div>';
   html += '<div class="btn-row">';
   html += '<button class="btn btn-green" onclick="saveEntry()">💾 حفظ وإرسال</button>';
@@ -81,6 +84,58 @@ function analyze() {
 function clearSMS() {
   document.getElementById('sms-input').value = '';
   document.getElementById('result-area').innerHTML = '';
+}
+
+// تعبئة نموذج الإدخال اليدوي من رسالة تعذّر تحليلها — يعبّي ما أمكن التقاطه
+// (التاجر/المبلغ إن وُجد) ويضع النص الكامل في الملاحظة، ثم ينتقل للنموذج.
+function manualFromSMS() {
+  var txt = (document.getElementById('sms-input').value || '').trim();
+  if (!txt) return;
+  var p = (typeof detectAndParse === 'function') ? (detectAndParse(txt) || {}) : {};
+  var note = document.getElementById('m-note');
+  if (note) note.value = txt.replace(/\s+/g, ' ').slice(0, 140);
+  var mer = document.getElementById('m-merchant');
+  if (mer && p.merchant && p.merchant !== 'غير محدد') mer.value = p.merchant;
+  var amt = document.getElementById('m-amount');
+  if (amt && p.amount) amt.value = p.amount;
+  if (amt) { amt.scrollIntoView({ behavior: 'smooth', block: 'center' }); amt.focus(); }
+}
+
+// ============================================================
+// PEOPLE (نيابة عن) — اقتراحات الأسماء
+// ============================================================
+// اتحاد الأسماء المسجّلة في الإعدادات مع أي اسم ظهر في العمليات — فريدة ومرتّبة
+function peopleNames() {
+  var set = {};
+  (settings.people || []).forEach(function(n) {
+    var nm = String(n == null ? '' : n).trim(); if (nm) set[nm] = true;
+  });
+  expenses.forEach(function(e) {
+    var nm = (e && e.behalf) ? String(e.behalf).trim() : '';
+    if (nm) set[nm] = true;
+  });
+  return Object.keys(set).sort(function(a, b) { return a.localeCompare(b, 'ar'); });
+}
+
+// يملأ قائمة الاقتراحات <datalist> المشتركة لكل حقول "نيابة عن"
+function refreshPeopleList() {
+  var dl = document.getElementById('people-list');
+  if (!dl) return;
+  dl.innerHTML = peopleNames().map(function(n) {
+    return '<option value="' + htmlEsc(n) + '"></option>';
+  }).join('');
+}
+
+// يسجّل اسماً جديداً في القائمة الدائمة (الإعدادات) ويحدّث الاقتراحات
+function registerPerson(name) {
+  var nm = String(name == null ? '' : name).trim();
+  if (!nm) return;
+  if (!Array.isArray(settings.people)) settings.people = [];
+  if (settings.people.indexOf(nm) === -1) {
+    settings.people.push(nm);
+    localStorage.setItem('settings_v2', JSON.stringify(settings));
+  }
+  refreshPeopleList();
 }
 
 var MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -535,6 +590,22 @@ function renderSettings() {
   html += '<button class="btn btn-danger btn-sm" onclick="clearData()">🗑 مسح البيانات</button>';
   html += '</div>';
   html += '<div id="s-data-status"></div>';
+  html += '</div></div>';
+
+  // رسائل لم تُحلَّل — أرشيف للمعالجة لاحقاً
+  html += '<div class="card"><div class="card-body">';
+  html += '<div class="card-title">📥 رسائل لم تُحلَّل' + (failedMsgs.length ? ' (' + failedMsgs.length + ')' : '') + '</div>';
+  if (!failedMsgs.length) {
+    html += '<div style="font-size:13px;color:var(--muted)">لا توجد رسائل فاشلة — كل شيء تمام 👍</div>';
+  } else {
+    html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">رسائل تعذّر تحليلها وحُفظت تلقائياً. انسخها كلها وألصقها في المحادثة لمعالجتها دفعة واحدة وتحسين المحلّل.</div>';
+    html += '<textarea readonly onclick="this.select()" style="width:100%;min-height:120px;font-size:12px;direction:rtl">' + htmlEsc(failedParsesBlob()) + '</textarea>';
+    html += '<div class="btn-row" style="margin-top:10px">';
+    html += '<button class="btn btn-outline btn-sm" onclick="copyFailedParses()">📋 نسخ الكل</button>';
+    html += '<button class="btn btn-danger btn-sm" onclick="clearFailedParses()">🗑 مسح الكل</button>';
+    html += '</div>';
+  }
+  html += '<div id="s-failed-status"></div>';
   html += '</div></div>';
 
   el.innerHTML = html;

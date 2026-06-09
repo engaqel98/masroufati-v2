@@ -15,6 +15,13 @@ var settings = JSON.parse(localStorage.getItem('settings_v2') || 'null') || {
   start: '2026-05'
 };
 
+// قائمة الأشخاص المسجّلين لـ"نيابة عن" — تُحفظ ضمن الإعدادات وتتوسّع تلقائياً
+// كل ما كُتب اسم جديد. (الإعدادات القديمة قد لا تحتوي الحقل، فنضمن وجوده.)
+if (!Array.isArray(settings.people)) settings.people = [];
+
+// أرشيف الرسائل التي فشل تحليلها — تُحفظ تلقائياً لمعالجتها لاحقاً دفعة واحدة
+var failedMsgs = JSON.parse(localStorage.getItem('failed_parses_v2') || '[]');
+
 var histFilter = 'all';
 
 var DICT = {
