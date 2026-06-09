@@ -48,3 +48,15 @@ renderDashboard();
 document.getElementById('sec-parse').classList.add('tab-enter');
 loadDictFromSheets();
 if (settings.webapp) syncFromSheets();
+
+// تعبئة تلقائية من رابط ?sms=... (لاختصار iOS Shortcuts أو مشاركة أندرويد):
+// يلصق نص الرسالة في الحقل ويحلّلها فوراً، ثم ينظّف الرابط.
+(function() {
+  try {
+    var sms = new URLSearchParams(location.search).get('sms');
+    if (!sms) return;
+    var ta = document.getElementById('sms-input');
+    if (ta) { ta.value = sms; if (typeof analyze === 'function') analyze(); }
+    if (history.replaceState) history.replaceState(null, '', location.pathname);
+  } catch (e) {}
+})();

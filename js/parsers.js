@@ -322,9 +322,23 @@ function _detectBank(txt) {
 // ============================================================
 // CLASSIFICATION
 // ============================================================
+// مفتاح موحّد لاسم التاجر (للتعلّم وكشف التكرار): حروف صغيرة، مسافات مضغوطة
+function merchantKey(s) {
+  return String(s == null ? '' : s).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 function classifyMerchant(merchant, txType) {
   var text = ((merchant || '') + ' ' + (txType || '')).toLowerCase();
   var mer = (merchant || '').toLowerCase().trim();
+
+  // 1) تصنيف متعلَّم من تصحيحات المستخدم يغلب القاموس
+  if (typeof learned !== 'undefined' && learned) {
+    var lk = merchantKey(merchant);
+    if (lk && learned[lk]) return learned[lk];
+    for (var key in learned) {
+      if (learned.hasOwnProperty(key) && key.length >= 4 && text.indexOf(key) !== -1) return learned[key];
+    }
+  }
   function hit(list) {
     for (var i = 0; i < list.length; i++) {
       var kw = (list[i] || '').toLowerCase().trim();

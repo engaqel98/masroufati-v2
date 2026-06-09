@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#4f46e5">
 <title>مصروفاتي 💳</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="مصروفاتي">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <script>
   // set theme before paint to avoid flash
   (function(){
@@ -127,6 +133,9 @@
 <!-- قائمة اقتراحات الأسماء المشتركة لكل حقول "نيابة عن" — تُملأ من js/render.js -->
 <datalist id="people-list"></datalist>
 
+<!-- مُدخل ملف مخفي لاستعادة النسخة الاحتياطية -->
+<input type="file" id="import-file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">
+
 <!-- Edit modal -->
 <div id="edit-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeEdit()">
   <div class="modal-card">
@@ -170,5 +179,13 @@
 <script src="js/save.js"></script>
 <script src="js/render.js"></script>
 <script src="js/app.js"></script>
+<script>
+  // تسجيل Service Worker لتشغيل التطبيق دون اتصال وتثبيته على الجوال
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    });
+  }
+</script>
 </body>
 </html>

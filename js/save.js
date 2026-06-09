@@ -51,6 +51,130 @@ function copyFailedParses() {
   else done();
 }
 
+// ============================================================
+// تعلّم التصنيف من تصحيحات المستخدم
+// ============================================================
+var LEARNABLE_CATS = ['أساسيات', 'كماليات', 'سداد التمويل'];
+function learnMerchant(merchant, type, direction) {
+  if (direction === 'credit') return;                       // الإضافات لا تُصنَّف
+  if (LEARNABLE_CATS.indexOf(type) === -1) return;          // لا نتعلّم "غير محدد" أو أنواع الإضافة
+  var k = (typeof merchantKey === 'function') ? merchantKey(merchant) : '';
+  if (!k || k.length < 2 || k === 'غير محدد') return;
+  if (learned[k] === type) return;
+  learned[k] = type;
+  localStorage.setItem('learned_v2', JSON.stringify(learned));
+}
+function clearLearned() {
+  var n = Object.keys(learned).length;
+  if (!n) return;
+  if (!confirm('نسيان ' + n + ' تصنيف متعلَّم؟ (لن تتأثر العمليات المحفوظة)')) return;
+  learned = {};
+  localStorage.removeItem('learned_v2');
+  if (typeof renderSettings === 'function') renderSettings();
+}
+
+// ============================================================
+// كشف التكرار
+// ============================================================
+// عملية مطابقة = نفس التاريخ والمبلغ والتاجر والاتجاه
+function dupKey(e) {
+  return [e.date || '', Number(e.amount) || 0, (typeof merchantKey === 'function' ? merchantKey(e.merchant) : ''), e.direction || 'debit'].join('|');
+}
+function isDuplicate(entry) {
+  var k = dupKey(entry);
+  return expenses.some(function(e) { return dupKey(e) === k; });
+}
+function findDuplicates() {
+  var seen = {}, dups = [];
+  expenses.forEach(function(e) {
+    var k = dupKey(e);
+    if (seen[k]) dups.push(e); else seen[k] = true;
+  });
+  return dups;
+}
+async function removeDuplicates() {
+  var dups = findDuplicates();
+  var s = document.getElementById('s-backup-status');
+  if (!dups.length) { if (s) s.innerHTML = '<div class="alert alert-green">✅ لا توجد عمليات مكررة</div>'; return; }
+  if (!confirm('وُجدت ' + dups.length + ' عملية مكررة. حذف النسخ الزائدة؟')) return;
+  var ids = {};
+  dups.forEach(function(e) { ids[String(e.id)] = true; });
+  expenses = expenses.filter(function(e) { return !ids[String(e.id)]; });
+  localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderSettings === 'function') renderSettings();
+  if (s) s.innerHTML = '<div class="alert alert-green">✅ حُذف ' + dups.length + ' تكرار محلياً</div>';
+  // حذف من Sheets في الخلفية (أفضل جهد)
+  if (settings.webapp) {
+    Object.keys(ids).forEach(function(id) {
+      try { fetch(settings.webapp + '?action=delete&id=' + encodeURIComponent(id)); } catch (e) {}
+    });
+  }
+}
+
+// ============================================================
+// النسخ الاحتياطي والتصدير
+// ============================================================
+function downloadFile(name, content, mime) {
+  var blob = new Blob([content], { type: mime || 'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+}
+function exportBackup() {
+  var data = { app: 'masroufati', v: 2, exportedAt: today(), expenses: expenses, settings: settings, learned: learned, failedMsgs: failedMsgs };
+  downloadFile('masroufati-backup-' + today() + '.json', JSON.stringify(data, null, 2), 'application/json');
+  var s = document.getElementById('s-backup-status');
+  if (s) s.innerHTML = '<div class="alert alert-green">✅ نُزّلت نسخة احتياطية (' + expenses.length + ' عملية)</div>';
+}
+function exportCSV() {
+  var cols = [['التاريخ', 'date'], ['الوقت', 'time'], ['المبلغ', 'amount'], ['التاجر', 'merchant'], ['النوع', 'type'], ['الاتجاه', 'direction'], ['طريقة الدفع', 'method'], ['البطاقة', 'card'], ['البنك', 'bank'], ['الرصيد', 'balance'], ['العملة الدولية', 'intl'], ['نوع العملية', 'txType'], ['ملاحظة', 'note'], ['نيابة عن', 'behalf'], ['المعرّف', 'id']];
+  function esc(v) { v = (v == null ? '' : String(v)); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  var lines = [cols.map(function(c) { return esc(c[0]); }).join(',')];
+  expenses.forEach(function(e) { lines.push(cols.map(function(c) { return esc(e[c[1]]); }).join(',')); });
+  downloadFile('masroufati-' + today() + '.csv', '﻿' + lines.join('\r\n'), 'text/csv;charset=utf-8');
+  var s = document.getElementById('s-backup-status');
+  if (s) s.innerHTML = '<div class="alert alert-green">✅ صُدّر CSV (' + expenses.length + ' عملية)</div>';
+}
+function importBackupFile(input) {
+  var f = input.files && input.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function() {
+    var s = document.getElementById('s-backup-status');
+    try {
+      var data = JSON.parse(reader.result);
+      var imp = data.expenses || [];
+      if (!Array.isArray(imp)) throw new Error('no expenses');
+      if (!confirm('استيراد ' + imp.length + ' عملية؟ ستُدمج مع الموجود بدون تكرار.')) { input.value = ''; return; }
+      var byId = {};
+      expenses.forEach(function(e) { byId[String(e.id)] = true; });
+      var added = 0;
+      imp.forEach(function(e) { if (e && e.id != null && !byId[String(e.id)]) { expenses.push(e); byId[String(e.id)] = true; added++; } });
+      localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+      if (data.learned && typeof data.learned === 'object') {
+        Object.keys(data.learned).forEach(function(k) { learned[k] = data.learned[k]; });
+        localStorage.setItem('learned_v2', JSON.stringify(learned));
+      }
+      if (data.settings) {
+        ['total', 'payment', 'basic', 'salary', 'start'].forEach(function(k) { if (data.settings[k] != null) settings[k] = data.settings[k]; });
+        if (Array.isArray(data.settings.people)) data.settings.people.forEach(function(p) { if (settings.people.indexOf(p) === -1) settings.people.push(p); });
+        localStorage.setItem('settings_v2', JSON.stringify(settings));
+      }
+      if (typeof refreshPeopleList === 'function') refreshPeopleList();
+      if (typeof renderDashboard === 'function') renderDashboard();
+      if (typeof renderSettings === 'function') renderSettings();
+      if (s) s.innerHTML = '<div class="alert alert-green">✅ أُضيفت ' + added + ' عملية جديدة (تجاهلت ' + (imp.length - added) + ' مكررة)</div>';
+    } catch (e) {
+      if (s) s.innerHTML = '<div class="alert alert-red">⚠️ ملف غير صالح</div>';
+    }
+    input.value = '';
+  };
+  reader.readAsText(f);
+}
+
 async function saveEntry() {
   if (!window._parsed) return;
   var isCredit = window._parsed.direction === 'credit';
@@ -141,9 +265,20 @@ async function doSave(p, statusId) {
     behalf: (p.behalf || '').toString().trim()
   };
 
+  // كشف التكرار قبل الحفظ — نفس التاريخ/المبلغ/التاجر/الاتجاه
+  if (typeof isDuplicate === 'function' && isDuplicate(entry)) {
+    if (!confirm('⚠️ توجد عملية مطابقة (' + fmt(entry.amount) + ' ر.س · ' + (entry.merchant || '—') + ' · ' + entry.date + ').\nحفظها مرة أخرى؟')) {
+      if (btn) btn.innerHTML = origText;
+      var se0 = document.getElementById(statusId);
+      if (se0) se0.innerHTML = '<div class="alert alert-yellow">تم الإلغاء — عملية مكررة</div>';
+      return;
+    }
+  }
+
   expenses.unshift(entry);
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
   if (entry.behalf && typeof registerPerson === 'function') registerPerson(entry.behalf);
+  if (typeof learnMerchant === 'function') learnMerchant(entry.merchant, entry.type, entry.direction);
   if (typeof renderDashboard === 'function') renderDashboard();
 
   var statusEl = document.getElementById(statusId);
@@ -311,6 +446,7 @@ async function saveEdit() {
   Object.keys(fields).forEach(function(k) { entry[k] = fields[k]; });
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
   if (fields.behalf && typeof registerPerson === 'function') registerPerson(fields.behalf);
+  if (typeof learnMerchant === 'function') learnMerchant(fields.merchant, fields.type, fields.direction);
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof renderHistory === 'function') renderHistory();
 

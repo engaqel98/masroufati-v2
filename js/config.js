@@ -22,6 +22,10 @@ if (!Array.isArray(settings.people)) settings.people = [];
 // أرشيف الرسائل التي فشل تحليلها — تُحفظ تلقائياً لمعالجتها لاحقاً دفعة واحدة
 var failedMsgs = JSON.parse(localStorage.getItem('failed_parses_v2') || '[]');
 
+// تصنيفات متعلَّمة من تصحيحات المستخدم: { "اسم التاجر": "التصنيف" }
+// تُستشار قبل القاموس في classifyMerchant، فتقلّ "غير محدد" مع الاستخدام.
+var learned = JSON.parse(localStorage.getItem('learned_v2') || '{}');
+
 var histFilter = 'all';
 
 var DICT = {

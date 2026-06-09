@@ -592,6 +592,24 @@ function renderSettings() {
   html += '<div id="s-data-status"></div>';
   html += '</div></div>';
 
+  // النسخ الاحتياطي والتصدير
+  var learnedCount = Object.keys(learned).length;
+  html += '<div class="card"><div class="card-body">';
+  html += '<div class="card-title">💾 النسخ الاحتياطي والتصدير</div>';
+  html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">احفظ نسخة كاملة (عمليات + إعدادات + تصنيفات متعلَّمة) أو صدّرها كـCSV.</div>';
+  html += '<div class="btn-row">';
+  html += '<button class="btn btn-outline btn-sm" onclick="exportBackup()">⬇️ نسخة احتياطية (JSON)</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'import-file\').click()">⬆️ استعادة</button>';
+  html += '</div>';
+  html += '<div class="btn-row" style="margin-top:8px">';
+  html += '<button class="btn btn-outline btn-sm" onclick="exportCSV()">📄 تصدير CSV</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="removeDuplicates()">🔍 فحص التكرارات</button>';
+  html += '</div>';
+  html += '<div class="settings-row" style="margin-top:12px"><span>تصنيفات متعلَّمة من تصحيحاتك</span><span class="settings-val">' + learnedCount + '</span></div>';
+  if (learnedCount) html += '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="clearLearned()">🧠 نسيان التصنيفات المتعلَّمة</button></div>';
+  html += '<div id="s-backup-status"></div>';
+  html += '</div></div>';
+
   // رسائل لم تُحلَّل — أرشيف للمعالجة لاحقاً
   html += '<div class="card"><div class="card-body">';
   html += '<div class="card-title">📥 رسائل لم تُحلَّل' + (failedMsgs.length ? ' (' + failedMsgs.length + ')' : '') + '</div>';

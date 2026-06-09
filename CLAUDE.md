@@ -108,6 +108,9 @@ A SAB message is treated as international when it contains `نقاط البيع 
 
 ## Local conventions
 
-- **localStorage keys:** `expenses_v2`, `settings_v2`. The `_v2` suffix is intentional — an earlier monolithic version used different keys.
+- **localStorage keys:** `expenses_v2`, `settings_v2`, `learned_v2` (user-corrected merchant→category map, consulted first in `classifyMerchant`), `failed_parses_v2` (archive of SMS that failed to parse, surfaced in Settings for batch-fixing), `theme_v2`. The `_v2` suffix is intentional — an earlier monolithic version used different keys.
+- **PWA:** `manifest.json` + `sw.js` (cache-first for same-origin app shell, network passthrough for the Google Sheets fetch) + `icons/` make the app installable and offline-capable. `sw.js` has a `CACHE` version constant — **bump it when changing any cached asset** or the old copy is served. SW registered at the bottom of `index.html`.
+- **Deep-link prefill:** `index.html?sms=<url-encoded text>` auto-fills the SMS box and runs `analyze()` (then cleans the URL). Lets an iOS Shortcut / Android share pipe a bank SMS straight in without copy-paste. Handled in `js/app.js`.
+- **Backup/export:** Settings tab exports a full JSON backup (`exportBackup`) or CSV (`exportCSV`), restores via `importBackupFile` (merges by `id`, no duplicates), and `removeDuplicates` dedupes by date+amount+merchant+direction. All in `js/save.js`.
 - **`settings` struct:** `{ webapp, sheetUrl, total, payment, basic, salary, start }`.
 - **Sheet writes** go through `fetch(WEBAPP + '?' + URLSearchParams)` with URI-encoded Arabic strings; the backend `decodeURIComponent`s them.
