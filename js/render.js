@@ -677,6 +677,9 @@ function renderSettings() {
     html += '<textarea readonly onclick="this.select()" style="width:100%;min-height:120px;font-size:12px;direction:rtl">' + htmlEsc(failedParsesBlob()) + '</textarea>';
     html += '<div class="btn-row" style="margin-top:10px">';
     html += '<button class="btn btn-outline btn-sm" onclick="copyFailedParses()">📋 نسخ الكل</button>';
+    html += '<button class="btn btn-outline btn-sm" onclick="cleanFailedParses()">🧹 احذف غير الصالح</button>';
+    html += '</div>';
+    html += '<div class="btn-row" style="margin-top:8px">';
     html += '<button class="btn btn-danger btn-sm" onclick="clearFailedParses()">🗑 مسح الكل</button>';
     html += '</div>';
   }

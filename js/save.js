@@ -41,6 +41,24 @@ function clearFailedParses() {
   if (typeof renderSettings === 'function') renderSettings();
 }
 
+// مدخلة تبدو رسالة بنك حقيقية: طول معقول + تحتوي أرقاماً
+function looksLikeSms(t) {
+  t = String(t == null ? '' : t).trim();
+  return t.length >= 15 && /\d/.test(t);
+}
+
+// يحذف المدخلات غير الصالحة فقط (حافظة عشوائية لُصقت بالخطأ) ويُبقي رسائل البنوك
+function cleanFailedParses() {
+  var s = document.getElementById('s-failed-status');
+  var kept = failedMsgs.filter(function(m) { return looksLikeSms(m.text); });
+  var removed = failedMsgs.length - kept.length;
+  if (!removed) { if (s) s.innerHTML = '<div class="alert alert-green">✅ لا توجد مدخلات غير صالحة</div>'; return; }
+  if (!confirm('حذف ' + removed + ' مدخلة لا تبدو رسالة بنك (بدون أرقام أو قصيرة جداً)؟')) return;
+  failedMsgs = kept;
+  localStorage.setItem('failed_parses_v2', JSON.stringify(failedMsgs));
+  if (typeof renderSettings === 'function') renderSettings();
+}
+
 function copyFailedParses() {
   if (!failedMsgs.length) return;
   var blob = failedParsesBlob();
