@@ -282,9 +282,10 @@ async function doSave(p, statusId) {
   if (typeof renderDashboard === 'function') renderDashboard();
 
   var statusEl = document.getElementById(statusId);
+  function setStatus(h) { if (statusEl) statusEl.innerHTML = h; }
   if (!settings.webapp) {
     if (btn) btn.innerHTML = origText;
-    statusEl.innerHTML = '<div class="alert alert-green">✅ حُفظ محلياً</div>';
+    setStatus('<div class="alert alert-green">✅ حُفظ محلياً</div>');
     return;
   }
 
@@ -311,14 +312,14 @@ async function doSave(p, statusId) {
     var json = await resp.json();
     if (btn) btn.innerHTML = origText;
     if (json.status === 'ok') {
-      statusEl.innerHTML = '<div class="alert alert-green">✅ حُفظ محلياً وفي Sheets (صف ' + json.row + ')</div>';
+      setStatus('<div class="alert alert-green">✅ حُفظ محلياً وفي Sheets (صف ' + json.row + ')</div>');
       sortSheetsInBackground();   // إعادة ترتيب الصفوف تلقائياً (تاريخ ثم وقت)
     } else {
-      statusEl.innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. خطأ في Sheets: ' + (json.message||'') + '</div>';
+      setStatus('<div class="alert alert-yellow">⚠️ حُفظ محلياً. خطأ في Sheets: ' + (json.message||'') + '</div>');
     }
   } catch(e) {
     if (btn) btn.innerHTML = origText;
-    statusEl.innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. فشل الرفع: ' + e.message + '</div>';
+    setStatus('<div class="alert alert-yellow">⚠️ حُفظ محلياً. فشل الرفع: ' + e.message + '</div>');
   }
 }
 

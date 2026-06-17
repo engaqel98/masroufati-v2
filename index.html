@@ -52,7 +52,10 @@
           <label>الصق رسالة SMS البنكية</label>
           <textarea id="sms-input" placeholder="يدعم: الراجحي · الأهلي · SAB/الأول&#10;مثال: تم الشراء مبلغ SAR 105.24 لدى ALOTHAIM..."></textarea>
         </div>
-        <button class="btn btn-primary" onclick="analyze()">🔍 تحليل الرسالة</button>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="analyze()">🔍 تحليل</button>
+          <button class="btn btn-outline" onclick="pasteAndAnalyze()">📋 لصق وتحليل</button>
+        </div>
         <div id="result-area"></div>
       </div>
     </div>

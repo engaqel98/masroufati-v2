@@ -86,6 +86,61 @@ function clearSMS() {
   document.getElementById('result-area').innerHTML = '';
 }
 
+// يقرأ الحافظة مباشرة ويحلّل — يوفّر خطوة "اضغط النص ← لصق" اليدوية
+function pasteAndAnalyze() {
+  var ta = document.getElementById('sms-input');
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(function(t) {
+      if (ta) ta.value = t;
+      analyze();
+    }).catch(function() {
+      if (ta) ta.focus();
+      var area = document.getElementById('result-area');
+      if (area) area.innerHTML = '<div class="alert alert-yellow">⚠️ تعذّر قراءة الحافظة — الصق يدوياً ثم اضغط «تحليل»</div>';
+    });
+  } else if (ta) {
+    ta.focus();
+  }
+}
+
+// تهريب نص لاستخدامه داخل onclick='...'
+function jsStr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+// صافي ما على شخص = (دفعت نيابة عنه) − (سدّده) عبر كل العمليات
+function personOwed(name) {
+  var nm = String(name == null ? '' : name).trim();
+  var paid = 0, refunded = 0;
+  expenses.forEach(function(e) {
+    if (!e.behalf || String(e.behalf).trim() !== nm) return;
+    var amt = e.amount || 0;
+    if (e.direction === 'credit') refunded += amt; else paid += amt;
+  });
+  return paid - refunded;
+}
+
+// تسجيل سداد من شخص: يضيف حركة وارد (credit) باسمه فتنقص من المتبقي عليه.
+// الافتراضي = كامل المتبقي (تصفية)، وتقدر تكتب مبلغاً أقل (سداد جزئي).
+function recordSettlement(name) {
+  var nm = String(name == null ? '' : name).trim();
+  if (!nm) return;
+  var owed = personOwed(nm);
+  var def = owed > 0.005 ? String(Math.round(owed * 100) / 100) : '';
+  var v = prompt('كم سدّد «' + nm + '»؟\nالمتبقي عليه: ' + fmt(owed) + ' ر.س', def);
+  if (v == null) return;
+  var amt = parseFloat(v);
+  if (!amt || amt <= 0) return;
+  doSave({
+    date: today(),
+    merchant: 'سداد من ' + nm,
+    amount: amt,
+    type: 'غير محدد',
+    direction: 'credit',
+    behalf: nm,
+    bank: 'تسوية',
+    txType: 'سداد شخص'
+  });
+}
+
 // تعبئة نموذج الإدخال اليدوي من رسالة تعذّر تحليلها — يعبّي ما أمكن التقاطه
 // (التاجر/المبلغ إن وُجد) ويضع النص الكامل في الملاحظة، ثم ينتقل للنموذج.
 function manualFromSMS() {
@@ -297,7 +352,9 @@ function renderDashboard() {
       html += '<div><span>دفعت</span><b>' + fmt(p.paid) + '</b></div>';
       html += '<div><span>استرد</span><b>' + fmt(p.refunded) + '</b></div>';
       html += '<div class="behalf-owed' + cls + '"><span>المتبقي عليه</span><b>' + fmt(p.owed) + '</b></div>';
-      html += '</div></div>';
+      html += '</div>';
+      html += '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="recordSettlement(\'' + jsStr(p.name) + '\')">💵 سجّل سداد / تصفية</button></div>';
+      html += '</div>';
     });
     html += '</div></div>';
   }
