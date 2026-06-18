@@ -182,6 +182,7 @@ function importBackupFile(input) {
         localStorage.setItem('settings_v2', JSON.stringify(settings));
       }
       if (typeof refreshPeopleList === 'function') refreshPeopleList();
+      if (typeof refreshAccountsList === 'function') refreshAccountsList();
       if (typeof renderDashboard === 'function') renderDashboard();
       if (typeof renderSettings === 'function') renderSettings();
       if (s) s.innerHTML = '<div class="alert alert-green">✅ أُضيفت ' + added + ' عملية جديدة (تجاهلت ' + (imp.length - added) + ' مكررة)</div>';
@@ -212,6 +213,8 @@ async function saveEntry() {
   var behalfEl = document.getElementById('behalf-edit');
   p.note = noteEl ? noteEl.value : '';
   p.behalf = behalfEl ? behalfEl.value.trim() : '';
+  var acctEl = document.getElementById('acct-edit');
+  if (acctEl && typeof applyAccount === 'function') applyAccount(p, acctEl.value);
   p.origAmount = p.amount;
   p.type = type;
   p.amount = amt;
@@ -367,6 +370,7 @@ async function syncFromSheets() {
       expenses = json.rows;
       localStorage.setItem('expenses_v2', JSON.stringify(expenses));
       if (typeof refreshPeopleList === 'function') refreshPeopleList();
+      if (typeof refreshAccountsList === 'function') refreshAccountsList();
       if (typeof renderDashboard === 'function') renderDashboard();
       if (typeof renderHistory === 'function' && document.getElementById('sec-history').style.display !== 'none') renderHistory();
       setStatus('<div class="alert alert-green">✅ تم التحديث · ' + expenses.length + ' عملية</div>');

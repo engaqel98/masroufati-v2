@@ -44,6 +44,7 @@ function switchTab(t, el) {
 applyThemeIcon();
 document.getElementById('m-date').value = today();
 if (typeof refreshPeopleList === 'function') refreshPeopleList();
+if (typeof refreshAccountsList === 'function') refreshAccountsList();
 renderDashboard();
 document.getElementById('sec-parse').classList.add('tab-enter');
 loadDictFromSheets();

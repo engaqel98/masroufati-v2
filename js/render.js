@@ -69,9 +69,11 @@ function analyze() {
   html += '<input type="number" id="amount-edit" value="' + parsed.amount + '" step="0.01">';
   html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (isCredit ? 'مبلغ السداد: ' : 'المخصوم: ') + fmt(parsed.amount) + ' ر.س' + (isCredit ? '' : ' — عدّله لو الخصم مشترك') + '</div></div>';
   html += '<div class="field"><label>ملاحظة (اختياري)</label><input type="text" id="note-edit" placeholder="مثال: قسمتها مع فلان"></div>';
+  html += '<div class="field"><label>💳 البطاقة / الحساب</label>';
+  html += '<input type="text" id="acct-edit" list="accounts-list" value="' + htmlEsc(accountKey(parsed)) + '" placeholder="مثال: •••• 1234 أو اسم البنك">';
+  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">صحّحها لو التحليل اختار بطاقة/حساب خطأ — تُستخدم في ملخّص الوارد الشهري</div></div>';
   html += '<div class="drow"><span class="drow-key">التاريخ</span><span class="drow-val">' + parsed.date + '</span></div>';
   html += '<div class="drow"><span class="drow-key">البنك</span><span class="drow-val">' + (parsed.bank || '—') + '</span></div>';
-  if (cardStr) html += '<div class="drow"><span class="drow-key">البطاقة</span><span class="drow-val">' + cardStr + '</span></div>';
   if (parsed.method) html += '<div class="drow"><span class="drow-key">طريقة الدفع</span><span class="drow-val">' + parsed.method + '</span></div>';
   if (fxStr) html += '<div class="drow"><span class="drow-key">العملة الدولية</span><span class="drow-val">' + fxStr + '</span></div>';
   if (balStr) html += '<div class="drow"><span class="drow-key">الرصيد</span><span class="drow-val">' + balStr + '</span></div>';
@@ -191,6 +193,36 @@ function registerPerson(name) {
     localStorage.setItem('settings_v2', JSON.stringify(settings));
   }
   refreshPeopleList();
+}
+
+// ============================================================
+// البطاقة / الحساب — مفتاح موحّد + اقتراحات + تطبيق اختيار يدوي
+// ============================================================
+// مفتاح الحساب: "•••• 1234" إن وُجد رقم بطاقة، وإلا اسم البنك
+function accountKey(e) {
+  if (!e) return '';
+  if (e.card) return '•••• ' + e.card;
+  return e.bank || '';
+}
+
+// يملأ datalist الحسابات من كل البطاقات/البنوك الظاهرة في العمليات
+function refreshAccountsList() {
+  var dl = document.getElementById('accounts-list');
+  if (!dl) return;
+  var set = {};
+  expenses.forEach(function(e) { var k = accountKey(e); if (k) set[k] = true; });
+  dl.innerHTML = Object.keys(set).sort().map(function(k) {
+    return '<option value="' + htmlEsc(k) + '"></option>';
+  }).join('');
+}
+
+// يطبّق اختيار البطاقة/الحساب اليدوي على كائن العملية قبل الحفظ
+function applyAccount(p, val) {
+  val = String(val == null ? '' : val).trim();
+  if (!val) return;
+  var m = val.match(/(\d{3,4})\s*$/);            // ينتهي برقم بطاقة → بطاقة
+  if (m) { p.card = m[1]; }
+  else { p.bank = val; p.card = ''; }            // اسم بنك/حساب → بنك بدون رقم بطاقة
 }
 
 var MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -440,6 +472,29 @@ function renderHistory() {
     summary += '</div></div>';
   }
 
+  // ملخّص الوارد (سداد/إضافة) لكل بطاقة/حساب خلال الشهر المحدد — مستقل عن فلتر التصنيف
+  var inByAcct = {};
+  expenses.forEach(function(e) {
+    if (e.direction !== 'credit') return;
+    if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
+    var k = accountKey(e) || '—';
+    if (!inByAcct[k]) inByAcct[k] = { sum: 0, count: 0 };
+    inByAcct[k].sum += (e.amount || 0);
+    inByAcct[k].count++;
+  });
+  var inKeys = Object.keys(inByAcct).sort(function(a, b) { return inByAcct[b].sum - inByAcct[a].sum; });
+  var inCard = '';
+  if (inKeys.length) {
+    inCard += '<div class="card" style="margin-bottom:10px"><div class="card-body"><div class="card-title">⬇️ الوارد لكل بطاقة/حساب' + (histMonth !== 'all' ? ' · ' + ymLabel(histMonth) : '') + '</div>';
+    var inTotal = 0;
+    inKeys.forEach(function(k) {
+      inTotal += inByAcct[k].sum;
+      inCard += '<div class="settings-row"><span>' + htmlEsc(k) + ' <span style="color:var(--muted);font-size:11px">(' + inByAcct[k].count + ')</span></span><span class="settings-val" style="color:var(--green)">+ ' + fmt(inByAcct[k].sum) + ' ر.س</span></div>';
+    });
+    if (inKeys.length > 1) inCard += '<div class="settings-row" style="border-top:1px solid var(--border-soft);margin-top:6px;padding-top:8px"><span style="font-weight:700">إجمالي الوارد</span><span class="settings-val" style="color:var(--green);font-weight:800">+ ' + fmt(inTotal) + ' ر.س</span></div>';
+    inCard += '</div></div>';
+  }
+
   var rows = '';
   data.forEach(function(e) {
     var isCredit = e.direction === 'credit';
@@ -480,7 +535,7 @@ function renderHistory() {
   totalCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = monthBar + summary + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
+  el.innerHTML = monthBar + summary + inCard + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
 }
 
 // ============================================================
