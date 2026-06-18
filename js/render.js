@@ -216,6 +216,12 @@ function refreshAccountsList() {
   }).join('');
 }
 
+// قيد تسوية يدوي (سداد شخص أُدخل من زر «سجّل سداد») — يخص دفتر الذمم فقط،
+// يُخفى من العمليات العامة لكنه يبقى في فلتر «نيابة» ويُنقص المتبقي على الشخص.
+function isSettlement(e) {
+  return !!(e && e.behalf && e.direction === 'credit' && (e.txType === 'سداد شخص' || e.bank === 'تسوية'));
+}
+
 // يطبّق اختيار البطاقة/الحساب اليدوي على كائن العملية قبل الحفظ
 function applyAccount(p, val) {
   val = String(val == null ? '' : val).trim();
@@ -411,8 +417,8 @@ function renderHistory() {
     // فلتر الشهر
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return false;
     // فلتر التصنيف
-    if (histFilter === 'all') return true;
-    if (histFilter === 'behalf') return !!e.behalf;
+    if (histFilter === 'all') return !isSettlement(e);   // التسويات تخص دفتر الذمم فقط
+    if (histFilter === 'behalf') return !!e.behalf;       // عرض الدفتر: يشمل التسويات
     return e.type === histFilter && !e.behalf;
   });
   data.sort(function(a,b) {
@@ -440,17 +446,21 @@ function renderHistory() {
 
   // الصرف = مدين بدون القسط وبدون نيابة (تماشياً مع لوحة الملخّص)
   // ونحسب أيضاً مجاميع النيابة (دفعت/استرد) لعرضها تحت فلتر النيابة
-  var spendTotal = 0, loanTotal = 0, behalfPaid = 0, behalfRefund = 0;
+  var spendTotal = 0, loanTotal = 0;
   data.forEach(function(e) {
+    if (e.behalf) return;                       // النيابة مستثناة من الصرف/القسط
     var amt = e.amount || 0;
-    if (e.behalf) {
-      if (e.direction === 'credit') behalfRefund += amt;
-      else behalfPaid += amt;
-      return;
-    }
     if (e.direction === 'credit') return;
     if (e.type === 'سداد التمويل') loanTotal += amt;
     else spendTotal += amt;
+  });
+  // مجاميع دفتر الذمم للشهر المحدد — مستقلة عن الفلتر، وتشمل التسويات (حتى المخفية من العمليات)
+  var behalfPaid = 0, behalfRefund = 0;
+  expenses.forEach(function(e) {
+    if (!e.behalf) return;
+    if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
+    var amt = e.amount || 0;
+    if (e.direction === 'credit') behalfRefund += amt; else behalfPaid += amt;
   });
 
   // أحدث رصيد متاح لكل بطاقة (من كل العمليات)
