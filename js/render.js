@@ -476,6 +476,7 @@ function renderHistory() {
   var inByAcct = {};
   expenses.forEach(function(e) {
     if (e.direction !== 'credit') return;
+    if (e.behalf) return;   // تسويات/سداد الأشخاص تخص دفتر الذمم فقط — ليست دخلاً على البطاقة
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
     var k = accountKey(e) || '—';
     if (!inByAcct[k]) inByAcct[k] = { sum: 0, count: 0 };
