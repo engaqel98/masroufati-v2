@@ -347,6 +347,11 @@ html[data-theme="dark"] .behalf-tag { color: #c4b5fd; background: color-mix(in s
 .behalf-owed.owe-pos b { color: var(--hero-1); }
 html[data-theme="dark"] .behalf-owed.owe-pos b { color: #c4b5fd; }
 .behalf-owed.owe-zero b { color: var(--green); }
+.behalf-total { font-size: 12px; font-weight: 700; color: var(--muted); background: var(--bg-soft); padding: 5px 11px; border-radius: 999px; white-space: nowrap; }
+.behalf-total b { font-variant-numeric: tabular-nums; font-weight: 800; }
+.behalf-total.owe-pos b { color: var(--hero-1); }
+html[data-theme="dark"] .behalf-total.owe-pos b { color: #c4b5fd; }
+.behalf-total.owe-zero b { color: var(--green); }
 
 /* ============================================================ History action buttons */
 .hist-actions { display: flex; flex-direction: column; gap: 5px; margin-inline-start: 8px; flex-shrink: 0; }

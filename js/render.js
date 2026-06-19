@@ -380,8 +380,9 @@ function renderDashboard() {
   people.sort(function(a, b) { return b.owed - a.owed; });
 
   if (people.length) {
+    var totalOwed = people.reduce(function(s, p) { return s + p.owed; }, 0);
     html += '<div class="card stagger"><div class="card-body">';
-    html += '<div class="card-title">👥 نيابة عن آخرين</div>';
+    html += '<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>👥 نيابة عن آخرين</span><span class="behalf-total' + (totalOwed > 0.005 ? ' owe-pos' : ' owe-zero') + '">المجموع لك عند الآخرين: <b>' + fmt(totalOwed) + '</b></span></div>';
     people.forEach(function(p) {
       var cls = p.owed > 0.005 ? ' owe-pos' : ' owe-zero';
       html += '<div class="behalf-row">';
