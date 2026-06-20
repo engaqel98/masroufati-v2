@@ -1,6 +1,13 @@
 // ============================================================
 // SAVE & SYNC
 // ============================================================
+// يُلحق المفتاح السري بكل طلب للـ Web App (متى ما كان مضبوطاً في الإعدادات).
+// المفتاح يعيش في إعدادات المتصفح فقط — لا يُكتب في الكود العام.
+function appendKey(url) {
+  if (!settings.webappKey) return url;
+  return url + (url.indexOf('?') !== -1 ? '&' : '?') + 'key=' + encodeURIComponent(settings.webappKey);
+}
+
 function fmt(n) {
   return Number(n).toLocaleString('ar-SA', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
@@ -125,7 +132,7 @@ async function removeDuplicates() {
   // حذف من Sheets في الخلفية (أفضل جهد)
   if (settings.webapp) {
     Object.keys(ids).forEach(function(id) {
-      try { fetch(settings.webapp + '?action=delete&id=' + encodeURIComponent(id)); } catch (e) {}
+      try { fetch(appendKey(settings.webapp + '?action=delete&id=' + encodeURIComponent(id))); } catch (e) {}
     });
   }
 }
@@ -329,7 +336,7 @@ async function doSave(p, statusId) {
       direction: entry.direction,
       behalf: encodeURIComponent(entry.behalf)
     });
-    var resp = await fetch(settings.webapp + '?' + params.toString());
+    var resp = await fetch(appendKey(settings.webapp + '?' + params.toString()));
     var json = await resp.json();
     if (btn) btn.innerHTML = origText;
     if (json.status === 'ok') {
@@ -349,7 +356,7 @@ async function doSave(p, statusId) {
 // وقتها أبكر من غيرها في نفس اليوم.
 function sortSheetsInBackground() {
   if (!settings.webapp) return;
-  try { fetch(settings.webapp + '?action=sortrows'); } catch (e) {}
+  try { fetch(appendKey(settings.webapp + '?action=sortrows')); } catch (e) {}
 }
 
 async function syncFromSheets() {
@@ -358,7 +365,7 @@ async function syncFromSheets() {
   if (!settings.webapp) { setStatus('<div class="alert alert-red">⚠️ لم يُحدَّد Web App URL</div>'); return; }
   setStatus('<div class="alert alert-blue">⏳ جاري التحديث...</div>');
   try {
-    var resp = await fetch(settings.webapp + '?action=read');
+    var resp = await fetch(appendKey(settings.webapp + '?action=read'));
     var json = await resp.json();
     if (json.status === 'ok' && json.rows && json.rows.length > 0) {
       // احفظ حقل "نيابة" محلياً قبل الاستبدال — يبقى موجوداً حتى لو الـbackend ما يخزّنه
@@ -385,7 +392,7 @@ async function syncFromSheets() {
 async function loadDictFromSheets() {
   if (!settings.webapp) return;
   try {
-    var resp = await fetch(settings.webapp + '?action=dict');
+    var resp = await fetch(appendKey(settings.webapp + '?action=dict'));
     var json = await resp.json();
     if (json.status === 'ok' && json.dict) {
       ['أساسيات','كماليات','سداد التمويل'].forEach(function(k) {
@@ -416,7 +423,7 @@ async function deleteEntry(id) {
 
   if (!settings.webapp) return;
   try {
-    var resp = await fetch(settings.webapp + '?action=delete&id=' + encodeURIComponent(id));
+    var resp = await fetch(appendKey(settings.webapp + '?action=delete&id=' + encodeURIComponent(id)));
     var json = await resp.json();
     if (json.status !== 'ok') console.warn('Sheet delete failed:', json.message);
   } catch (e) {
@@ -491,7 +498,7 @@ async function saveEdit() {
       note: encodeURIComponent(fields.note),
       behalf: encodeURIComponent(fields.behalf)
     });
-    var resp = await fetch(settings.webapp + '?' + params.toString());
+    var resp = await fetch(appendKey(settings.webapp + '?' + params.toString()));
     var json = await resp.json();
     if (json.status === 'ok') {
       document.getElementById('edit-status').innerHTML = '<div class="alert alert-green">✅ تم التحديث في Sheets</div>';

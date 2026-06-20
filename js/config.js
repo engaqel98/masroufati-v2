@@ -1,19 +1,26 @@
 // ============================================================
 // CONFIG & STATE
 // ============================================================
-var WEBAPP_DEFAULT = 'https://script.google.com/macros/s/AKfycbzUJm5BgBNHGtoY0sbaAiSTCa2kvYLVPO8M-nYL1nJukgBqEQs4UDRjJYHFTACuq-oR/exec';
+// لا رابط افتراضي في الكود العام — كل مستخدم يضبط رابط الـ Web App الخاص به ومفتاحه
+// السري من تبويب الإعدادات (يُحفظ محلياً في settings_v2). يحمي بيانات المستخدم من أي
+// زائر للمستودع، ويسمح لكل صديق بربط شيته الخاص.
+var WEBAPP_DEFAULT = '';
 
 var expenses = JSON.parse(localStorage.getItem('expenses_v2') || '[]');
 
 var settings = JSON.parse(localStorage.getItem('settings_v2') || 'null') || {
   webapp: WEBAPP_DEFAULT,
-  sheetUrl: 'https://docs.google.com/spreadsheets/d/13yjVYW2J2mJmuZiqyX-5tehdexPke7EBN2OWpPbcOqQ/edit',
+  webappKey: '',
+  sheetUrl: '',
   total: 208500,
   payment: 7750,
   basic: 2750,
   salary: 15000,
   start: '2026-05'
 };
+
+// ضمان وجود حقل المفتاح في الإعدادات القديمة المحفوظة قبل إضافة الحماية
+if (typeof settings.webappKey !== 'string') settings.webappKey = '';
 
 // قائمة الأشخاص المسجّلين لـ"نيابة عن" — تُحفظ ضمن الإعدادات وتتوسّع تلقائياً
 // كل ما كُتب اسم جديد. (الإعدادات القديمة قد لا تحتوي الحقل، فنضمن وجوده.)

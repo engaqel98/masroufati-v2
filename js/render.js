@@ -698,6 +698,8 @@ function renderSettings() {
   html += '<div class="card"><div class="card-body">';
   html += '<div class="card-title">Google Sheets</div>';
   html += '<div class="field"><label>رابط Web App</label><input type="text" id="s-webapp" value="' + (settings.webapp||'') + '" placeholder="https://script.google.com/..."></div>';
+  html += '<div class="field"><label>المفتاح السري</label><input type="password" id="s-webappkey" value="' + (settings.webappKey||'') + '" placeholder="مفتاح الحماية (Script Property: SECRET)"></div>';
+  html += '<div style="font-size:12px;color:var(--muted);margin:-2px 0 8px">المفتاح يُحفظ في متصفحك فقط ويُرسل مع كل طلب. لازم يطابق قيمة <code>SECRET</code> في إعدادات الـ Apps Script.</div>';
   html += '<div class="field"><label>رابط الشيت</label><input type="text" id="s-sheeturl" value="' + (settings.sheetUrl||'') + '"></div>';
   html += '<div class="btn-row">';
   html += '<button class="btn btn-outline btn-sm" onclick="saveWebApp()">حفظ الروابط</button>';
@@ -768,9 +770,11 @@ function saveSettings() {
 
 function saveWebApp() {
   settings.webapp = document.getElementById('s-webapp').value.trim();
+  var keyEl = document.getElementById('s-webappkey');
+  if (keyEl) settings.webappKey = keyEl.value.trim();
   settings.sheetUrl = document.getElementById('s-sheeturl').value.trim();
   localStorage.setItem('settings_v2', JSON.stringify(settings));
-  document.getElementById('s-webapp-status').innerHTML = '<div class="alert alert-green">✅ تم حفظ الروابط</div>';
+  document.getElementById('s-webapp-status').innerHTML = '<div class="alert alert-green">✅ تم حفظ الروابط والمفتاح</div>';
 }
 
 function openSheet() {

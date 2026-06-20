@@ -27,6 +27,14 @@ function getSS() {
   return bound || SpreadsheetApp.openById(SHEET_ID);
 }
 
+// المفتاح السري للحماية — يُضبط من: Project Settings → Script Properties → SECRET
+// (لا يُكتب في الكود أبداً حتى لا يتسرّب على GitHub). لو لم يُضبط (فارغ) فالحماية معطّلة
+// للتوافق المؤقت — اضبطه فوراً ثم انشر نسخة جديدة لتفعيل الحماية.
+function getSecret() {
+  try { return PropertiesService.getScriptProperties().getProperty('SECRET') || ''; }
+  catch (e) { return ''; }
+}
+
 // لكل مفتاح JSON: قائمة بأسماء الرؤوس المقبولة (الأول = المفضّل عند إضافة عمود جديد)
 const KEY_HEADERS = {
   date:         ['التاريخ', 'date'],
@@ -87,6 +95,11 @@ function doGet(e) {
   try {
     const p = (e && e.parameter) || {};
     const action = (p.action || '').toLowerCase();
+    // بوابة الحماية: ارفض أي طلب بدون المفتاح الصحيح (متى ما كان SECRET مضبوطاً)
+    const secret = getSecret();
+    if (secret && String(p.key || '') !== secret) {
+      return jsonOut({ status: 'error', message: 'unauthorized' });
+    }
     if (action === 'read')    return jsonOut(readRows());
     if (action === 'dict')    return jsonOut(readDict());
     if (action === 'headers') return jsonOut(readHeaders());
