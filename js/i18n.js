@@ -195,23 +195,50 @@ function translateStr(s) {
   return out;
 }
 
-// يترجم شجرة DOM (نصوص + placeholder/title) مع حفظ الأصل للرجوع للعربية
-function translateTree(root) {
+// ====== الخصوصية: إخفاء كل الأرقام كـ •••• (ما عدا التواريخ/الأوقات/السنوات) ======
+function privOn() { return document.body.classList.contains('priv'); }
+function maskNumbers(s) {
+  if (!s) return s;
+  return s.replace(/[\d٠-٩]+(?:[.,٫٬][\d٠-٩]+)*/g, function (m, idx, str) {
+    var before = idx > 0 ? str.charAt(idx - 1) : '';
+    var after = str.charAt(idx + m.length) || '';
+    if (/[-:\/]/.test(before) || /[-:\/]/.test(after)) return m;   // جزء تاريخ/وقت
+    if (/^(19|20)\d{2}$/.test(m)) return m;                        // سنة (يبقى الشهر/السنة مقروءاً)
+    return '••••';
+  });
+}
+
+// تحويل نص حسب اللغة ثم الخصوصية
+function transformStr(s) {
+  var o = s;
+  if (isEN()) o = translateStr(o);
+  if (privOn()) o = maskNumbers(o);
+  return o;
+}
+
+// يطبّق الترجمة + الإخفاء على شجرة DOM، مع حفظ الأصل للرجوع
+function applyText(root) {
   if (!root) return;
-  var en = isEN();
   var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
   var n;
   while ((n = walker.nextNode())) {
-    if (n.__o == null) { if (!en) continue; n.__o = n.nodeValue; }
-    n.nodeValue = en ? translateStr(n.__o) : n.__o;
+    if (n.__o == null) n.__o = n.nodeValue;
+    n.nodeValue = transformStr(n.__o);
   }
   ['placeholder', 'title'].forEach(function (attr) {
     root.querySelectorAll('[' + attr + ']').forEach(function (el) {
       var key = '__a_' + attr;
-      if (el[key] == null) { if (!en) return; el[key] = el.getAttribute(attr); }
-      el.setAttribute(attr, en ? translateStr(el[key]) : el[key]);
+      if (el[key] == null) el[key] = el.getAttribute(attr);
+      el.setAttribute(attr, isEN() ? translateStr(el[key]) : el[key]);   // السمات: ترجمة فقط
     });
   });
+}
+var translateTree = applyText;   // توافق مع الاستدعاءات القديمة
+
+// يعيد تطبيق الترجمة/الإخفاء على كامل الواجهة (يُستدعى عند تبديل العين)
+function applyPrivacyDOM() {
+  applyText(document.querySelector('.container'));
+  applyText(document.getElementById('edit-modal'));
 }
 
 var I18N_CONTAINERS = { analyze: 'result-area', renderDashboard: 'dashboard', renderHistory: 'history-content', renderFinance: 'finance-content', renderSettings: 'settings-content' };
@@ -260,4 +287,7 @@ function toggleLang() {
 }
 
 wrapRenderers();
-window.addEventListener('load', function () { updateLangButton(); if (isEN()) applyLang(); });
+window.addEventListener('load', function () {
+  updateLangButton();
+  if (isEN()) applyLang(); else applyPrivacyDOM();   // طبّق الإخفاء/الترجمة على ما رُسم
+});

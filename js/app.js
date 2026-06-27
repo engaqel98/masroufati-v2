@@ -61,6 +61,7 @@ function applyPrivacyIcon() {
 function togglePrivacy() {
   document.body.classList.toggle('priv');
   applyPrivacyIcon();
+  if (typeof applyPrivacyDOM === 'function') applyPrivacyDOM();   // أخفِ/أظهر الأرقام فوراً
 }
 
 // ============================================================

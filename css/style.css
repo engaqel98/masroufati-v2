@@ -470,23 +470,10 @@ html[data-theme="dark"] .bottomnav-inner { box-shadow: 0 16px 40px -14px rgba(0,
 .navbtn.fab svg { width: 26px; height: 26px; }
 .navbtn.fab:active { transform: scale(.9) rotate(90deg); }
 
-/* Privacy — blur sensitive amounts when body.priv (hidden by default on load) */
-body.priv .amount-num,
-body.priv .hero-amount,
-body.priv .hero-stat-val,
-body.priv .hist-amt,
-body.priv .legend-val,
-body.priv .legend-pct,
-body.priv .settings-val,
-body.priv .metric-val,
-body.priv .behalf-owed,
-body.priv .behalf-total,
-body.priv .behalf-stats b,
-body.priv .priv-num {
-  filter: blur(8px); transition: filter .25s ease; user-select: none; cursor: default;
-}
-.amount-num, .hero-amount, .hero-stat-val, .hist-amt, .legend-val, .legend-pct,
-.settings-val, .metric-val, .behalf-owed, .behalf-total { transition: filter .25s ease; }
+/* Privacy — number text is masked to •••• in JS (i18n.js). Number inputs are
+   blurred (so their values hide too); they un-blur on focus for editing. */
+body.priv input[type="number"] { filter: blur(7px); transition: filter .2s ease; }
+body.priv input[type="number"]:focus { filter: none; }
 .icon-btn.lng { font-size: 13px; font-weight: 700; width: auto; min-width: 38px; padding: 0 11px; }
 
 /* ============================================================
