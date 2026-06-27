@@ -40,22 +40,27 @@ function analyze() {
   html += '<div class="card-body">';
 
   // === مطابقة الرصيد: قارن الرصيد المتوقّع بالفعلي للكشف عن عمليات/استردادات غير مُسجَّلة ===
+  window._recon = null;
   if (parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
-    var prevE = lastBalanceFor(accountKey(parsed));
+    var acctK = accountKey(parsed);
+    var prevE = lastBalanceFor(acctK);
     if (prevE && (parsed.date || '') >= (prevE.date || '')) {
       var prevBal = parseFloat(prevE.balance);
       var newBal = parseFloat(parsed.balance);
-      var expected = prevBal + (isCredit ? parsed.amount : -parsed.amount);
+      // المتوقّع = رصيد آخر مرساة + الحركات المسجّلة بعدها (بلا رصيد) + حركة هذه العملية
+      var expected = prevBal + signedSinceAnchor(acctK, prevE) + (isCredit ? parsed.amount : -parsed.amount);
       var diff = newBal - expected;
       if (Math.abs(diff) > 0.01) {
         var up = diff > 0;
-        html += '<div class="alert ' + (up ? 'alert-green' : 'alert-yellow') + '" style="margin-bottom:8px">'
+        window._recon = { diff: diff, up: up, date: parsed.date, card: parsed.card || '', bank: parsed.bank || '' };
+        html += '<div class="alert ' + (up ? 'alert-green' : 'alert-yellow') + '" id="recon-alert" style="margin-bottom:8px">'
           + (up ? '💡' : '⚠️') + ' <b>تنبيه مطابقة الرصيد</b><br>'
           + 'الرصيد السابق لهذه البطاقة: ' + fmt(prevBal) + ' ر.س<br>'
           + 'المتوقّع بعد هذه العملية: ' + fmt(expected) + ' ر.س · الفعلي: ' + fmt(newBal) + ' ر.س<br>'
           + '<b>فرق ' + fmt(Math.abs(diff)) + ' ر.س ' + (up ? 'زيادة' : 'نقص') + ' غير مُسجَّل</b> — '
           + (up ? 'غالباً صار استرداد/إيداع لم تُسجَّله.' : 'غالباً صار خصم/عملية لم تُسجَّلها.')
-          + '<br><span style="font-size:11px;color:var(--muted)">يمكنك الحفظ عادي — هذا تنبيه فقط لمراجعة عملياتك.</span>'
+          + '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="confirmReconGap()">💵 سجّل الفرق المفقود</button></div>'
+          + '<span style="font-size:11px;color:var(--muted)">يمكنك الحفظ عادي — هذا تنبيه فقط لمراجعة عملياتك.</span>'
           + '</div>';
       } else {
         html += '<div class="alert alert-green" style="margin-bottom:8px;font-size:12px">✅ الرصيد مطابق للمتوقّع (لا عمليات مفقودة على هذه البطاقة).</div>';
@@ -243,6 +248,97 @@ function lastBalanceFor(acctKey) {
     if (newer) best = e;
   });
   return best;
+}
+
+// هل العملية e بعد المرساة anchor زمنياً؟
+function isAfter(e, anchor) {
+  var de = e.date || '', da = anchor.date || '';
+  if (de !== da) return de > da;
+  var te = fmtTime(e.time), ta = fmtTime(anchor.time);
+  if (te !== ta) return te > ta;
+  return (Number(e.id) || 0) > (Number(anchor.id) || 0);
+}
+
+// مجموع المبالغ الموقّعة (إضافة + / خصم −) للعمليات المسجّلة لحساب بعد مرساة معيّنة
+// — لإغلاق سلسلة الرصيد عند وجود حركات مسجّلة بلا رصيد بينها.
+function signedSinceAnchor(acctKey, anchor) {
+  var sum = 0;
+  expenses.forEach(function(e) {
+    if (accountKey(e) !== acctKey) return;
+    if (!isAfter(e, anchor)) return;
+    sum += (e.direction === 'credit' ? (e.amount || 0) : -(e.amount || 0));
+  });
+  return sum;
+}
+
+// كشف فجوات الرصيد عبر كل العمليات: لكل حساب نمشي زمنياً، ونقارن كل رصيد فعلي
+// بالمتوقّع (رصيد آخر مرساة + مجموع الحركات بينهما). أي فرق = عملية/استرداد غير مُسجَّل.
+function detectBalanceGaps(limit) {
+  var byAcct = {};
+  expenses.forEach(function(e) {
+    var k = accountKey(e);
+    if (!k) return;
+    (byAcct[k] = byAcct[k] || []).push(e);
+  });
+  var gaps = [];
+  Object.keys(byAcct).forEach(function(k) {
+    var arr = byAcct[k].slice().sort(function(a, b) {
+      var da = a.date || '', db = b.date || '';
+      if (da !== db) return da < db ? -1 : 1;
+      var ta = fmtTime(a.time), tb = fmtTime(b.time);
+      if (ta !== tb) return ta < tb ? -1 : 1;
+      return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
+    var anchor = null, acc = 0;
+    arr.forEach(function(e) {
+      var signed = (e.direction === 'credit' ? (e.amount || 0) : -(e.amount || 0));
+      var hasBal = !(e.balance === '' || e.balance == null || isNaN(parseFloat(e.balance)));
+      if (hasBal) {
+        if (anchor) {
+          var expected = parseFloat(anchor.balance) + acc + signed;
+          var diff = parseFloat(e.balance) - expected;
+          if (Math.abs(diff) > 0.01) {
+            gaps.push({ acct: k, diff: diff, up: diff > 0, date: e.date, merchant: e.merchant,
+              card: e.card || '', bank: e.bank || '', expected: expected, curBal: parseFloat(e.balance) });
+          }
+        }
+        anchor = e; acc = 0;
+      } else {
+        acc += signed;
+      }
+    });
+  });
+  gaps.sort(function(a, b) { return (a.date || '') < (b.date || '') ? 1 : -1; });   // الأحدث أولاً
+  return limit ? gaps.slice(0, limit) : gaps;
+}
+
+// تسجيل عملية "تسوية فرق رصيد" لإغلاق فجوة (بلا رصيد حتى تُحتسب في السلسلة)
+function recordGapEntry(up, amt, date, card, bank, rerender) {
+  amt = Math.round(Math.abs(amt) * 100) / 100;
+  if (!amt) return;
+  doSave({
+    date: date || today(),
+    merchant: up ? 'استرداد/إيداع غير مسجّل' : 'خصم غير مسجّل',
+    amount: amt,
+    type: up ? 'إضافة' : 'غير محدد',
+    direction: up ? 'credit' : 'debit',
+    card: card || '',
+    bank: bank || '',
+    note: 'تسوية فرق رصيد',
+    txType: 'تسوية رصيد'
+  });
+  if (rerender === 'history' && typeof renderHistory === 'function') renderHistory();
+}
+
+// زر التسوية داخل تنبيه التحليل
+function confirmReconGap() {
+  var r = window._recon;
+  if (!r) return;
+  var amt = Math.round(Math.abs(r.diff) * 100) / 100;
+  if (!confirm('تسجيل عملية ' + (r.up ? 'استرداد/إيداع' : 'خصم') + ' بقيمة ' + fmt(amt) + ' ر.س لتوثيق فرق الرصيد؟')) return;
+  recordGapEntry(r.up, r.diff, r.date, r.card, r.bank);
+  var b = document.getElementById('recon-alert');
+  if (b) b.innerHTML = '✅ سُجّلت تسوية الفرق (' + fmt(amt) + ' ر.س). أكمل حفظ العملية الحالية لإغلاق السلسلة.';
 }
 
 // يملأ datalist الحسابات من كل البطاقات/البنوك الظاهرة في العمليات
@@ -569,8 +665,29 @@ function renderHistory() {
 
   var filterBars = searchBar + dayBar + monthBar + personBar;
 
+  // بطاقة فجوات الرصيد — تظهر في عرض "الكل" فقط عند وجود فجوات
+  var gapsCard = '';
+  if (histFilter === 'all') {
+    var gaps = detectBalanceGaps();
+    if (gaps.length) {
+      var show = gaps.slice(0, 10);
+      gapsCard = '<div class="card" style="margin-bottom:10px"><div class="card-body">';
+      gapsCard += '<div class="card-title">🔎 فجوات الرصيد المكتشفة (' + gaps.length + ')</div>';
+      gapsCard += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">فرق بين الرصيد الفعلي والمتوقّع — غالباً عمليات/استردادات لم تُسجَّل. سجّلها لإغلاق الفجوة.</div>';
+      show.forEach(function(g) {
+        gapsCard += '<div class="settings-row" style="flex-wrap:wrap;gap:6px;align-items:center">';
+        gapsCard += '<span style="flex:1;min-width:140px">' + htmlEsc(g.acct) + ' · ' + g.date + '<br><span style="font-size:11px;color:var(--muted)">المتوقّع ' + fmt(g.expected) + ' · الفعلي ' + fmt(g.curBal) + '</span></span>';
+        gapsCard += '<span style="font-weight:700;color:' + (g.up ? 'var(--green)' : '#d9822b') + '">' + (g.up ? '+ ' : '− ') + fmt(Math.abs(g.diff)) + ' ر.س</span>';
+        gapsCard += '<button class="btn btn-outline btn-sm" onclick="recordGapEntry(' + (g.up ? 'true' : 'false') + ',' + Math.abs(g.diff) + ',\'' + g.date + '\',\'' + jsStr(g.card) + '\',\'' + jsStr(g.bank) + '\',\'history\')">💵 سجّل</button>';
+        gapsCard += '</div>';
+      });
+      if (gaps.length > show.length) gapsCard += '<div style="font-size:11px;color:var(--muted);margin-top:6px">+ ' + (gaps.length - show.length) + ' فجوة أخرى…</div>';
+      gapsCard += '</div></div>';
+    }
+  }
+
   if (!data.length) {
-    el.innerHTML = filterBars + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histDay ? ' بتاريخ ' + htmlEsc(histDay) : (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '')) + (histSearch ? ' مطابقة لـ «' + htmlEsc(histSearch) + '»' : '') + '</div></div>';
+    el.innerHTML = filterBars + gapsCard + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histDay ? ' بتاريخ ' + htmlEsc(histDay) : (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '')) + (histSearch ? ' مطابقة لـ «' + htmlEsc(histSearch) + '»' : '') + '</div></div>';
     return;
   }
 
@@ -686,7 +803,7 @@ function renderHistory() {
   totalCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = filterBars + summary + inCard + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
+  el.innerHTML = filterBars + gapsCard + summary + inCard + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
 }
 
 // ============================================================
