@@ -582,8 +582,36 @@ function filterHist(type, el) {
   renderHistory();
 }
 
+// تبويب فجوات الرصيد — قائمة الفروقات بين الرصيد الفعلي والمتوقّع لكل بطاقة
+function renderGapsTab(el) {
+  var gaps = detectBalanceGaps();
+  if (!gaps.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">لا توجد فجوات — كل الأرصدة مطابقة للمتوقّع.</div></div>';
+    return;
+  }
+  var net = gaps.reduce(function(s, g) { return s + g.diff; }, 0);
+  var html = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
+  html += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + gaps.length + ' فجوة مكتشفة</span><span style="font-weight:700;color:' + (net >= 0 ? 'var(--green)' : '#d9822b') + '">' + (net >= 0 ? '+ ' : '− ') + fmt(Math.abs(net)) + ' ر.س صافي</span></div>';
+  html += '<div style="font-size:11.5px;color:var(--muted);margin-top:6px">فرق بين الرصيد الفعلي والمتوقّع — غالباً عمليات/استردادات لم تُسجَّل. سجّلها لإغلاق الفجوة.</div>';
+  html += '</div></div>';
+
+  html += '<div class="card"><div class="card-body">';
+  gaps.forEach(function(g) {
+    html += '<div class="settings-row" style="flex-wrap:wrap;gap:6px;align-items:center">';
+    html += '<span style="flex:1;min-width:140px">' + htmlEsc(g.acct) + ' · ' + g.date + '<br><span style="font-size:11px;color:var(--muted)">المتوقّع ' + fmt(g.expected) + ' · الفعلي ' + fmt(g.curBal) + '</span></span>';
+    html += '<span style="font-weight:700;color:' + (g.up ? 'var(--green)' : '#d9822b') + '">' + (g.up ? '+ ' : '− ') + fmt(Math.abs(g.diff)) + ' ر.س</span>';
+    html += '<button class="btn btn-outline btn-sm" onclick="recordGapEntry(' + (g.up ? 'true' : 'false') + ',' + Math.abs(g.diff) + ',\'' + g.date + '\',\'' + jsStr(g.card) + '\',\'' + jsStr(g.bank) + '\',\'history\')">💵 سجّل</button>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
 function renderHistory() {
   var el = document.getElementById('history-content');
+
+  // تبويب مستقل: فجوات الرصيد (مستقل عن فلاتر الشهر/البحث)
+  if (histFilter === 'gaps') { renderGapsTab(el); return; }
 
   // أشخاص "نيابة عن" ضمن نطاق الشهر المحدد — لبناء فلتر الاسم في عرض الدفتر
   var behalfPeople = {};
@@ -665,29 +693,8 @@ function renderHistory() {
 
   var filterBars = searchBar + dayBar + monthBar + personBar;
 
-  // بطاقة فجوات الرصيد — تظهر في عرض "الكل" فقط عند وجود فجوات
-  var gapsCard = '';
-  if (histFilter === 'all') {
-    var gaps = detectBalanceGaps();
-    if (gaps.length) {
-      var show = gaps.slice(0, 10);
-      gapsCard = '<div class="card" style="margin-bottom:10px"><div class="card-body">';
-      gapsCard += '<div class="card-title">🔎 فجوات الرصيد المكتشفة (' + gaps.length + ')</div>';
-      gapsCard += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">فرق بين الرصيد الفعلي والمتوقّع — غالباً عمليات/استردادات لم تُسجَّل. سجّلها لإغلاق الفجوة.</div>';
-      show.forEach(function(g) {
-        gapsCard += '<div class="settings-row" style="flex-wrap:wrap;gap:6px;align-items:center">';
-        gapsCard += '<span style="flex:1;min-width:140px">' + htmlEsc(g.acct) + ' · ' + g.date + '<br><span style="font-size:11px;color:var(--muted)">المتوقّع ' + fmt(g.expected) + ' · الفعلي ' + fmt(g.curBal) + '</span></span>';
-        gapsCard += '<span style="font-weight:700;color:' + (g.up ? 'var(--green)' : '#d9822b') + '">' + (g.up ? '+ ' : '− ') + fmt(Math.abs(g.diff)) + ' ر.س</span>';
-        gapsCard += '<button class="btn btn-outline btn-sm" onclick="recordGapEntry(' + (g.up ? 'true' : 'false') + ',' + Math.abs(g.diff) + ',\'' + g.date + '\',\'' + jsStr(g.card) + '\',\'' + jsStr(g.bank) + '\',\'history\')">💵 سجّل</button>';
-        gapsCard += '</div>';
-      });
-      if (gaps.length > show.length) gapsCard += '<div style="font-size:11px;color:var(--muted);margin-top:6px">+ ' + (gaps.length - show.length) + ' فجوة أخرى…</div>';
-      gapsCard += '</div></div>';
-    }
-  }
-
   if (!data.length) {
-    el.innerHTML = filterBars + gapsCard + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histDay ? ' بتاريخ ' + htmlEsc(histDay) : (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '')) + (histSearch ? ' مطابقة لـ «' + htmlEsc(histSearch) + '»' : '') + '</div></div>';
+    el.innerHTML = filterBars + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histDay ? ' بتاريخ ' + htmlEsc(histDay) : (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '')) + (histSearch ? ' مطابقة لـ «' + htmlEsc(histSearch) + '»' : '') + '</div></div>';
     return;
   }
 
@@ -813,7 +820,7 @@ function renderHistory() {
   totalCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = filterBars + gapsCard + summary + inCard + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
+  el.innerHTML = filterBars + summary + inCard + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
 }
 
 // ============================================================
