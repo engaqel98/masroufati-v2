@@ -236,6 +236,7 @@ var MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو
 // حالة الفلتر للشهر — افتراضي: الشهر الحالي للوحة، "all" للسجل
 var dashMonth = today().substring(0, 7);
 var histMonth = 'all';
+var histPerson = 'all';   // فلتر الشخص داخل عرض "نيابة عن"
 
 function ymLabel(ym) {
   if (ym === 'all') return 'كل الأشهر';
@@ -266,6 +267,11 @@ function navDash(delta) {
 
 function setHistMonth(ym) {
   histMonth = ym || 'all';
+  renderHistory();
+}
+
+function setHistPerson(name) {
+  histPerson = name || 'all';
   renderHistory();
 }
 
@@ -407,6 +413,7 @@ function renderDashboard() {
 // ============================================================
 function filterHist(type, el) {
   histFilter = type;
+  if (type !== 'behalf') histPerson = 'all';   // فلتر الشخص يخص عرض النيابة فقط
   document.querySelectorAll('.filt-btn').forEach(function(b) { b.classList.remove('active'); });
   el.classList.add('active');
   renderHistory();
@@ -414,12 +421,35 @@ function filterHist(type, el) {
 
 function renderHistory() {
   var el = document.getElementById('history-content');
+
+  // أشخاص "نيابة عن" ضمن نطاق الشهر المحدد — لبناء فلتر الاسم في عرض الدفتر
+  var behalfPeople = {};
+  expenses.forEach(function(e) {
+    if (!e.behalf) return;
+    if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
+    var nm = String(e.behalf).trim();
+    if (!nm) return;
+    if (!behalfPeople[nm]) behalfPeople[nm] = { paid: 0, refunded: 0, count: 0 };
+    var amt = e.amount || 0;
+    if (e.direction === 'credit') behalfPeople[nm].refunded += amt; else behalfPeople[nm].paid += amt;
+    behalfPeople[nm].count++;
+  });
+  var behalfNames = Object.keys(behalfPeople).sort(function(a, b) {
+    return (behalfPeople[b].paid - behalfPeople[b].refunded) - (behalfPeople[a].paid - behalfPeople[a].refunded);
+  });
+  // لو الشخص المختار لم يعد ضمن النطاق (تغيّر الشهر مثلاً) نرجع لـ"الكل"
+  if (histPerson !== 'all' && behalfNames.indexOf(histPerson) < 0) histPerson = 'all';
+
   var data = expenses.filter(function(e) {
     // فلتر الشهر
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return false;
     // فلتر التصنيف
     if (histFilter === 'all') return !isSettlement(e);   // التسويات تخص دفتر الذمم فقط
-    if (histFilter === 'behalf') return !!e.behalf;       // عرض الدفتر: يشمل التسويات
+    if (histFilter === 'behalf') {                        // عرض الدفتر: يشمل التسويات
+      if (!e.behalf) return false;
+      if (histPerson !== 'all' && String(e.behalf).trim() !== histPerson) return false;
+      return true;
+    }
     return e.type === histFilter && !e.behalf;
   });
   data.sort(function(a,b) {
@@ -440,8 +470,23 @@ function renderHistory() {
   });
   monthBar += '</select></div>';
 
+  // شريط فلتر الشخص — يظهر فقط في عرض "نيابة عن"، ويسرد أسماء أصحاب العمليات بالنيابة في الشهر المحدد
+  var personBar = '';
+  if (histFilter === 'behalf' && behalfNames.length) {
+    personBar = '<div class="hist-month-bar"><label for="hist-person-sel">👤 الشخص</label>'
+      + '<select id="hist-person-sel" onchange="setHistPerson(this.value)">'
+      + '<option value="all"' + (histPerson === 'all' ? ' selected' : '') + '>كل الأشخاص</option>';
+    behalfNames.forEach(function(nm) {
+      var pnet = behalfPeople[nm].paid - behalfPeople[nm].refunded;
+      personBar += '<option value="' + htmlEsc(nm) + '"' + (histPerson === nm ? ' selected' : '') + '>'
+        + htmlEsc(nm) + ' · ' + fmt(pnet) + ' ر.س</option>';
+    });
+    personBar += '</select></div>';
+  }
+  var filterBars = monthBar + personBar;
+
   if (!data.length) {
-    el.innerHTML = monthBar + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '') + '</div></div>';
+    el.innerHTML = filterBars + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '') + '</div></div>';
     return;
   }
 
@@ -460,6 +505,7 @@ function renderHistory() {
   expenses.forEach(function(e) {
     if (!e.behalf) return;
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
+    if (histPerson !== 'all' && String(e.behalf).trim() !== histPerson) return;   // عند اختيار شخص: المجاميع تخصّه فقط
     var amt = e.amount || 0;
     if (e.direction === 'credit') behalfRefund += amt; else behalfPaid += amt;
   });
@@ -536,9 +582,11 @@ function renderHistory() {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · سداد التمويل</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
   } else if (histFilter === 'behalf') {
     var net = behalfPaid - behalfRefund;
-    totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · دفعت نيابة</span><span style="font-weight:700;color:var(--hero-1)">' + fmt(behalfPaid) + ' ر.س</span></div>';
+    var onePerson = histPerson !== 'all';
+    totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · دفعت نيابة' + (onePerson ? ' عن ' + htmlEsc(histPerson) : '') + '</span><span style="font-weight:700;color:var(--hero-1)">' + fmt(behalfPaid) + ' ر.س</span></div>';
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">استرد</span><span style="font-weight:700;color:var(--green)">' + fmt(behalfRefund) + ' ر.س</span></div>';
-    totalCard += '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="font-weight:700">المتبقي على الآخرين</span><span style="font-weight:800;color:' + (net > 0.005 ? 'var(--hero-1)' : 'var(--green)') + '">' + fmt(net) + ' ر.س</span></div>';
+    totalCard += '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="font-weight:700">' + (onePerson ? 'المتبقي عليه' : 'المتبقي على الآخرين') + '</span><span style="font-weight:800;color:' + (net > 0.005 ? 'var(--hero-1)' : 'var(--green)') + '">' + fmt(net) + ' ر.س</span></div>';
+    if (onePerson) totalCard += '<div class="btn-row" style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="recordSettlement(\'' + jsStr(histPerson) + '\')">💵 سجّل سداد / تصفية</button></div>';
   } else {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · الصرف</span><span style="font-weight:700">' + fmt(spendTotal) + ' ر.س</span></div>';
     if (loanTotal > 0) totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">سداد التمويل (منفصل)</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
@@ -547,7 +595,7 @@ function renderHistory() {
   totalCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = monthBar + summary + inCard + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
+  el.innerHTML = filterBars + summary + inCard + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
 }
 
 // ============================================================
