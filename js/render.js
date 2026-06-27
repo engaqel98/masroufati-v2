@@ -477,6 +477,7 @@ function renderHistory() {
     if (!histMatch(e)) return false;
     // فلتر التصنيف
     if (histFilter === 'all') return !isSettlement(e);   // التسويات تخص دفتر الذمم فقط
+    if (histFilter === 'incoming') return e.direction === 'credit' && !e.behalf;   // الوارد للرصيد (سداد بطاقات/حوالات واردة)
     if (histFilter === 'behalf') {                        // عرض الدفتر: يشمل التسويات
       if (!e.behalf) return false;
       if (histPerson !== 'all' && String(e.behalf).trim() !== histPerson) return false;
@@ -626,6 +627,10 @@ function renderHistory() {
   var totalCard = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
   if (histFilter === 'سداد التمويل') {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · سداد التمويل</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
+  } else if (histFilter === 'incoming') {
+    var incTotal = 0;
+    data.forEach(function(e) { incTotal += (e.amount || 0); });
+    totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · وارد للرصيد</span><span style="font-weight:700;color:var(--green)">+ ' + fmt(incTotal) + ' ر.س</span></div>';
   } else if (histFilter === 'behalf') {
     var net = behalfPaid - behalfRefund;
     var onePerson = histPerson !== 'all';
