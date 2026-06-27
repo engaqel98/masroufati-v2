@@ -39,6 +39,30 @@ function analyze() {
 
   html += '<div class="card-body">';
 
+  // === مطابقة الرصيد: قارن الرصيد المتوقّع بالفعلي للكشف عن عمليات/استردادات غير مُسجَّلة ===
+  if (parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
+    var prevE = lastBalanceFor(accountKey(parsed));
+    if (prevE && (parsed.date || '') >= (prevE.date || '')) {
+      var prevBal = parseFloat(prevE.balance);
+      var newBal = parseFloat(parsed.balance);
+      var expected = prevBal + (isCredit ? parsed.amount : -parsed.amount);
+      var diff = newBal - expected;
+      if (Math.abs(diff) > 0.01) {
+        var up = diff > 0;
+        html += '<div class="alert ' + (up ? 'alert-green' : 'alert-yellow') + '" style="margin-bottom:8px">'
+          + (up ? '💡' : '⚠️') + ' <b>تنبيه مطابقة الرصيد</b><br>'
+          + 'الرصيد السابق لهذه البطاقة: ' + fmt(prevBal) + ' ر.س<br>'
+          + 'المتوقّع بعد هذه العملية: ' + fmt(expected) + ' ر.س · الفعلي: ' + fmt(newBal) + ' ر.س<br>'
+          + '<b>فرق ' + fmt(Math.abs(diff)) + ' ر.س ' + (up ? 'زيادة' : 'نقص') + ' غير مُسجَّل</b> — '
+          + (up ? 'غالباً صار استرداد/إيداع لم تُسجَّله.' : 'غالباً صار خصم/عملية لم تُسجَّلها.')
+          + '<br><span style="font-size:11px;color:var(--muted)">يمكنك الحفظ عادي — هذا تنبيه فقط لمراجعة عملياتك.</span>'
+          + '</div>';
+      } else {
+        html += '<div class="alert alert-green" style="margin-bottom:8px;font-size:12px">✅ الرصيد مطابق للمتوقّع (لا عمليات مفقودة على هذه البطاقة).</div>';
+      }
+    }
+  }
+
   // === الأعلى: التصنيف + الحفظ (بدون سكرول) ===
   if (!isCredit) {
     html += '<div class="field"><label>التصنيف</label>';
@@ -203,6 +227,22 @@ function accountKey(e) {
   if (!e) return '';
   if (e.card) return '•••• ' + e.card;
   return e.bank || '';
+}
+
+// أحدث عملية مسجَّلة لنفس البطاقة/الحساب فيها رصيد رقمي — لمطابقة الرصيد
+function lastBalanceFor(acctKey) {
+  if (!acctKey) return null;
+  var best = null;
+  expenses.forEach(function(e) {
+    if (e.balance === '' || e.balance == null || isNaN(parseFloat(e.balance))) return;
+    if (accountKey(e) !== acctKey) return;
+    var newer = !best
+      || (e.date || '') > (best.date || '')
+      || ((e.date || '') === (best.date || '') && fmtTime(e.time) > fmtTime(best.time))
+      || ((e.date || '') === (best.date || '') && fmtTime(e.time) === fmtTime(best.time) && (Number(e.id) || 0) > (Number(best.id) || 0));
+    if (newer) best = e;
+  });
+  return best;
 }
 
 // يملأ datalist الحسابات من كل البطاقات/البنوك الظاهرة في العمليات

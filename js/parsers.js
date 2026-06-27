@@ -150,6 +150,8 @@ function parseAHLI(txt) {
 
 function parseSAB(txt) {
   var isIncoming = /إيداع حوالة|حوالة واردة|واردة/.test(txt);
+  // استرداد/مرتجع: «تم استرداد مبلغ ... من <التاجر> إلى بطاقة ...»
+  var isRefund = /استرداد|استرجاع|مرتجع|refund|reversal/i.test(txt);
   // معاملة دولية: تُكتشف عبر "نقاط البيع الدولي" أو "سعر الصرف" أو وجود عملة أجنبية
   var fxCur = null, fxAmount = null, fxRate = null;
   var curMatch = txt.match(/بمبلغ\s+([A-Z]{3})\s*([\d,]+\.?\d*)/);
@@ -177,7 +179,11 @@ function parseSAB(txt) {
   if (!amount) return null;
 
   var merchant = 'غير محدد';
-  if (isIncoming) {
+  if (isRefund) {
+    // التاجر بين "من" و "إلى/الى" (إلى البطاقة)؛ وإلا أول كلمة بعد "من"
+    m = txt.match(/من\s+(.+?)\s+(?:إلى|الى)\s/) || txt.match(/من\s+([^\n\r،,]{2,40})/);
+    if (m) merchant = m[1].trim();
+  } else if (isIncoming) {
     m = txt.match(/من\s*:\s*([^\n\r،,]{3,40})/i);
     if (m) merchant = m[1].trim();
   } else {
@@ -227,7 +233,7 @@ function extractAmountSmart(txt) {
 
 function extractMerchant(txt, direction) {
   var m, pats;
-  function clean(s) { return s.split(/\s{2,}|في:|تاريخ|الرصيد|رقم|عبر|من خلال/)[0].trim(); }
+  function clean(s) { return s.split(/\s{2,}|في:|تاريخ|الرصيد|رقم|عبر|من خلال|إلى|الى/)[0].trim(); }
   if (direction === 'credit') {
     // وارد: المرسِل بعد "من / مرسل / المرسل / من حساب"
     pats = [/(?:من|مرسل|المرسل)\s*:?\s*([^\n\r،,]{3,40})/, /من\s+حساب\s*:?\s*([^\n\r،,]{3,40})/, /received from\s+([^\n\r،,]{3,40})/i];
