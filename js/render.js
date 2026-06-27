@@ -1035,20 +1035,7 @@ function renderFinance() {
 
   var html = '';
 
-  html += finHeroHtml();   // بطل التمويل في المقدّمة (كالمعاينة)
-
-  // بطاقة التقدم
-  html += '<div class="card"><div class="card-body">';
-  html += '<div class="card-title">تقدم السداد</div>';
-  html += '<div class="metrics">';
-  html += '<div class="metric"><div class="metric-label">المبلغ الأصلي</div><div class="metric-val">' + fmtInt(total) + ' <span class="metric-unit">ر.س</span></div></div>';
-  html += '<div class="metric"><div class="metric-label">المتبقي</div><div class="metric-val" style="color:' + (remaining>0?'var(--red-text)':'var(--green)') + '">' + fmtInt(remaining) + ' <span class="metric-unit">ر.س</span></div></div>';
-  html += '</div>';
-  html += '<div class="progress-wrap">';
-  html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px"><span>الشهر ' + monthNum + ' من 24</span><span>' + progress + '%</span></div>';
-  html += '<div class="progress-track"><div class="progress-fill ' + progClass + '" style="width:' + progress + '%"></div></div>';
-  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">متبقي ' + monthsLeft + ' شهر · ينتهي ' + endLabel + '</div>';
-  html += '</div></div></div>';
+  html += finHeroHtml();   // بطل التمويل في المقدّمة (يغني عن بطاقة "تقدم السداد")
 
 
   // بطاقة الشهر الحالي
