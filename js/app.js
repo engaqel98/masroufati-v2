@@ -41,21 +41,28 @@ function switchTab(t, el) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// زر + : ينتقل لتبويب التحليل ويركّز على مربع الرسالة
-function quickAnalyze() {
-  switchTab('parse');
+// زر + : يفتح ورقة التحليل السفلية
+function openAddSheet() {
+  document.getElementById('add-backdrop').classList.add('on');
+  document.getElementById('add-sheet').classList.add('on');
   var ta = document.getElementById('sms-input');
   if (ta) { try { ta.focus(); } catch (e) {} }
+}
+function closeAddSheet() {
+  document.getElementById('add-backdrop').classList.remove('on');
+  document.getElementById('add-sheet').classList.remove('on');
 }
 
 // ============================================================
 // PRIVACY — إخفاء الأرقام (الافتراضي: مخفية عند كل فتح)
 // ============================================================
+var EYE_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7c2 0 3.7.6 5.2 1.5M22 12s-3.5 7-10 7c-2 0-3.7-.6-5.2-1.5"/><path d="M9.5 9.5a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
 function applyPrivacyIcon() {
   var btn = document.getElementById('eye-btn');
   if (!btn) return;
   var hidden = document.body.classList.contains('priv');
-  btn.textContent = hidden ? '👁️' : '🙈';
+  btn.innerHTML = hidden ? EYE_OPEN : EYE_OFF;
   btn.title = hidden ? 'إظهار الأرقام' : 'إخفاء الأرقام';
 }
 function togglePrivacy() {
@@ -84,7 +91,11 @@ if (settings.webapp) syncFromSheets();
     var sms = new URLSearchParams(location.search).get('sms');
     if (!sms) return;
     var ta = document.getElementById('sms-input');
-    if (ta) { ta.value = sms; if (typeof analyze === 'function') analyze(); }
+    if (ta) {
+      ta.value = sms;
+      if (typeof openAddSheet === 'function') openAddSheet();
+      if (typeof analyze === 'function') analyze();
+    }
     if (history.replaceState) history.replaceState(null, '', location.pathname);
   } catch (e) {}
 })();

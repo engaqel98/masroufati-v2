@@ -603,3 +603,62 @@ body.priv input[type="number"]:focus { filter: none; }
 .res2 .res-tag { display: inline-flex; align-items: center; gap: 6px; margin-top: 11px; font-size: 12px; font-weight: 700;
   padding: 6px 13px; border-radius: 999px; }
 .res2 .res-body { padding: 16px; }
+
+/* ============================================================
+   تصميم ٢ — M4 (dashboard spend/stats/recent · history title/chips · add sheet)
+   ============================================================ */
+/* Page title for tabs */
+.page-title { font-size: 21px; font-weight: 800; letter-spacing: -.4px; margin: 6px 2px 12px; }
+
+/* Spend-of-month card */
+.spend2 { display: flex; align-items: center; gap: 16px; }
+.donut2 { position: relative; width: 104px; height: 104px; flex: none; }
+.donut2-mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.donut2-mid b { font-size: 20px; font-weight: 800; }
+.donut2-mid span { font-size: 10px; color: var(--muted); display: block; margin-top: -2px; }
+.spend2-info { flex: 1; min-width: 0; }
+.spend2-lbl { font-size: 12px; color: var(--muted); }
+.spend2-amt { font-size: 30px; font-weight: 800; letter-spacing: -1px; margin-top: 2px; }
+.spend2-amt .cur { font-size: 14px; font-weight: 600; color: var(--muted); margin-inline-start: 4px; }
+.spend-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 3px 9px;
+  border-radius: 999px; margin-top: 7px; }
+.spend-delta.down { color: var(--c-ess); background: color-mix(in srgb, var(--c-ess) 14%, transparent); }
+.spend-delta.up { color: var(--red-text); background: var(--red-bg); }
+.spine { display: flex; height: 11px; border-radius: 6px; overflow: hidden; margin-top: 15px; gap: 2px; background: var(--bg-soft); }
+.spine i { display: block; height: 100%; }
+
+/* Stats tiles */
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 13px; }
+.stat2 { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md, 18px); padding: 14px 10px;
+  text-align: center; box-shadow: var(--shadow-sm); }
+.stat2-v { font-size: 19px; font-weight: 800; letter-spacing: -.4px; }
+.stat2-k { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+/* Section header (recent activity) */
+.sec-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 22px 2px 10px; }
+.sec-head > span:first-child { font-size: 14px; font-weight: 700; }
+.sec-more { font-size: 12px; color: var(--blue-text); font-weight: 600; cursor: pointer; }
+
+/* History filters → horizontal-scroll chips */
+.hist-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+.hist-filters::-webkit-scrollbar { display: none; }
+.filt-btn { flex: none; }
+
+/* Add sheet (analyze) */
+.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none;
+  transition: opacity .35s ease; z-index: 70; backdrop-filter: blur(2px); }
+.backdrop.on { opacity: 1; pointer-events: auto; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 80; max-width: 540px; margin: 0 auto;
+  background: var(--card); border-radius: 28px 28px 0 0; transform: translateY(101%);
+  transition: transform .46s cubic-bezier(.22,.61,.36,1); max-height: 92vh; overflow-y: auto;
+  border-top: 1px solid var(--border); padding: 0 16px calc(24px + env(safe-area-inset-bottom)); }
+.sheet.on { transform: none; }
+.sheet-handle { width: 42px; height: 5px; border-radius: 3px; background: var(--border); margin: 12px auto 4px; }
+.sheet-title { font-size: 18px; font-weight: 800; margin: 6px 2px 2px; }
+.sheet-desc { font-size: 12px; color: var(--muted); margin: 0 2px 14px; }
+.manual-details { margin-top: 14px; border-top: 1px solid var(--border-soft); padding-top: 6px; }
+.manual-details summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); padding: 9px 2px; list-style: none; }
+.manual-details summary::-webkit-details-marker { display: none; }
+.manual-details[open] summary { color: var(--text); margin-bottom: 8px; }
+.sheet .res2 { margin-top: 8px; }
+.icon-btn svg { width: 20px; height: 20px; }

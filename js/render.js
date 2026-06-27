@@ -383,6 +383,13 @@ function ymLabel(ym) {
   return (MONTH_NAMES[mi] || p[1]) + ' ' + p[0];
 }
 
+function prevMonthKey(ym) {
+  var p = String(ym).split('-');
+  var y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1;
+  if (m < 1) { m = 12; y -= 1; }
+  return y + '-' + (m < 10 ? '0' + m : '' + m);
+}
+
 function availableMonths() {
   var s = {};
   expenses.forEach(function(e) {
@@ -547,6 +554,73 @@ function renderDashboard() {
     html += '</div>';
   }
 
+  // بطاقة "صرف الشهر" — دائرة نسبة الصرف من الدخل + شريط التصنيفات (تصميم ٢)
+  (function () {
+    var inc = settings.salary || 0;
+    var pct = inc > 0 ? Math.min(100, Math.round((spent / inc) * 100)) : 0;
+    var C = 264, off = Math.round(C - C * pct / 100);
+    var ess = byType['أساسيات'], lux = byType['كماليات'], oth = unkSafe();
+    function unkSafe() { return byType['غير محدد']; }
+    // دلتا مقابل الشهر السابق
+    var pm = prevMonthKey(curM);
+    var prevSpent = 0;
+    expenses.forEach(function (e) {
+      if (!e.date || e.date.indexOf(pm) !== 0 || e.behalf || e.direction === 'credit') return;
+      if (e.type === 'سداد التمويل') return;
+      prevSpent += (e.amount || 0);
+    });
+    var deltaHtml = '';
+    if (prevSpent > 0) {
+      var dp = Math.round(((spent - prevSpent) / prevSpent) * 100);
+      var down = dp <= 0;
+      deltaHtml = '<div class="spend-delta ' + (down ? 'down' : 'up') + '">' + (down ? '▼ ' : '▲ ') + Math.abs(dp) + '٪ عن الشهر السابق</div>';
+    }
+    html += '<div class="card stagger"><div class="card-body">';
+    html += '<div class="spend2">';
+    html += '<div class="donut2"><svg width="104" height="104" viewBox="0 0 104 104">'
+      + '<circle cx="52" cy="52" r="42" fill="none" stroke="var(--bg-soft)" stroke-width="10"/>'
+      + '<circle cx="52" cy="52" r="42" fill="none" stroke="var(--hero-1)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + C + '" stroke-dashoffset="' + off + '" transform="rotate(-90 52 52)"/></svg>'
+      + '<div class="donut2-mid"><b>' + pct + '٪</b><span>من الدخل</span></div></div>';
+    html += '<div class="spend2-info"><div class="spend2-lbl">صرف ' + monthLabel + '</div>'
+      + '<div class="spend2-amt">' + fmt(spent) + ' <span class="cur">ر.س</span></div>' + deltaHtml + '</div>';
+    html += '</div>';
+    html += '<div class="spine">'
+      + (ess > 0 ? '<i style="flex:' + ess + ';background:var(--c-ess)"></i>' : '')
+      + (lux > 0 ? '<i style="flex:' + lux + ';background:var(--c-lux)"></i>' : '')
+      + (oth > 0 ? '<i style="flex:' + oth + ';background:var(--c-unk)"></i>' : '')
+      + (ess + lux + oth === 0 ? '<i style="flex:1;background:var(--border)"></i>' : '') + '</div>';
+    html += '</div></div>';
+  })();
+
+  // إحصائيات سريعة (٣ بطاقات)
+  (function () {
+    var d = new Date();
+    var isThisMonth = curM === today().substring(0, 7);
+    var days = isThisMonth ? d.getDate() : 30;
+    var avg = days > 0 ? spent / days : spent;
+    var incLeft = (settings.salary || 0) - spent - loan;
+    html += '<div class="stat-row">';
+    html += '<div class="stat2"><div class="stat2-v">' + monthCount + '</div><div class="stat2-k">عملية الشهر</div></div>';
+    html += '<div class="stat2"><div class="stat2-v">' + fmtInt(avg) + '</div><div class="stat2-k">متوسط يومي</div></div>';
+    html += '<div class="stat2"><div class="stat2-v">' + fmtInt(incLeft) + '</div><div class="stat2-k">متبقّي الدخل</div></div>';
+    html += '</div>';
+  })();
+
+  // آخر العمليات (أحدث ٥)
+  (function () {
+    var recent = expenses.filter(function (e) { return !isSettlement(e); }).slice().sort(function (a, b) {
+      var da = a.date || '', db = b.date || '';
+      if (da !== db) return da < db ? 1 : -1;
+      var ta = fmtTime(a.time), tb = fmtTime(b.time);
+      if (ta !== tb) return ta < tb ? 1 : -1;
+      return (Number(b.id) || 0) - (Number(a.id) || 0);
+    }).slice(0, 5);
+    if (recent.length) {
+      html += '<div class="sec-head"><span>آخر العمليات</span><span class="sec-more" onclick="switchTab(\'history\')">عرض الكل ›</span></div>';
+      recent.forEach(function (e) { html += txRowHtml(e); });
+    }
+  })();
+
   // بطاقة شاملة: المتبقي حسب كل تصنيف (مع غير محدد + نيابة)
   var unk = byType['غير محدد'];
   var nPaid = 0, nRefund = 0;
@@ -626,6 +700,36 @@ function txIcon(e) {
   if (e.type === 'كماليات') return '🛍️';
   if (e.type === 'سداد التمويل') return '🏦';
   return '💳';
+}
+
+// صف عملية واحد بنمط تصميم ٢ (قابل للتوسّع) — يُستخدم في السجل واللوحة
+function txRowHtml(e) {
+  var isCredit = e.direction === 'credit';
+  var edited = !isCredit && e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
+  var eid = String(e.id || '').replace(/'/g, "\\'");
+  var tdisp = fmtTime(e.time);
+  var dateLine = (e.date || '') + (tdisp && tdisp !== '00:00' ? ' · ' + tdisp : '');
+  var s = '<div class="xtx" onclick="this.classList.toggle(\'open\')">';
+  s += '<div class="tx-main">';
+  s += '<div class="ic">' + txIcon(e) + '</div>';
+  s += '<div class="tx-body"><div class="tx-n">' + (e.merchant || '—') + '</div>';
+  s += '<div class="tx-m"><span class="pill ' + pillClass(e.type, isCredit) + '">' + (e.type || '') + '</span>'
+    + (e.bank ? ' ' + e.bank : '')
+    + (e.behalf ? ' <span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span>' : '') + '</div></div>';
+  s += '<div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>';
+  s += '<span class="tx-chev">⌄</span>';
+  s += '</div>';
+  s += '<div class="tx-exp"><div class="tx-detail"><div class="kv-grid">';
+  s += '<div class="kv"><span>التاريخ</span><b>' + dateLine + '</b></div>';
+  if (e.balance !== '' && e.balance != null) s += '<div class="kv"><span>الرصيد</span><b>' + fmt(e.balance) + ' ر.س</b></div>';
+  if (edited) s += '<div class="kv"><span>المبلغ الأصلي</span><b>' + fmt(e.origAmount) + ' ر.س</b></div>';
+  if (e.note) s += '<div class="kv"><span>ملاحظة</span><b>' + htmlEsc(e.note) + '</b></div>';
+  s += '</div><div class="tx-acts">';
+  s += '<button onclick="event.stopPropagation();editEntry(\'' + eid + '\')">✎ تعديل</button>';
+  s += '<button class="act-del" onclick="event.stopPropagation();deleteEntry(\'' + eid + '\')">🗑 حذف</button>';
+  s += '</div></div></div>';
+  s += '</div>';
+  return s;
 }
 
 function filterHist(type, el) {
@@ -819,33 +923,7 @@ function renderHistory() {
   }
 
   var rows = '';
-  data.forEach(function(e) {
-    var isCredit = e.direction === 'credit';
-    var edited = !isCredit && e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
-    var eid = String(e.id || '').replace(/'/g, "\\'");
-    var tdisp = fmtTime(e.time);
-    var dateLine = (e.date || '') + (tdisp && tdisp !== '00:00' ? ' · ' + tdisp : '');
-    rows += '<div class="xtx" onclick="this.classList.toggle(\'open\')">';
-    rows += '<div class="tx-main">';
-    rows += '<div class="ic">' + txIcon(e) + '</div>';
-    rows += '<div class="tx-body"><div class="tx-n">' + (e.merchant || '—') + '</div>';
-    rows += '<div class="tx-m"><span class="pill ' + pillClass(e.type, isCredit) + '">' + (e.type || '') + '</span>'
-      + (e.bank ? ' ' + e.bank : '')
-      + (e.behalf ? ' <span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span>' : '') + '</div></div>';
-    rows += '<div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>';
-    rows += '<span class="tx-chev">⌄</span>';
-    rows += '</div>';
-    rows += '<div class="tx-exp"><div class="tx-detail"><div class="kv-grid">';
-    rows += '<div class="kv"><span>التاريخ</span><b>' + dateLine + '</b></div>';
-    if (e.balance !== '' && e.balance != null) rows += '<div class="kv"><span>الرصيد</span><b>' + fmt(e.balance) + ' ر.س</b></div>';
-    if (edited) rows += '<div class="kv"><span>المبلغ الأصلي</span><b>' + fmt(e.origAmount) + ' ر.س</b></div>';
-    if (e.note) rows += '<div class="kv"><span>ملاحظة</span><b>' + htmlEsc(e.note) + '</b></div>';
-    rows += '</div><div class="tx-acts">';
-    rows += '<button onclick="event.stopPropagation();editEntry(\'' + eid + '\')">✎ تعديل</button>';
-    rows += '<button class="act-del" onclick="event.stopPropagation();deleteEntry(\'' + eid + '\')">🗑 حذف</button>';
-    rows += '</div></div></div>';
-    rows += '</div>';
-  });
+  data.forEach(function(e) { rows += txRowHtml(e); });
 
   var totalCard = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
   if (histFilter === 'سداد التمويل') {

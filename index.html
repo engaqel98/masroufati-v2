@@ -42,73 +42,14 @@
     </div>
   </div>
 
-  <!-- TAB: PARSE -->
+  <!-- TAB: PARSE (home = dashboard) -->
   <div id="sec-parse">
-    <div class="card">
-      <div class="card-body">
-        <div class="field">
-          <label>الصق رسالة SMS البنكية</label>
-          <textarea id="sms-input" placeholder="يدعم: الراجحي · الأهلي · SAB/الأول&#10;مثال: تم الشراء مبلغ SAR 105.24 لدى ALOTHAIM..."></textarea>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" onclick="analyze()">🔍 تحليل</button>
-          <button class="btn btn-outline" onclick="pasteAndAnalyze()">📋 لصق وتحليل</button>
-        </div>
-        <div id="result-area"></div>
-      </div>
-    </div>
-
     <div id="dashboard"></div>
-
-    <div class="card">
-      <div class="card-body">
-        <div class="card-title">إدخال يدوي</div>
-        <div class="field-row">
-          <div class="field">
-            <label>التاريخ</label>
-            <input type="date" id="m-date">
-          </div>
-          <div class="field">
-            <label>المبلغ (ر.س)</label>
-            <input type="number" id="m-amount" placeholder="0.00" step="0.01">
-          </div>
-        </div>
-        <div class="field">
-          <label>التاجر / الجهة</label>
-          <input type="text" id="m-merchant" placeholder="مثال: كارفور">
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label>التصنيف</label>
-            <select id="m-type">
-              <option value="" disabled selected>— اختر التصنيف —</option>
-              <option value="أساسيات">أساسيات</option>
-              <option value="كماليات">كماليات</option>
-              <option value="سداد التمويل">سداد التمويل</option>
-              <option value="غير محدد">غير محدد</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>طريقة الدفع</label>
-            <input type="text" id="m-method" placeholder="مدى / Apple Pay">
-          </div>
-        </div>
-        <div class="field">
-          <label>ملاحظة (اختياري)</label>
-          <input type="text" id="m-note" placeholder="مثال: قسمتها مع فلان">
-        </div>
-        <div class="field">
-          <label>👥 نيابة عن (اختياري)</label>
-          <input type="text" id="m-behalf" list="people-list" placeholder="اكتب اسم الشخص أو اختر من القائمة">
-        </div>
-        <button class="btn btn-green" onclick="saveManual()">💾 حفظ</button>
-        <div id="manual-status"></div>
-      </div>
-    </div>
   </div>
 
   <!-- TAB: HISTORY -->
   <div id="sec-history">
+    <div class="page-title">السجل</div>
     <div class="hist-filters">
       <button class="filt-btn active" id="filt-all" onclick="filterHist('all',this)">الكل</button>
       <button class="filt-btn" id="filt-ess" onclick="filterHist('أساسيات',this)">أساسيات</button>
@@ -123,14 +64,56 @@
 
   <!-- TAB: FINANCE -->
   <div id="sec-finance">
+    <div class="page-title">التمويل</div>
     <div id="finance-content"></div>
   </div>
 
   <!-- TAB: SETTINGS -->
   <div id="sec-settings">
+    <div class="page-title">الإعدادات</div>
     <div id="settings-content"></div>
   </div>
 
+</div>
+
+<!-- Add/Analyze bottom sheet (opened by the + FAB) -->
+<div class="backdrop" id="add-backdrop" onclick="closeAddSheet()"></div>
+<div class="sheet" id="add-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">تحليل رسالة بنكية</div>
+  <div class="sheet-desc">الصق رسالة الـ SMS ونستخرج العملية تلقائياً</div>
+  <div class="field">
+    <textarea id="sms-input" placeholder="يدعم: الراجحي · الأهلي · SAB/الأول&#10;مثال: تم الشراء مبلغ SAR 105.24 لدى ALOTHAIM..."></textarea>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="analyze()">🔍 تحليل</button>
+    <button class="btn btn-outline" onclick="pasteAndAnalyze()">📋 لصق وتحليل</button>
+  </div>
+  <div id="result-area"></div>
+  <details class="manual-details">
+    <summary>➕ إدخال يدوي</summary>
+    <div class="field-row">
+      <div class="field"><label>التاريخ</label><input type="date" id="m-date"></div>
+      <div class="field"><label>المبلغ (ر.س)</label><input type="number" id="m-amount" placeholder="0.00" step="0.01"></div>
+    </div>
+    <div class="field"><label>التاجر / الجهة</label><input type="text" id="m-merchant" placeholder="مثال: كارفور"></div>
+    <div class="field-row">
+      <div class="field"><label>التصنيف</label>
+        <select id="m-type">
+          <option value="" disabled selected>— اختر التصنيف —</option>
+          <option value="أساسيات">أساسيات</option>
+          <option value="كماليات">كماليات</option>
+          <option value="سداد التمويل">سداد التمويل</option>
+          <option value="غير محدد">غير محدد</option>
+        </select>
+      </div>
+      <div class="field"><label>طريقة الدفع</label><input type="text" id="m-method" placeholder="مدى / Apple Pay"></div>
+    </div>
+    <div class="field"><label>ملاحظة (اختياري)</label><input type="text" id="m-note" placeholder="مثال: قسمتها مع فلان"></div>
+    <div class="field"><label>👥 نيابة عن (اختياري)</label><input type="text" id="m-behalf" list="people-list" placeholder="اكتب اسم الشخص أو اختر من القائمة"></div>
+    <button class="btn btn-green" onclick="saveManual()">💾 حفظ</button>
+    <div id="manual-status"></div>
+  </details>
 </div>
 
 <!-- Bottom navigation (Design 2) -->
@@ -139,7 +122,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>
   <button class="navbtn" data-tab="history" onclick="switchTab('history',this)" aria-label="السجل">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 9h6M9 13h4"/></svg></button>
-  <button class="navbtn fab" onclick="quickAnalyze(this)" aria-label="تحليل رسالة">
+  <button class="navbtn fab" onclick="openAddSheet()" aria-label="تحليل رسالة">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="navbtn" data-tab="finance" onclick="switchTab('finance',this)" aria-label="التمويل">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-6"/></svg></button>
