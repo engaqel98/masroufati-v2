@@ -21,8 +21,10 @@ function toggleTheme() {
 // TABS
 // ============================================================
 function switchTab(t, el) {
-  document.querySelectorAll('.tab').forEach(function(b) { b.classList.remove('active'); });
-  el.classList.add('active');
+  // حالة التبويب النشط في الشريط السفلي تُدار عبر data-tab (لا تعتمد على العنصر الضاغط)
+  document.querySelectorAll('.navbtn[data-tab]').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-tab') === t);
+  });
   ['parse','history','finance','settings'].forEach(function(id) {
     document.getElementById('sec-' + id).style.display = id === t ? 'block' : 'none';
   });
@@ -36,12 +38,36 @@ function switchTab(t, el) {
   sec.classList.remove('tab-enter');
   void sec.offsetWidth;
   sec.classList.add('tab-enter');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// زر + : ينتقل لتبويب التحليل ويركّز على مربع الرسالة
+function quickAnalyze() {
+  switchTab('parse');
+  var ta = document.getElementById('sms-input');
+  if (ta) { try { ta.focus(); } catch (e) {} }
+}
+
+// ============================================================
+// PRIVACY — إخفاء الأرقام (الافتراضي: مخفية عند كل فتح)
+// ============================================================
+function applyPrivacyIcon() {
+  var btn = document.getElementById('eye-btn');
+  if (!btn) return;
+  var hidden = document.body.classList.contains('priv');
+  btn.textContent = hidden ? '👁️' : '🙈';
+  btn.title = hidden ? 'إظهار الأرقام' : 'إخفاء الأرقام';
+}
+function togglePrivacy() {
+  document.body.classList.toggle('priv');
+  applyPrivacyIcon();
 }
 
 // ============================================================
 // INIT
 // ============================================================
 applyThemeIcon();
+applyPrivacyIcon();
 document.getElementById('m-date').value = today();
 if (typeof refreshPeopleList === 'function') refreshPeopleList();
 if (typeof refreshAccountsList === 'function') refreshAccountsList();
