@@ -468,6 +468,39 @@ function fmtTime(t) {
 // DASHBOARD (top of parse tab)
 // ============================================================
 // صف تصنيف بميزانية: شريط تقدّم + كم صُرف وكم باقي من السقف
+// بطل التمويل (تصميم ٢) — العدّ التنازلي للمتبقّي + شريط ٢٤ شهر (مشترك: اللوحة + التمويل)
+function finHeroHtml() {
+  var fTotal = settings.total, fPay = settings.payment;
+  var sp = String(settings.start || '2026-05').split('-');
+  var fsy = parseInt(sp[0], 10), fsm = parseInt(sp[1], 10);
+  var nowD = new Date();
+  var fMonthNum = (nowD.getFullYear() - fsy) * 12 + (nowD.getMonth() + 1 - fsm) + 1;
+  fMonthNum = Math.max(1, Math.min(24, fMonthNum));
+  var fPaidAmt = expenses.filter(function (e) { return e.type === 'سداد التمويل' && !e.behalf && e.direction !== 'credit'; })
+    .reduce(function (s, e) { return s + (e.amount || 0); }, 0);
+  fPaidAmt = Math.min(fPaidAmt, fTotal);
+  var fRemaining = Math.max(0, fTotal - fPaidAmt);
+  var fPaidMonths = fPay > 0 ? Math.round(fPaidAmt / fPay) : 0;
+  var fMonthsLeft = Math.max(0, 24 - fMonthNum + 1);
+  var endD = new Date(fsy, fsm - 1 + 23);
+  var fEnd = MONTH_NAMES[endD.getMonth()] + ' ' + endD.getFullYear();
+  var comb = '';
+  for (var i = 1; i <= 24; i++) {
+    var cls = i <= fPaidMonths ? 'paid' : (i === fMonthNum ? 'now' : '');
+    comb += '<span class="' + cls + '"></span>';
+  }
+  var h = '<div class="fin-hero stagger">';
+  h += '<div class="fh-eyebrow"><span class="fh-dot"></span> خطة التمويل · يتبقّى ' + fMonthsLeft + ' شهر</div>';
+  h += '<div class="fh-big">' + fmtInt(fRemaining) + ' <span class="cur">ر.س</span></div>';
+  h += '<div class="fh-sub">المتبقّي من إجمالي <b>' + fmtInt(fTotal) + ' ر.س</b></div>';
+  h += '<div class="comb">' + comb + '</div>';
+  h += '<div class="fh-foot"><div>التقدّم<b>شهر ' + fMonthNum + ' / 24</b></div>'
+    + '<div>القسط الشهري<b>' + fmtInt(fPay) + ' ر.س</b></div>'
+    + '<div>الانتهاء<b>' + fEnd + '</b></div></div>';
+  h += '</div>';
+  return h;
+}
+
 function catBudgetRow(name, dotCls, colorVar, spent, budget) {
   var left = budget - spent;
   var over = left < -0.005;
@@ -510,37 +543,7 @@ function renderDashboard() {
 
   var html = '';
 
-  // بطل التمويل (تصميم ٢) — العدّ التنازلي للمتبقّي + شريط ٢٤ شهر
-  (function () {
-    var fTotal = settings.total, fPay = settings.payment;
-    var sp = String(settings.start || '2026-05').split('-');
-    var fsy = parseInt(sp[0], 10), fsm = parseInt(sp[1], 10);
-    var nowD = new Date();
-    var fMonthNum = (nowD.getFullYear() - fsy) * 12 + (nowD.getMonth() + 1 - fsm) + 1;
-    fMonthNum = Math.max(1, Math.min(24, fMonthNum));
-    var fPaidAmt = expenses.filter(function (e) { return e.type === 'سداد التمويل' && !e.behalf && e.direction !== 'credit'; })
-      .reduce(function (s, e) { return s + (e.amount || 0); }, 0);
-    fPaidAmt = Math.min(fPaidAmt, fTotal);
-    var fRemaining = Math.max(0, fTotal - fPaidAmt);
-    var fPaidMonths = fPay > 0 ? Math.round(fPaidAmt / fPay) : 0;
-    var fMonthsLeft = Math.max(0, 24 - fMonthNum + 1);
-    var endD = new Date(fsy, fsm - 1 + 23);
-    var fEnd = MONTH_NAMES[endD.getMonth()] + ' ' + endD.getFullYear();
-    var comb = '';
-    for (var i = 1; i <= 24; i++) {
-      var cls = i <= fPaidMonths ? 'paid' : (i === fMonthNum ? 'now' : '');
-      comb += '<span class="' + cls + '"></span>';
-    }
-    html += '<div class="fin-hero stagger">';
-    html += '<div class="fh-eyebrow"><span class="fh-dot"></span> خطة التمويل · يتبقّى ' + fMonthsLeft + ' شهر</div>';
-    html += '<div class="fh-big">' + fmtInt(fRemaining) + ' <span class="cur">ر.س</span></div>';
-    html += '<div class="fh-sub">المتبقّي من إجمالي <b>' + fmtInt(fTotal) + ' ر.س</b></div>';
-    html += '<div class="comb">' + comb + '</div>';
-    html += '<div class="fh-foot"><div>التقدّم<b>شهر ' + fMonthNum + ' / 24</b></div>'
-      + '<div>القسط الشهري<b>' + fmtInt(fPay) + ' ر.س</b></div>'
-      + '<div>الانتهاء<b>' + fEnd + '</b></div></div>';
-    html += '</div>';
-  })();
+  html += finHeroHtml();   // بطل التمويل (مشترك بين اللوحة والتمويل)
 
   // شريط التنقّل بين الأشهر (لو فيه أكثر من شهر بيانات)
   var monthsAvail = availableMonths();
@@ -1031,6 +1034,8 @@ function renderFinance() {
   var budgetOK = (essAct + luxAct) <= (salary - payment);
 
   var html = '';
+
+  html += finHeroHtml();   // بطل التمويل في المقدّمة (كالمعاينة)
 
   // بطاقة التقدم
   html += '<div class="card"><div class="card-body">';
