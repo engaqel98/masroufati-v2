@@ -1050,20 +1050,6 @@ function renderFinance() {
   html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">متبقي ' + monthsLeft + ' شهر · ينتهي ' + endLabel + '</div>';
   html += '</div></div></div>';
 
-  // مخطط تناقص الرصيد عبر الزمن
-  if (typeof financeChart === 'function') {
-    var pts = [];
-    for (var k = 0; k <= 24; k++) {
-      var d = new Date(sy, sm - 1 + k);
-      pts.push({ label: (d.getMonth() + 1) + '/' + String(d.getFullYear()).slice(2), value: Math.max(0, total - k * payment) });
-    }
-    var markerIdx = Math.max(0, Math.min(24, monthNum - 1));
-    html += '<div class="card"><div class="card-body">';
-    html += '<div class="card-title">📉 تناقص الرصيد المتبقي</div>';
-    html += financeChart(pts, markerIdx);
-    html += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:8px"><span>البداية: ' + fmtInt(total) + ' ر.س</span><span>الحين: ' + fmtInt(Math.max(0, total - markerIdx * payment)) + ' ر.س</span></div>';
-    html += '</div></div>';
-  }
 
   // بطاقة الشهر الحالي
   html += '<div class="card"><div class="card-body">';
