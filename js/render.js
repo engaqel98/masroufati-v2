@@ -516,14 +516,17 @@ function renderHistory() {
     personBar += '</select></div>';
   }
 
-  // شريط البحث الحر + فلتر اليوم — يظهر لكل التصنيفات
+  // البحث الحر — سطر مستقل
   var searchBar = '<div class="hist-search-bar">'
     + '<input id="hist-search" type="search" inputmode="search" placeholder="🔍 ابحث: تاجر، مبلغ، ملاحظة…" value="' + htmlEsc(histSearch) + '" oninput="setHistSearch(this.value)">'
+    + '</div>';
+  // فلتر اليوم — سطر مستقل
+  var dayBar = '<div class="hist-day-bar"><label for="hist-day">📅 يوم</label>'
     + '<input id="hist-day" type="date" value="' + htmlEsc(histDay) + '" onchange="setHistDay(this.value)" title="يوم محدد">'
     + (histDay ? '<button class="hist-day-clear" onclick="setHistDay(\'\')" title="مسح اليوم">✕</button>' : '')
     + '</div>';
 
-  var filterBars = searchBar + monthBar + personBar;
+  var filterBars = searchBar + dayBar + monthBar + personBar;
 
   if (!data.length) {
     el.innerHTML = filterBars + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histDay ? ' بتاريخ ' + htmlEsc(histDay) : (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '')) + (histSearch ? ' مطابقة لـ «' + htmlEsc(histSearch) + '»' : '') + '</div></div>';

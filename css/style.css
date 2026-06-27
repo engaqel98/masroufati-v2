@@ -325,20 +325,21 @@ select { cursor: pointer; }
   border: 1.5px solid var(--border); border-radius: var(--rs);
   background: var(--card); color: var(--text); cursor: pointer;
 }
-.hist-search-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.hist-search-bar input[type="search"], .hist-search-bar input[type="text"] {
+/* كل فلتر في سطر مستقل */
+.hist-search-bar, .hist-day-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.hist-day-bar label { font-size: 12px; color: var(--muted); font-weight: 600; margin: 0; white-space: nowrap; }
+.hist-search-bar input, .hist-day-bar input {
   flex: 1; min-width: 0; padding: 9px 12px; font-size: 13px; font-family: inherit;
   border: 1.5px solid var(--border); border-radius: var(--rs);
-  background: var(--card); color: var(--text);
+  background: var(--card); color: var(--text); -webkit-text-fill-color: var(--text);
 }
-.hist-search-bar input[type="date"] {
-  padding: 8px 10px; font-size: 13px; font-family: inherit;
-  border: 1.5px solid var(--border); border-radius: var(--rs);
-  background: var(--card); color: var(--text); cursor: pointer;
-}
-.hist-search-bar input:focus { outline: none; border-color: var(--hero-1); }
+.hist-search-bar input::placeholder { color: var(--muted); -webkit-text-fill-color: var(--muted); }
+.hist-day-bar input[type="date"] { cursor: pointer; }
+.hist-search-bar input:focus, .hist-day-bar input:focus { outline: none; border-color: var(--hero-1); }
+/* أيقونة منتقي التاريخ تظهر بلون فاتح في الدارك مود */
+html[data-theme="dark"] .hist-day-bar input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .7; }
 .hist-day-clear {
-  flex: none; width: 34px; height: 34px; border: 1.5px solid var(--border); border-radius: var(--rs);
+  flex: none; width: 36px; height: 36px; border: 1.5px solid var(--border); border-radius: var(--rs);
   background: var(--card); color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; font-family: inherit;
 }
 .hist-day-clear:active { transform: scale(.92); }
