@@ -1,6 +1,6 @@
 // Service Worker — يخزّن هيكل التطبيق للعمل دون اتصال.
 // عند تعديل أي ملف، ارفع رقم النسخة CACHE ليُحدَّث الكاش.
-var CACHE = 'masroufati-v25-savetop';
+var CACHE = 'masroufati-v26';
 var ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ var ASSETS = [
   './js/charts.js',
   './js/save.js',
   './js/render.js',
+  './js/i18n.js',
   './js/app.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
