@@ -487,3 +487,56 @@ body.priv .priv-num {
 }
 .amount-num, .hero-amount, .hero-stat-val, .hist-amt, .legend-val, .legend-pct,
 .settings-val, .metric-val, .behalf-owed, .behalf-total { transition: filter .25s ease; }
+.icon-btn.lng { font-size: 13px; font-weight: 700; width: auto; min-width: 38px; padding: 0 11px; }
+
+/* ============================================================
+   تصميم ٢ — Component polish (safe restyle of existing classes)
+   ============================================================ */
+/* Analyze result head — closer to preview */
+.amount-big { padding: 26px 18px 18px; background:
+  radial-gradient(120% 120% at 85% 0%, color-mix(in srgb, var(--hero-1) 18%, transparent), transparent 60%), var(--card); }
+.amount-num { font-size: 46px; }
+.amount-sub { font-size: 14px; margin-top: 9px; }
+.badge { font-size: 12px; padding: 7px 15px; font-weight: 700; }
+
+/* History rows — softer, card-like */
+.hist-item { padding: 14px 14px; border-radius: 16px; margin: 0 4px; transition: background-color .2s; }
+.hist-item:not(:last-child) { border-bottom: 1px solid var(--border-soft); }
+.hist-item:active { background: var(--card-2); }
+.hist-amt { font-size: 16px; font-weight: 800; }
+.hist-name { font-size: 14px; }
+.behalf-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 999px; background: var(--blue-bg); color: var(--blue-text); border: 1px solid var(--blue-border); }
+.hist-act-btn { width: 34px; height: 34px; border-radius: 11px; border: 1px solid var(--border);
+  background: var(--card-2); color: var(--muted); cursor: pointer; font-size: 14px; transition: transform .15s, color .2s; }
+.hist-act-btn:active { transform: scale(.9); }
+.hist-act-btn.hist-del:active { color: var(--red-text); }
+
+/* Category budget rows */
+.progress-track { height: 9px; border-radius: 6px; background: var(--bg-soft); overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 6px; transition: width .7s cubic-bezier(.22,.61,.36,1); }
+.cat-name { font-size: 13px; font-weight: 600; }
+.cat-left { font-size: 12.5px; font-weight: 700; }
+.cat-sub { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+
+/* Finance metrics — tile feel */
+.metric { background: var(--card-2); border: 1px solid var(--border-soft); border-radius: 16px; padding: 13px 14px; }
+.metric-label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.metric-val { font-size: 22px; font-weight: 800; letter-spacing: -.5px; margin-top: 3px; }
+.metric-unit { font-size: 13px; font-weight: 600; color: var(--muted); }
+.metric-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
+/* Settings / list rows */
+.settings-row { padding: 11px 2px; font-size: 13px; }
+.settings-val { font-weight: 700; }
+
+/* Month nav as a pill */
+.month-nav { background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+  box-shadow: var(--shadow-sm); padding: 5px; }
+.month-nav-btn { border-radius: 999px; }
+.month-nav-label { font-weight: 700; }
+
+/* Empty state */
+.empty { text-align: center; padding: 48px 18px; color: var(--muted); }
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+.empty-text { font-size: 14px; }

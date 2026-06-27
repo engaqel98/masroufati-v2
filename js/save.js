@@ -8,11 +8,12 @@ function appendKey(url) {
   return url + (url.indexOf('?') !== -1 ? '&' : '?') + 'key=' + encodeURIComponent(settings.webappKey);
 }
 
+function _loc() { return (typeof localeCode === 'function') ? localeCode() : 'ar-SA'; }
 function fmt(n) {
-  return Number(n).toLocaleString('ar-SA', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return Number(n).toLocaleString(_loc(), {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function fmtInt(n) {
-  return Number(n).toLocaleString('ar-SA', {maximumFractionDigits:0});
+  return Number(n).toLocaleString(_loc(), {maximumFractionDigits:0});
 }
 
 // ============================================================
