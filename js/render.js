@@ -237,6 +237,8 @@ var MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو
 var dashMonth = today().substring(0, 7);
 var histMonth = 'all';
 var histPerson = 'all';   // فلتر الشخص داخل عرض "نيابة عن"
+var histSearch = '';      // نص البحث الحر (تاجر/مبلغ/ملاحظة…)
+var histDay = '';         // فلتر يوم محدد YYYY-MM-DD
 
 function ymLabel(ym) {
   if (ym === 'all') return 'كل الأشهر';
@@ -267,12 +269,37 @@ function navDash(delta) {
 
 function setHistMonth(ym) {
   histMonth = ym || 'all';
+  // لو فيه يوم محدد لا يخص الشهر الجديد، نلغيه حتى لا تتعارض الفلاتر
+  if (histDay && (histMonth === 'all' || histDay.indexOf(histMonth) !== 0)) histDay = '';
   renderHistory();
 }
 
 function setHistPerson(name) {
   histPerson = name || 'all';
   renderHistory();
+}
+
+function setHistDay(v) {
+  histDay = v || '';
+  if (histDay) histMonth = histDay.substring(0, 7);   // وحّد الشهر مع اليوم المختار
+  renderHistory();
+}
+
+function setHistSearch(v) {
+  histSearch = v || '';
+  renderHistory();
+  // إعادة التركيز لمربع البحث بعد إعادة رسم القائمة (innerHTML يتلف العنصر)
+  var inp = document.getElementById('hist-search');
+  if (inp) { inp.focus(); var n = inp.value.length; try { inp.setSelectionRange(n, n); } catch (_) {} }
+}
+
+// مطابقة البحث الحر — تاجر/تصنيف/بنك/شخص/ملاحظة/بطاقة/مبلغ
+function histMatch(e) {
+  var q = (histSearch || '').trim().toLowerCase();
+  if (!q) return true;
+  var hay = [e.merchant, e.type, e.bank, e.behalf, e.note, e.card, e.method, e.txType, String(e.amount)]
+    .join(' ').toLowerCase();
+  return hay.indexOf(q) >= 0;
 }
 
 function htmlEsc(s) {
@@ -427,6 +454,7 @@ function renderHistory() {
   expenses.forEach(function(e) {
     if (!e.behalf) return;
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
+    if (histDay && e.date !== histDay) return;
     var nm = String(e.behalf).trim();
     if (!nm) return;
     if (!behalfPeople[nm]) behalfPeople[nm] = { paid: 0, refunded: 0, count: 0 };
@@ -443,6 +471,10 @@ function renderHistory() {
   var data = expenses.filter(function(e) {
     // فلتر الشهر
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return false;
+    // فلتر اليوم المحدد
+    if (histDay && e.date !== histDay) return false;
+    // البحث الحر
+    if (!histMatch(e)) return false;
     // فلتر التصنيف
     if (histFilter === 'all') return !isSettlement(e);   // التسويات تخص دفتر الذمم فقط
     if (histFilter === 'behalf') {                        // عرض الدفتر: يشمل التسويات
@@ -483,10 +515,18 @@ function renderHistory() {
     });
     personBar += '</select></div>';
   }
-  var filterBars = monthBar + personBar;
+
+  // شريط البحث الحر + فلتر اليوم — يظهر لكل التصنيفات
+  var searchBar = '<div class="hist-search-bar">'
+    + '<input id="hist-search" type="search" inputmode="search" placeholder="🔍 ابحث: تاجر، مبلغ، ملاحظة…" value="' + htmlEsc(histSearch) + '" oninput="setHistSearch(this.value)">'
+    + '<input id="hist-day" type="date" value="' + htmlEsc(histDay) + '" onchange="setHistDay(this.value)" title="يوم محدد">'
+    + (histDay ? '<button class="hist-day-clear" onclick="setHistDay(\'\')" title="مسح اليوم">✕</button>' : '')
+    + '</div>';
+
+  var filterBars = searchBar + monthBar + personBar;
 
   if (!data.length) {
-    el.innerHTML = filterBars + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '') + '</div></div>';
+    el.innerHTML = filterBars + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histDay ? ' بتاريخ ' + htmlEsc(histDay) : (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '')) + (histSearch ? ' مطابقة لـ «' + htmlEsc(histSearch) + '»' : '') + '</div></div>';
     return;
   }
 
@@ -505,7 +545,9 @@ function renderHistory() {
   expenses.forEach(function(e) {
     if (!e.behalf) return;
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
+    if (histDay && e.date !== histDay) return;
     if (histPerson !== 'all' && String(e.behalf).trim() !== histPerson) return;   // عند اختيار شخص: المجاميع تخصّه فقط
+    if (!histMatch(e)) return;
     var amt = e.amount || 0;
     if (e.direction === 'credit') behalfRefund += amt; else behalfPaid += amt;
   });
@@ -535,6 +577,7 @@ function renderHistory() {
     if (e.direction !== 'credit') return;
     if (e.behalf) return;   // تسويات/سداد الأشخاص تخص دفتر الذمم فقط — ليست دخلاً على البطاقة
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
+    if (histDay && e.date !== histDay) return;
     var k = accountKey(e) || '—';
     if (!inByAcct[k]) inByAcct[k] = { sum: 0, count: 0 };
     inByAcct[k].sum += (e.amount || 0);

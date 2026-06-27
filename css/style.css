@@ -325,6 +325,23 @@ select { cursor: pointer; }
   border: 1.5px solid var(--border); border-radius: var(--rs);
   background: var(--card); color: var(--text); cursor: pointer;
 }
+.hist-search-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.hist-search-bar input[type="search"], .hist-search-bar input[type="text"] {
+  flex: 1; min-width: 0; padding: 9px 12px; font-size: 13px; font-family: inherit;
+  border: 1.5px solid var(--border); border-radius: var(--rs);
+  background: var(--card); color: var(--text);
+}
+.hist-search-bar input[type="date"] {
+  padding: 8px 10px; font-size: 13px; font-family: inherit;
+  border: 1.5px solid var(--border); border-radius: var(--rs);
+  background: var(--card); color: var(--text); cursor: pointer;
+}
+.hist-search-bar input:focus { outline: none; border-color: var(--hero-1); }
+.hist-day-clear {
+  flex: none; width: 34px; height: 34px; border: 1.5px solid var(--border); border-radius: var(--rs);
+  background: var(--card); color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; font-family: inherit;
+}
+.hist-day-clear:active { transform: scale(.92); }
 
 /* ============================================================ Behalf (نيابة عن آخرين) */
 .behalf-tag {
