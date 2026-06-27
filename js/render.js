@@ -53,7 +53,7 @@ function analyze() {
       if (Math.abs(diff) > 0.01) {
         var up = diff > 0;
         window._recon = { diff: diff, up: up, date: parsed.date, card: parsed.card || '', bank: parsed.bank || '' };
-        html += '<div class="alert ' + (up ? 'alert-green' : 'alert-yellow') + '" id="recon-alert" style="margin-bottom:8px">'
+        html += '<div class="alert ' + (up ? 'alert-green' : 'alert-yellow') + '" id="recon-alert" style="margin-bottom:8px;display:block">'
           + (up ? '💡' : '⚠️') + ' <b>تنبيه مطابقة الرصيد</b><br>'
           + 'الرصيد السابق لهذه البطاقة: ' + fmt(prevBal) + ' ر.س<br>'
           + 'المتوقّع بعد هذه العملية: ' + fmt(expected) + ' ر.س · الفعلي: ' + fmt(newBal) + ' ر.س<br>'
