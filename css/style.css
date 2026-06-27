@@ -199,8 +199,8 @@ body {
 
 /* ============================================================ Form */
 label { font-size: 12px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
-textarea, input[type=text], input[type=number], input[type=date], select {
-  width: 100%; font-size: 13.5px; font-family: inherit; color: var(--text);
+textarea, input[type=text], input[type=number], input[type=date], input[type=search], input[type=password], select {
+  width: 100%; font-size: 16px; font-family: inherit; color: var(--text);   /* 16px يمنع زوم iOS التلقائي عند التركيز */
   border: 1.5px solid var(--border); border-radius: var(--rs);
   padding: 11px 13px; background: var(--card-2); outline: none;
   transition: border-color .18s, box-shadow .18s, background-color .25s;
@@ -339,7 +339,7 @@ select { cursor: pointer; }
 .hist-search-bar, .hist-day-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .hist-day-bar label { font-size: 12px; color: var(--muted); font-weight: 600; margin: 0; white-space: nowrap; }
 .hist-search-bar input, .hist-day-bar input {
-  flex: 1; min-width: 0; padding: 9px 12px; font-size: 13px; font-family: inherit;
+  flex: 1; min-width: 0; padding: 9px 12px; font-size: 16px; font-family: inherit;
   border: 1.5px solid var(--border); border-radius: var(--rs);
   background: var(--card); color: var(--text); -webkit-text-fill-color: var(--text);
 }

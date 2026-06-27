@@ -45,8 +45,7 @@ function switchTab(t, el) {
 function openAddSheet() {
   document.getElementById('add-backdrop').classList.add('on');
   document.getElementById('add-sheet').classList.add('on');
-  var ta = document.getElementById('sms-input');
-  if (ta) { try { ta.focus(); } catch (e) {} }
+  // لا نركّز على الحقل تلقائياً — يتفادى ظهور الكيبورد/الزوم عند الفتح
 }
 function closeAddSheet() {
   document.getElementById('add-backdrop').classList.remove('on');
