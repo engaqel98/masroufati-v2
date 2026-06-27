@@ -253,7 +253,7 @@ select { cursor: pointer; }
 .hist-right { text-align: left; flex-shrink: 0; margin-right: 10px; }
 .hist-amt { font-size: 15px; font-weight: 800; letter-spacing: -.3px; }
 .hist-date { font-size: 11px; color: var(--muted); }
-.dot-ess { color: var(--c-ess); } .dot-lux { color: var(--c-lux); } .dot-loan { color: var(--c-loan); } .dot-unk { color: var(--c-unk); }
+.dot-ess { color: var(--c-ess); } .dot-lux { color: var(--c-lux); } .dot-loan { color: var(--c-loan); } .dot-unk { color: var(--c-unk); } .dot-in { color: var(--green); }
 
 /* صفوف "المتبقي حسب التصنيف" في اللوحة */
 .cat-row { margin-bottom: 14px; }

@@ -296,7 +296,7 @@ function detectAndParse(txt) {
   var result = _detectBank(txt);
   if (result) {
     if (!result.direction) result.direction = detectDirection(txt);
-    if (result.direction === 'credit' && (!result.type || result.type === 'غير محدد')) result.type = 'إضافة';
+    if (result.direction === 'credit' && (!result.type || result.type === 'غير محدد')) result.type = classifyCreditType(txt);
     if (!result.time) result.time = extractTime(txt);
   }
   return result;
@@ -360,6 +360,15 @@ function classifyMerchant(merchant, txType) {
   return 'غير محدد';
 }
 
+// تصنيف نوع الحركة الواردة (credit) من كلمات الرسالة — أنواع مستقلّة بدل "إضافة" العامة
+function classifyCreditType(txt) {
+  var t = (txt || '').toLowerCase();
+  if (/استرداد|استرجاع|مرتجع|refund|reversal/.test(t)) return 'استرداد';
+  if (/راتب|مرتب|salary|payroll/.test(t)) return 'راتب';
+  if (/حوالة واردة|إيداع حوالة|تحويل وارد|عملية واردة|واردة|إيداع|ايداع|أودع|اودع|deposit|received|incoming/.test(t)) return 'حوالة واردة';
+  return 'إضافة';
+}
+
 // كشف اتجاه الحركة من كلمات الرسالة: إضافة (credit) أو خصم (debit)
 function detectDirection(txt) {
   var t = (txt || '').toLowerCase();
@@ -374,10 +383,14 @@ function detectDirection(txt) {
   return 'debit';   // الافتراضي = خصم
 }
 
+// أنواع الوارد (credit) — تشترك في معاملة "إضافة" (مستثناة من الصرف)
+var CREDIT_TYPES = ['إضافة', 'استرداد', 'حوالة واردة', 'راتب', 'سداد بطاقة'];
+
 function typeDot(type) {
   if (type === 'أساسيات') return 'dot-ess';
   if (type === 'كماليات') return 'dot-lux';
   if (type === 'سداد التمويل') return 'dot-loan';
+  if (CREDIT_TYPES.indexOf(type) !== -1) return 'dot-in';   // وارد — نقطة خضراء
   return 'dot-unk';
 }
 

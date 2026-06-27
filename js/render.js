@@ -320,7 +320,7 @@ function recordGapEntry(up, amt, date, card, bank, rerender) {
     date: date || today(),
     merchant: up ? 'استرداد/إيداع غير مسجّل' : 'خصم غير مسجّل',
     amount: amt,
-    type: up ? 'إضافة' : 'غير محدد',
+    type: up ? 'استرداد' : 'غير محدد',
     direction: up ? 'credit' : 'debit',
     card: card || '',
     bank: bank || '',
@@ -785,9 +785,19 @@ function renderHistory() {
   if (histFilter === 'سداد التمويل') {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · سداد التمويل</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
   } else if (histFilter === 'incoming') {
-    var incTotal = 0;
-    data.forEach(function(e) { incTotal += (e.amount || 0); });
+    var incTotal = 0, incByType = {};
+    data.forEach(function(e) {
+      incTotal += (e.amount || 0);
+      var tt = e.type || 'إضافة';
+      incByType[tt] = (incByType[tt] || 0) + (e.amount || 0);
+    });
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · وارد للرصيد</span><span style="font-weight:700;color:var(--green)">+ ' + fmt(incTotal) + ' ر.س</span></div>';
+    var incKeys = Object.keys(incByType).sort(function(a, b) { return incByType[b] - incByType[a]; });
+    if (incKeys.length > 1) {
+      incKeys.forEach(function(tt) {
+        totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">' + htmlEsc(tt) + '</span><span style="font-weight:700;color:var(--green)">+ ' + fmt(incByType[tt]) + ' ر.س</span></div>';
+      });
+    }
   } else if (histFilter === 'behalf') {
     var net = behalfPaid - behalfRefund;
     var onePerson = histPerson !== 'all';
