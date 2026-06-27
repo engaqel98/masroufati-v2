@@ -63,6 +63,9 @@ var REPL_RAW = [
   ['طريقة الدفع', 'Payment method'], ['العملة الدولية', 'Foreign currency'],
   ['سعر الصرف ', 'FX rate '],
   // ===== اللوحة =====
+  ['خطة التمويل · يتبقّى ', 'Financing plan · '],
+  ['المتبقّي من إجمالي ', 'Remaining of '],
+  ['شهر ', 'Month '], ['التقدّم', 'Progress'], ['القسط الشهري', 'Monthly payment'], ['الانتهاء', 'Ends'],
   ['📊 المتبقي حسب التصنيف · ', '📊 Remaining by category · '],
   ['باقي على الآخرين ', 'Others owe '], ['باقي ', 'Left '],
   ['صُرف ', 'Spent '], [' · تجاوزت بـ ', ' · over by '],
@@ -178,6 +181,7 @@ var REPL_RAW = [
   ['إضافة (وارد)', 'Credit (incoming)'],
   ['الكل', 'All'], ['⬇️ وارد', '⬇️ Incoming'], ['👥 نيابة', '👥 On behalf'],
   ['البنك', 'Bank'], ['مسح', 'Clear'],
+  ['المبلغ الأصلي', 'Original amount'], ['✎ تعديل', '✎ Edit'], ['🗑 حذف', '🗑 Delete'],
   // عام
   [' من ', ' of ']
 ];

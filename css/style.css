@@ -527,3 +527,79 @@ body.priv input[type="number"]:focus { filter: none; }
 .empty { text-align: center; padding: 48px 18px; color: var(--muted); }
 .empty-icon { font-size: 40px; margin-bottom: 10px; }
 .empty-text { font-size: 14px; }
+
+/* ============================================================
+   تصميم ٢ — M3 components (match interactive preview)
+   ============================================================ */
+/* Expandable transaction rows */
+.xtx { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md, 18px);
+  margin-bottom: 9px; overflow: hidden; cursor: pointer; box-shadow: var(--shadow-sm);
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), border-color .25s; }
+.xtx:active { transform: scale(.99); }
+.xtx.open { border-color: var(--line-2, var(--border)); }
+.tx-main { display: flex; align-items: center; gap: 12px; padding: 13px 14px; }
+.tx-main .ic { width: 44px; height: 44px; border-radius: 14px; flex: none; display: grid; place-items: center;
+  font-size: 19px; background: var(--bg-soft); transition: transform .3s cubic-bezier(.34,1.56,.64,1); }
+.xtx.open .tx-main .ic { transform: scale(1.08) rotate(-6deg); }
+.tx-main .tx-body { flex: 1; min-width: 0; }
+.tx-main .tx-n { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-main .tx-m { font-size: 11.5px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tx-main .tx-amt { font-size: 16px; font-weight: 800; white-space: nowrap; letter-spacing: -.3px; }
+.tx-main .tx-amt.plus { color: var(--green); }
+.tx-chev { transition: transform .4s cubic-bezier(.34,1.56,.64,1); color: var(--muted); font-size: 17px; flex: none; }
+.xtx.open .tx-chev { transform: rotate(180deg); }
+.tx-exp { max-height: 0; overflow: hidden; transition: max-height .42s cubic-bezier(.22,.61,.36,1); }
+.xtx.open .tx-exp { max-height: 260px; }
+.tx-detail { padding: 2px 14px 14px; }
+.tx-detail .kv-grid { display: flex; gap: 10px; flex-wrap: wrap; padding: 11px 0; border-top: 1px solid var(--border-soft); }
+.tx-detail .kv { flex: 1; min-width: 96px; }
+.tx-detail .kv span { font-size: 10.5px; color: var(--muted); display: block; }
+.tx-detail .kv b { font-size: 13px; font-weight: 700; }
+.tx-acts { display: flex; gap: 8px; }
+.tx-acts button { flex: 1; border: 1px solid var(--border); background: var(--card-2); color: var(--text);
+  border-radius: 11px; padding: 9px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: transform .15s; }
+.tx-acts button:active { transform: scale(.95); }
+.tx-acts .act-del { color: var(--red-text); border-color: var(--red-border); }
+
+/* Pills (transaction type) */
+.pill { font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.pill.p-ess { color: var(--c-ess); background: color-mix(in srgb, var(--c-ess) 16%, transparent); }
+.pill.p-lux { color: var(--c-lux); background: color-mix(in srgb, var(--c-lux) 16%, transparent); }
+.pill.p-loan { color: var(--c-loan); background: color-mix(in srgb, var(--c-loan) 16%, transparent); }
+.pill.p-in { color: var(--blue-text); background: var(--blue-bg); }
+.pill.p-unk { color: var(--muted); background: var(--bg-soft); }
+
+/* Financing burn-down hero (dashboard) */
+.fin-hero { position: relative; overflow: hidden; border-radius: var(--r); margin-bottom: 14px; padding: 22px 20px 18px;
+  color: #fff; background: linear-gradient(150deg, var(--hero-1), var(--hero-2) 60%, var(--hero-3));
+  box-shadow: var(--shadow-lg); }
+.fin-hero::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 90% 0%, rgba(255,255,255,.18), transparent 55%); }
+.fin-hero .fh-eyebrow { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; color: rgba(255,255,255,.8); position: relative; }
+.fin-hero .fh-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-lux); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-lux) 30%, transparent); }
+.fin-hero .fh-big { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.05; margin: 9px 0 2px; position: relative; }
+.fin-hero .fh-big .cur { font-size: 16px; font-weight: 600; opacity: .85; margin-inline-start: 5px; }
+.fin-hero .fh-sub { font-size: 12px; color: rgba(255,255,255,.72); position: relative; }
+.fin-hero .fh-sub b { color: #fff; font-weight: 600; }
+.comb { display: flex; gap: 3px; margin: 16px 0 13px; height: 30px; align-items: flex-end; position: relative; }
+.comb span { flex: 1; border-radius: 4px; background: rgba(255,255,255,.16); height: 60%; }
+.comb span.paid { background: rgba(255,255,255,.92); height: 100%; }
+.comb span.now { background: var(--c-lux); height: 100%; box-shadow: 0 0 12px var(--c-lux); animation: combPulse 2.2s ease infinite; }
+@keyframes combPulse { 0%,100% { box-shadow: 0 0 7px var(--c-lux); } 50% { box-shadow: 0 0 16px var(--c-lux); } }
+.fh-foot { display: flex; justify-content: space-between; gap: 8px; position: relative; border-top: 1px solid rgba(255,255,255,.15); padding-top: 12px; }
+.fh-foot div { font-size: 10.5px; color: rgba(255,255,255,.72); }
+.fh-foot b { display: block; font-size: 13.5px; color: #fff; font-weight: 700; margin-top: 3px; }
+
+/* Result head (analyze) — preview style */
+.res2 { border-radius: var(--r); overflow: hidden; border: 1px solid var(--border); margin-top: 12px; box-shadow: var(--shadow); }
+.res2 .res-head { padding: 22px 20px; border-bottom: 1px solid var(--border);
+  background: radial-gradient(120% 120% at 85% 0%, color-mix(in srgb, var(--hero-1) 16%, transparent), transparent 60%), var(--card); }
+.res2 .res-head.credit { background: radial-gradient(120% 120% at 85% 0%, color-mix(in srgb, var(--green) 18%, transparent), transparent 60%), var(--card); }
+.res2 .res-big { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+.res2 .res-head.credit .res-big { color: var(--green); }
+.res2 .res-big .cur { font-size: 16px; font-weight: 600; color: var(--muted); margin-inline-start: 5px; }
+.res2 .res-mer { font-size: 14px; font-weight: 700; margin-top: 7px; }
+.res2 .res-mer span { color: var(--muted); font-weight: 400; }
+.res2 .res-tag { display: inline-flex; align-items: center; gap: 6px; margin-top: 11px; font-size: 12px; font-weight: 700;
+  padding: 6px 13px; border-radius: 999px; }
+.res2 .res-body { padding: 16px; }

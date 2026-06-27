@@ -28,16 +28,16 @@ function analyze() {
   }
 
   var html = '';
-  html += '<div class="card" style="margin-top:12px">';
+  html += '<div class="res2">';
 
-  // رأس: المبلغ + التاجر + الشارة
-  html += '<div class="amount-big">';
-  html += '<div class="amount-num"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(parsed.amount) + ' <span style="font-size:18px;font-weight:400;color:var(--muted)">ر.س</span></div>';
-  html += '<div class="amount-sub">' + (parsed.merchant || '—') + (parsed.txType ? ' · ' + parsed.txType : '') + '</div>';
-  html += '<span class="badge ' + (isCredit ? 'badge-blue' : typeBadge(parsed.type)) + '">' + (isCredit ? '➕ ' + (parsed.type || 'إضافة') : parsed.type) + '</span>';
+  // رأس: المبلغ + التاجر + الشارة (تصميم ٢)
+  html += '<div class="res-head' + (isCredit ? ' credit' : '') + '">';
+  html += '<div class="res-big">' + (isCredit ? '+ ' : '') + fmt(parsed.amount) + ' <span class="cur">ر.س</span></div>';
+  html += '<div class="res-mer">' + (parsed.merchant || '—') + (parsed.txType ? ' <span>· ' + parsed.txType + '</span>' : '') + '</div>';
+  html += '<span class="res-tag badge ' + (isCredit ? 'badge-blue' : typeBadge(parsed.type)) + '">' + (isCredit ? '➕ ' + (parsed.type || 'إضافة') : parsed.type) + '</span>';
   html += '</div>';
 
-  html += '<div class="card-body">';
+  html += '<div class="res-body">';
 
   // === مطابقة الرصيد: قارن الرصيد المتوقّع بالفعلي للكشف عن عمليات/استردادات غير مُسجَّلة ===
   window._recon = null;
@@ -501,6 +501,38 @@ function renderDashboard() {
 
   var html = '';
 
+  // بطل التمويل (تصميم ٢) — العدّ التنازلي للمتبقّي + شريط ٢٤ شهر
+  (function () {
+    var fTotal = settings.total, fPay = settings.payment;
+    var sp = String(settings.start || '2026-05').split('-');
+    var fsy = parseInt(sp[0], 10), fsm = parseInt(sp[1], 10);
+    var nowD = new Date();
+    var fMonthNum = (nowD.getFullYear() - fsy) * 12 + (nowD.getMonth() + 1 - fsm) + 1;
+    fMonthNum = Math.max(1, Math.min(24, fMonthNum));
+    var fPaidAmt = expenses.filter(function (e) { return e.type === 'سداد التمويل' && !e.behalf && e.direction !== 'credit'; })
+      .reduce(function (s, e) { return s + (e.amount || 0); }, 0);
+    fPaidAmt = Math.min(fPaidAmt, fTotal);
+    var fRemaining = Math.max(0, fTotal - fPaidAmt);
+    var fPaidMonths = fPay > 0 ? Math.round(fPaidAmt / fPay) : 0;
+    var fMonthsLeft = Math.max(0, 24 - fMonthNum + 1);
+    var endD = new Date(fsy, fsm - 1 + 23);
+    var fEnd = MONTH_NAMES[endD.getMonth()] + ' ' + endD.getFullYear();
+    var comb = '';
+    for (var i = 1; i <= 24; i++) {
+      var cls = i <= fPaidMonths ? 'paid' : (i === fMonthNum ? 'now' : '');
+      comb += '<span class="' + cls + '"></span>';
+    }
+    html += '<div class="fin-hero stagger">';
+    html += '<div class="fh-eyebrow"><span class="fh-dot"></span> خطة التمويل · يتبقّى ' + fMonthsLeft + ' شهر</div>';
+    html += '<div class="fh-big">' + fmtInt(fRemaining) + ' <span class="cur">ر.س</span></div>';
+    html += '<div class="fh-sub">المتبقّي من إجمالي <b>' + fmtInt(fTotal) + ' ر.س</b></div>';
+    html += '<div class="comb">' + comb + '</div>';
+    html += '<div class="fh-foot"><div>التقدّم<b>شهر ' + fMonthNum + ' / 24</b></div>'
+      + '<div>القسط الشهري<b>' + fmtInt(fPay) + ' ر.س</b></div>'
+      + '<div>الانتهاء<b>' + fEnd + '</b></div></div>';
+    html += '</div>';
+  })();
+
   // شريط التنقّل بين الأشهر (لو فيه أكثر من شهر بيانات)
   var monthsAvail = availableMonths();
   if (monthsAvail.length > 1) {
@@ -574,6 +606,28 @@ function renderDashboard() {
 // ============================================================
 // HISTORY TAB
 // ============================================================
+// شارة (pill) ولون حسب التصنيف، وأيقونة العملية — لمطابقة تصميم ٢
+function pillClass(type, isCredit) {
+  if (isCredit) return 'p-in';
+  if (type === 'أساسيات') return 'p-ess';
+  if (type === 'كماليات') return 'p-lux';
+  if (type === 'سداد التمويل') return 'p-loan';
+  return 'p-unk';
+}
+function txIcon(e) {
+  if (e && e.direction === 'credit') {
+    if (e.type === 'راتب') return '💸';
+    if (e.type === 'استرداد') return '↩️';
+    if (e.type === 'سداد بطاقة') return '💳';
+    return '⬇️';
+  }
+  if (!e) return '💳';
+  if (e.type === 'أساسيات') return '🛒';
+  if (e.type === 'كماليات') return '🛍️';
+  if (e.type === 'سداد التمويل') return '🏦';
+  return '💳';
+}
+
 function filterHist(type, el) {
   histFilter = type;
   if (type !== 'behalf') histPerson = 'all';   // فلتر الشخص يخص عرض النيابة فقط
@@ -770,21 +824,26 @@ function renderHistory() {
     var edited = !isCredit && e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
     var eid = String(e.id || '').replace(/'/g, "\\'");
     var tdisp = fmtTime(e.time);
-    rows += '<div class="hist-item">';
-    rows += '<div class="hist-right"><div class="hist-amt"' + (isCredit ? ' style="color:var(--green)"' : '') + '>' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
-      + (edited ? '<div class="hist-date">من ' + fmt(e.origAmount) + '</div>' : '')
-      + '<div class="hist-date">' + (e.date||'') + (tdisp && tdisp !== '00:00' ? ' · ' + tdisp : '') + '</div></div>';
-    rows += '<div style="flex:1;min-width:0;padding-right:8px">';
-    rows += '<div class="hist-name">' + (e.merchant||'—') + '</div>';
-    rows += '<div class="hist-sub"><span class="' + typeDot(e.type) + '">●</span> ' + (e.type||'') + (e.bank ? ' · ' + e.bank : '') + '</div>';
-    if (e.behalf) rows += '<div class="hist-sub" style="margin-top:5px"><span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span></div>';
-    if (e.balance !== '' && e.balance != null) rows += '<div class="hist-sub" style="color:var(--muted)">الرصيد: ' + fmt(e.balance) + ' ر.س</div>';
-    if (e.note) rows += '<div class="hist-sub" style="color:var(--muted)">📝 ' + htmlEsc(e.note) + '</div>';
+    var dateLine = (e.date || '') + (tdisp && tdisp !== '00:00' ? ' · ' + tdisp : '');
+    rows += '<div class="xtx" onclick="this.classList.toggle(\'open\')">';
+    rows += '<div class="tx-main">';
+    rows += '<div class="ic">' + txIcon(e) + '</div>';
+    rows += '<div class="tx-body"><div class="tx-n">' + (e.merchant || '—') + '</div>';
+    rows += '<div class="tx-m"><span class="pill ' + pillClass(e.type, isCredit) + '">' + (e.type || '') + '</span>'
+      + (e.bank ? ' ' + e.bank : '')
+      + (e.behalf ? ' <span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span>' : '') + '</div></div>';
+    rows += '<div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>';
+    rows += '<span class="tx-chev">⌄</span>';
     rows += '</div>';
-    rows += '<div class="hist-actions">';
-    rows += '<button class="hist-act-btn" title="تعديل" onclick="editEntry(\'' + eid + '\')">✎</button>';
-    rows += '<button class="hist-act-btn hist-del" title="حذف" onclick="deleteEntry(\'' + eid + '\')">🗑</button>';
-    rows += '</div>';
+    rows += '<div class="tx-exp"><div class="tx-detail"><div class="kv-grid">';
+    rows += '<div class="kv"><span>التاريخ</span><b>' + dateLine + '</b></div>';
+    if (e.balance !== '' && e.balance != null) rows += '<div class="kv"><span>الرصيد</span><b>' + fmt(e.balance) + ' ر.س</b></div>';
+    if (edited) rows += '<div class="kv"><span>المبلغ الأصلي</span><b>' + fmt(e.origAmount) + ' ر.س</b></div>';
+    if (e.note) rows += '<div class="kv"><span>ملاحظة</span><b>' + htmlEsc(e.note) + '</b></div>';
+    rows += '</div><div class="tx-acts">';
+    rows += '<button onclick="event.stopPropagation();editEntry(\'' + eid + '\')">✎ تعديل</button>';
+    rows += '<button class="act-del" onclick="event.stopPropagation();deleteEntry(\'' + eid + '\')">🗑 حذف</button>';
+    rows += '</div></div></div>';
     rows += '</div>';
   });
 
@@ -820,7 +879,7 @@ function renderHistory() {
   totalCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = filterBars + summary + inCard + totalCard + '<div class="card">' + rows + '</div>' + sheetBtn;
+  el.innerHTML = filterBars + summary + inCard + totalCard + rows + sheetBtn;
 }
 
 // ============================================================
