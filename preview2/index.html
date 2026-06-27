@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مصروفاتي — تصميم ٢ (تفاعلي)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0C0D12; --surface:#171922; --surface-2:#1E212C; --surface-3:#262A38;
+  --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.12);
+  --text:#EDEEF4; --muted:#9AA0B2; --faint:#5A6072;
+  --violet:#7C6BFF; --violet-2:#9D7BFF; --violet-ink:#5B4BE0;
+  --mint:#2FD49B; --mint-dim:rgba(47,212,155,.14);
+  --coral:#FF6B5A; --gold:#F0B454; --gold-dim:rgba(240,180,84,.14);
+  --r-lg:26px; --r-md:18px;
+  --shadow:0 18px 50px -20px rgba(0,0,0,.7);
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --spring:cubic-bezier(.34,1.56,.64,1);
+}
+[data-theme="light"]{
+  --bg:#EEEDEA; --surface:#FFFFFF; --surface-2:#FAFAF8; --surface-3:#F0F0EC;
+  --line:rgba(20,20,30,.08); --line-2:rgba(20,20,30,.14);
+  --text:#16171D; --muted:#666C7C; --faint:#9AA0AE;
+  --violet:#5B4BE0; --violet-2:#7A5BF0; --violet-ink:#4A3BD0;
+  --mint:#12A574; --mint-dim:rgba(18,165,116,.12);
+  --coral:#E5503C; --gold:#C98A2B; --gold-dim:rgba(201,138,43,.14);
+  --shadow:0 18px 44px -24px rgba(40,40,60,.45);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg);color:var(--text);
+  font-variant-numeric:tabular-nums;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.riyal{font-size:.52em;font-weight:500;color:var(--muted);margin-inline-start:4px;letter-spacing:0}
+
+.app{max-width:480px;margin:0 auto;min-height:100%;position:relative;padding:0 18px 130px}
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.aurora i{position:absolute;border-radius:50%;filter:blur(70px)}
+.aurora i:nth-child(1){width:340px;height:340px;background:radial-gradient(circle,var(--violet),transparent 70%);top:-90px;inset-inline-start:-60px;opacity:.42}
+.aurora i:nth-child(2){width:260px;height:260px;background:radial-gradient(circle,var(--mint),transparent 70%);top:260px;inset-inline-end:-80px;opacity:.15}
+.app>*{position:relative;z-index:1}
+
+.top{display:flex;align-items:center;justify-content:space-between;padding:22px 4px 12px}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,var(--violet),var(--violet-ink));
+  display:grid;place-items:center;font-size:20px;box-shadow:0 8px 22px -8px var(--violet-ink)}
+.brand h1{font-size:17px;font-weight:700;letter-spacing:-.02em}
+.brand p{font-size:11.5px;color:var(--muted);margin-top:1px}
+.icon-btn{width:42px;height:42px;border-radius:13px;border:1px solid var(--line);background:var(--surface);
+  color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:17px;transition:transform .2s var(--ease)}
+.icon-btn:active{transform:scale(.88) rotate(-12deg)}
+
+.screen{display:none}
+.screen.on{display:block}
+.intro>*{opacity:0;transform:translateY(16px);animation:rise .6s var(--ease) forwards}
+.intro>*:nth-child(1){animation-delay:.05s}
+.intro>*:nth-child(2){animation-delay:.12s}
+.intro>*:nth-child(3){animation-delay:.19s}
+.intro>*:nth-child(4){animation-delay:.26s}
+.intro>*:nth-child(5){animation-delay:.33s}
+@keyframes rise{to{opacity:1;transform:none}}
+
+/* expandable mechanic — max-height (bulletproof collapse) */
+.exp{max-height:0;overflow:hidden;transition:max-height .46s var(--ease)}
+.open>.exp,.xcard.open .exp{max-height:660px}
+.exp-in{overflow:hidden;min-height:0}
+.chev{transition:transform .4s var(--spring);color:var(--muted);font-size:18px;line-height:1}
+.open .chev,.xcard.open .chev{transform:rotate(180deg)}
+
+/* hero */
+.hero{position:relative;border-radius:var(--r-lg);overflow:hidden;color:#fff;cursor:pointer;
+  background:linear-gradient(150deg,var(--violet-ink),#3A2D9E 60%,#2A1F7A);box-shadow:var(--shadow);
+  transition:transform .35s var(--spring)}
+.hero:active{transform:scale(.985)}
+.hero-pad{padding:24px 22px 20px}
+.hero::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 90% 0%,rgba(255,255,255,.18),transparent 55%);pointer-events:none}
+.eyebrow{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:rgba(255,255,255,.78);position:relative}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(240,180,84,.25)}
+.hero .big{font-size:46px;font-weight:700;letter-spacing:-.03em;line-height:1.05;margin:10px 0 2px;position:relative}
+.hero .sub{font-size:12.5px;color:rgba(255,255,255,.7);position:relative}
+.hero .sub b{color:#fff;font-weight:600}
+.comb{display:flex;gap:3px;margin:18px 0 14px;height:34px;align-items:flex-end;position:relative}
+.comb span{flex:1;border-radius:4px;background:rgba(255,255,255,.16);height:0;transition:height .5s var(--spring)}
+.comb span.paid{background:rgba(255,255,255,.92)}
+.comb span.now{background:var(--gold);box-shadow:0 0 14px var(--gold);animation:pulse 2.2s var(--ease) infinite .8s}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px var(--gold)}50%{box-shadow:0 0 18px var(--gold)}}
+.hero-foot{display:flex;justify-content:space-between;gap:8px;position:relative;border-top:1px solid rgba(255,255,255,.15);padding-top:13px}
+.hero-foot div{font-size:11px;color:rgba(255,255,255,.7)}
+.hero-foot b{display:block;font-size:14px;color:#fff;font-weight:600;margin-top:3px}
+.hero-exp .exp-in{padding:0 22px 20px}
+.hero-exp .row{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid rgba(255,255,255,.12)}
+.hero-exp .row .mo{font-size:12.5px;color:#fff;width:84px;font-weight:500}
+.hero-exp .row .bar{flex:1;height:7px;border-radius:5px;background:rgba(255,255,255,.16);overflow:hidden}
+.hero-exp .row .bar i{display:block;height:100%;width:0;background:var(--gold);border-radius:5px;transition:width .7s var(--ease)}
+.hero-exp .row .rm{font-size:12px;color:rgba(255,255,255,.85);width:70px;text-align:end}
+.tap-hint{font-size:10.5px;color:rgba(255,255,255,.55);text-align:center;padding-bottom:12px;position:relative}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);margin-top:14px;overflow:hidden}
+.xhead{padding:18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background .2s}
+.xhead:active{background:var(--surface-2)}
+.xtitle{font-size:14px;font-weight:600}
+
+.spend-grid{display:flex;gap:18px;align-items:center;width:100%}
+.donut{position:relative;width:96px;height:96px;flex:none}
+.donut svg{transform:rotate(-90deg)}
+.donut .ring{transition:stroke-dashoffset 1.1s var(--ease)}
+.donut .mid{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.donut .mid b{font-size:19px;font-weight:700}
+.donut .mid span{font-size:10px;color:var(--muted);display:block;margin-top:-2px}
+.spend-info{flex:1;min-width:0;text-align:start}
+.spend-info .amt{font-size:28px;font-weight:700;letter-spacing:-.03em}
+.delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;margin-top:6px;color:var(--mint);background:var(--mint-dim)}
+
+.spend-exp .exp-in{padding:0 18px 18px}
+.bars{display:flex;align-items:flex-end;gap:7px;height:90px;margin:6px 0 4px}
+.bars .b{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bars .b i{width:100%;max-width:26px;border-radius:7px 7px 4px 4px;background:linear-gradient(var(--violet),var(--violet-ink));height:0;transition:height .6s var(--spring)}
+.bars .b.peak i{background:linear-gradient(var(--gold),#c98a2b)}
+.bars .b span{font-size:10px;color:var(--faint)}
+.catrow{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid var(--line)}
+.catrow .sw{width:10px;height:10px;border-radius:3px;flex:none}
+.catrow .nm{font-size:13px;flex:none;width:64px}
+.catrow .track{flex:1;height:8px;border-radius:5px;background:var(--surface-3);overflow:hidden}
+.catrow .track i{display:block;height:100%;width:0;border-radius:5px;transition:width .8s var(--ease)}
+.catrow .vv{font-size:12.5px;font-weight:600;width:54px;text-align:end}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 12px;text-align:center}
+.stat .v{font-size:19px;font-weight:700}
+.stat .k{font-size:11px;color:var(--muted);margin-top:3px}
+
+.txhead{font-size:13px;font-weight:600;margin:24px 4px 8px;display:flex;justify-content:space-between;align-items:center}
+.txhead .more{font-size:12px;color:var(--violet);font-weight:500}
+.xtx{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:9px;overflow:hidden;cursor:pointer;transition:transform .25s var(--spring),border-color .25s}
+.xtx:active{transform:scale(.99)}
+.xtx.open{border-color:var(--line-2)}
+.tx-main{display:flex;align-items:center;gap:13px;padding:13px 15px}
+.tx-main .ic{width:44px;height:44px;border-radius:14px;flex:none;display:grid;place-items:center;font-size:19px;background:var(--surface-3);transition:transform .3s var(--spring)}
+.xtx.open .tx-main .ic{transform:scale(1.08) rotate(-6deg)}
+.tx-main .body{flex:1;min-width:0;text-align:start}
+.tx-main .n{font-size:14px;font-weight:600}
+.tx-main .m{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px}
+.pill{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px}
+.pill.ess{color:var(--mint);background:var(--mint-dim)}
+.pill.lux{color:var(--gold);background:var(--gold-dim)}
+.pill.in{color:var(--violet-2);background:rgba(124,107,255,.14)}
+.tx-main .amt{font-size:15px;font-weight:700;white-space:nowrap}
+.tx-main .amt.plus{color:var(--mint)}
+.tx-detail{padding:0 15px 15px}
+.tx-detail .grid{display:flex;gap:10px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line)}
+.tx-detail .kv{flex:1;min-width:90px}
+.tx-detail .kv span{font-size:10.5px;color:var(--muted);display:block}
+.tx-detail .kv b{font-size:13px;font-weight:600}
+.tx-acts{display:flex;gap:8px}
+.tx-acts button{flex:1;border:1px solid var(--line);background:var(--surface-2);color:var(--text);
+  border-radius:11px;padding:9px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:transform .2s}
+.tx-acts button:active{transform:scale(.95)}
+.tx-acts .del{color:var(--coral);border-color:rgba(255,107,90,.3)}
+
+/* nav with sliding indicator */
+.nav{position:fixed;bottom:0;inset-inline:0;z-index:30;display:flex;justify-content:center;pointer-events:none;
+  padding-bottom:max(14px,env(safe-area-inset-bottom))}
+.nav-inner{pointer-events:auto;position:relative;display:flex;align-items:center;gap:6px;background:var(--surface);
+  border:1px solid var(--line-2);border-radius:24px;padding:8px;box-shadow:0 16px 40px -14px rgba(0,0,0,.6);backdrop-filter:blur(14px)}
+.glow{position:absolute;top:8px;height:50px;width:50px;border-radius:17px;background:var(--surface-3);
+  transition:transform .42s var(--spring);z-index:0}
+.nav-btn{width:50px;height:50px;border:0;background:transparent;border-radius:17px;color:var(--faint);
+  display:grid;place-items:center;cursor:pointer;transition:color .3s,transform .2s var(--ease);position:relative;z-index:1}
+.nav-btn svg{width:23px;height:23px}
+.nav-btn.on{color:var(--text)}
+.nav-btn:active{transform:scale(.86)}
+.nav-btn.fab{width:58px;height:58px;border-radius:19px;color:#fff;z-index:2;
+  background:linear-gradient(145deg,var(--violet),var(--violet-ink));box-shadow:0 12px 26px -10px var(--violet-ink)}
+.nav-btn.fab svg{width:26px;height:26px}
+.nav-btn.fab:active{transform:scale(.9) rotate(90deg)}
+
+/* bottom sheet */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .35s;z-index:40;backdrop-filter:blur(2px)}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;max-width:480px;margin:0 auto;background:var(--surface);
+  border-radius:28px 28px 0 0;transform:translateY(101%);transition:transform .46s var(--ease);
+  max-height:90vh;overflow-y:auto;border-top:1px solid var(--line-2);padding:0 18px 28px}
+.sheet.on{transform:none}
+.handle{width:42px;height:5px;border-radius:3px;background:var(--line-2);margin:12px auto 6px}
+.sheet h3{font-size:18px;font-weight:700;margin:6px 4px 2px}
+.sheet .desc{font-size:12px;color:var(--muted);margin:0 4px 14px}
+.sms-box{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:15px;font-size:13px;color:var(--muted);line-height:1.7}
+.result{margin-top:14px;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--line)}
+.result .head{padding:20px;background:linear-gradient(150deg,rgba(47,212,155,.16),transparent);border-bottom:1px solid var(--line)}
+.result .head .big{font-size:34px;font-weight:700;color:var(--mint)}
+.result .head .mer{font-size:13.5px;font-weight:600;margin-top:4px}
+.result .head .mer span{color:var(--muted);font-weight:400}
+.tag{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:600;padding:6px 13px;border-radius:999px;background:rgba(124,107,255,.16);color:var(--violet-2)}
+.result .body{padding:16px}
+.recon{border-radius:14px;padding:14px;background:var(--mint-dim);border:1px solid rgba(47,212,155,.3);margin-bottom:14px}
+.recon .rt{font-size:13px;font-weight:700;color:var(--mint)}
+.recon .rl{font-size:12px;margin-top:7px;line-height:1.7}
+.recon .rl b{color:var(--mint)}
+.btn{width:100%;border:0;border-radius:14px;padding:14px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+  background:linear-gradient(145deg,var(--violet),var(--violet-ink));color:#fff;transition:transform .2s}
+.btn:active{transform:scale(.97)}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding:6px 0 12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;
+  padding:9px 16px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.25s var(--spring);white-space:nowrap}
+.chip.on{background:var(--text);color:var(--bg);border-color:var(--text);transform:scale(1.04)}
+.search{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0 14px}
+.search input{flex:1;border:0;background:transparent;color:var(--text);font-family:inherit;font-size:13.5px;padding:13px 0}
+.search input::placeholder{color:var(--faint)}
+.h2{font-size:20px;font-weight:700;margin:8px 4px 10px;letter-spacing:-.02em}
+.note{font-size:11px;color:var(--faint);text-align:center;margin-top:22px;line-height:1.7}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="aurora"><i></i><i></i></div>
+<div class="app">
+
+  <div class="top">
+    <div class="brand"><div class="logo">💳</div><div><h1>مصروفاتي</h1><p>تصميم ٢ · تفاعلي</p></div></div>
+    <button class="icon-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <section class="screen on intro" id="s-dash">
+
+    <div class="hero xcard" onclick="this.classList.toggle('open')">
+      <div class="hero-pad">
+        <div class="eyebrow"><span class="dot"></span> خطة التمويل · يتبقّى ٢٣ شهر
+          <span class="chev" style="margin-inline-start:auto">⌄</span></div>
+        <div class="big"><span class="cu num" data-to="115000">٠</span><span class="riyal">ر.س</span></div>
+        <div class="sub">المتبقّي من إجمالي <b>١٢٠٬٠٠٠ ر.س</b></div>
+        <div class="comb" id="comb"></div>
+        <div class="hero-foot">
+          <div>التقدّم<b class="num">شهر ٢ / ٢٤</b></div>
+          <div>القسط الشهري<b class="num">٥٬٠٠٠ ر.س</b></div>
+          <div>الانتهاء<b>ديسمبر ٢٠٢٧</b></div>
+        </div>
+      </div>
+      <div class="exp hero-exp"><div class="exp-in">
+        <div class="row"><div class="mo">يوليو ٢٦</div><div class="bar"><i data-w="8"></i></div><div class="rm num">١١٠٬٠٠٠</div></div>
+        <div class="row"><div class="mo">أغسطس ٢٦</div><div class="bar"><i data-w="12"></i></div><div class="rm num">١٠٥٬٠٠٠</div></div>
+        <div class="row"><div class="mo">سبتمبر ٢٦</div><div class="bar"><i data-w="17"></i></div><div class="rm num">١٠٠٬٠٠٠</div></div>
+        <div class="row"><div class="mo">أكتوبر ٢٦</div><div class="bar"><i data-w="21"></i></div><div class="rm num">٩٥٬٠٠٠</div></div>
+      </div></div>
+      <div class="tap-hint">اضغط للتوقّع ▾</div>
+    </div>
+
+    <div class="card xcard">
+      <div class="xhead" onclick="this.closest('.xcard').classList.toggle('open');animateSpend(this)">
+        <div class="spend-grid">
+          <div class="donut">
+            <svg width="96" height="96" viewBox="0 0 96 96">
+              <circle cx="48" cy="48" r="42" fill="none" stroke="var(--surface-3)" stroke-width="9"/>
+              <circle class="ring" cx="48" cy="48" r="42" fill="none" stroke="var(--violet)" stroke-width="9"
+                stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264" id="ring1"/>
+            </svg>
+            <div class="mid"><b class="num">٣٧٪</b><span>من الدخل</span></div>
+          </div>
+          <div class="spend-info">
+            <div style="font-size:12px;color:var(--muted)">صرف يونيو</div>
+            <div class="amt"><span class="cu num" data-to="3120">٠</span><span class="riyal">ر.س</span></div>
+            <div class="delta">▼ ٨٪ عن مايو</div>
+          </div>
+          <span class="chev">⌄</span>
+        </div>
+      </div>
+      <div class="exp spend-exp"><div class="exp-in">
+        <div class="bars" id="bars">
+          <div class="b" data-h="40"><i></i><span>أحد</span></div>
+          <div class="b" data-h="62"><i></i><span>إثن</span></div>
+          <div class="b" data-h="35"><i></i><span>ثلا</span></div>
+          <div class="b peak" data-h="92"><i></i><span>أرب</span></div>
+          <div class="b" data-h="50"><i></i><span>خمي</span></div>
+          <div class="b" data-h="70"><i></i><span>جمع</span></div>
+          <div class="b" data-h="28"><i></i><span>سبت</span></div>
+        </div>
+        <div class="catrow"><span class="sw" style="background:var(--mint)"></span><span class="nm">أساسيات</span>
+          <div class="track"><i data-w="68" style="background:var(--mint)"></i></div><span class="vv num">١٬٦٤٠</span></div>
+        <div class="catrow"><span class="sw" style="background:var(--gold)"></span><span class="nm">كماليات</span>
+          <div class="track"><i data-w="41" style="background:var(--gold)"></i></div><span class="vv num">٩٨٠</span></div>
+        <div class="catrow"><span class="sw" style="background:var(--faint)"></span><span class="nm">أخرى</span>
+          <div class="track"><i data-w="21" style="background:var(--faint)"></i></div><span class="vv num">٥٠٠</span></div>
+      </div></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v"><span class="cu num" data-to="27">٠</span></div><div class="k">عملية الشهر</div></div>
+      <div class="stat"><div class="v"><span class="cu num" data-to="104">٠</span></div><div class="k">متوسط يومي</div></div>
+      <div class="stat"><div class="v"><span class="cu num" data-to="5380">٠</span></div><div class="k">متبقّي الدخل</div></div>
+    </div>
+
+    <div class="txhead">آخر العمليات <span class="more">اضغط أي عملية للتفاصيل</span></div>
+
+    <div class="xtx" onclick="this.classList.toggle('open')">
+      <div class="tx-main"><div class="ic">↩️</div>
+        <div class="body"><div class="n">NOON</div><div class="m"><span class="pill in">استرداد</span> SAB Mastercard</div></div>
+        <div class="amt plus num">+ ٧٥</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+      <div class="exp"><div class="exp-in tx-detail">
+        <div class="grid">
+          <div class="kv"><span>التاريخ والوقت</span><b class="num">٢٧ يونيو · ١٢:٥٦</b></div>
+          <div class="kv"><span>الرصيد بعدها</span><b class="num">١٬٨٤٢٫٥٠ ر.س</b></div>
+        </div>
+        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+      </div></div>
+    </div>
+
+    <div class="xtx" onclick="this.classList.toggle('open')">
+      <div class="tx-main"><div class="ic">🛒</div>
+        <div class="body"><div class="n">بنده — تموينات</div><div class="m"><span class="pill ess">أساسيات</span> الراجحي</div></div>
+        <div class="amt num">١٨٠</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+      <div class="exp"><div class="exp-in tx-detail">
+        <div class="grid">
+          <div class="kv"><span>التاريخ والوقت</span><b class="num">٢٦ يونيو · ٢٠:١٤</b></div>
+          <div class="kv"><span>الرصيد بعدها</span><b class="num">١٬٧٦٧٫٥٠ ر.س</b></div>
+        </div>
+        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+      </div></div>
+    </div>
+
+    <div class="xtx" onclick="this.classList.toggle('open')">
+      <div class="tx-main"><div class="ic">📚</div>
+        <div class="body"><div class="n">مكتبة جرير</div><div class="m"><span class="pill lux">كماليات</span> الأول (SAB)</div></div>
+        <div class="amt num">٦٠</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+      <div class="exp"><div class="exp-in tx-detail">
+        <div class="grid">
+          <div class="kv"><span>التاريخ والوقت</span><b class="num">٢٥ يونيو · ١٧:٠٢</b></div>
+          <div class="kv"><span>طريقة الدفع</span><b>Apple Pay</b></div>
+        </div>
+        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+      </div></div>
+    </div>
+
+    <div class="note">تصميم ٢ · بيانات تجريبية وهمية — اضغط البطاقات لتتوسّع</div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="screen intro" id="s-hist">
+    <div class="h2">السجل</div>
+    <div class="search"><span>🔍</span><input placeholder="ابحث: تاجر، مبلغ، ملاحظة…"></div>
+    <div class="chips">
+      <div class="chip on">الكل</div><div class="chip">أساسيات</div><div class="chip">كماليات</div>
+      <div class="chip">سداد التمويل</div><div class="chip">⬇️ وارد</div><div class="chip">👥 نيابة</div><div class="chip">🔎 فجوات</div>
+    </div>
+    <div class="xtx" onclick="this.classList.toggle('open')">
+      <div class="tx-main"><div class="ic">↩️</div>
+        <div class="body"><div class="n">NOON</div><div class="m"><span class="pill in">استرداد</span> ٢٧ يونيو</div></div>
+        <div class="amt plus num">+ ٧٥</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+      <div class="exp"><div class="exp-in tx-detail">
+        <div class="grid"><div class="kv"><span>الوقت</span><b class="num">١٢:٥٦</b></div><div class="kv"><span>الرصيد</span><b class="num">١٬٨٤٢٫٥٠</b></div></div>
+        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+      </div></div>
+    </div>
+    <div class="xtx" onclick="this.classList.toggle('open')">
+      <div class="tx-main"><div class="ic">🎬</div>
+        <div class="body"><div class="n">Netflix</div><div class="m"><span class="pill lux">كماليات</span> ٢٤ يونيو</div></div>
+        <div class="amt num">٥٦</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+      <div class="exp"><div class="exp-in tx-detail">
+        <div class="grid"><div class="kv"><span>الوقت</span><b class="num">٠٩:٠٠</b></div><div class="kv"><span>متكرر</span><b>اشتراك شهري</b></div></div>
+        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+      </div></div>
+    </div>
+    <div class="xtx" onclick="this.classList.toggle('open')">
+      <div class="tx-main"><div class="ic">💸</div>
+        <div class="body"><div class="n">راتب</div><div class="m"><span class="pill in">راتب</span> ٢٥ يونيو</div></div>
+        <div class="amt plus num">+ ٨٬٥٠٠</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+      <div class="exp"><div class="exp-in tx-detail">
+        <div class="grid"><div class="kv"><span>الوقت</span><b class="num">٠٠:٠١</b></div><div class="kv"><span>الجهة</span><b>إيداع راتب</b></div></div>
+        <div class="tx-acts"><button>✎ تعديل</button><button class="del">🗑 حذف</button></div>
+      </div></div>
+    </div>
+    <div class="note">تصميم ٢ · بيانات تجريبية وهمية</div>
+  </section>
+
+  <!-- FINANCING -->
+  <section class="screen intro" id="s-fin">
+    <div class="h2">التمويل</div>
+    <div class="hero xcard" onclick="this.classList.toggle('open')">
+      <div class="hero-pad">
+        <div class="eyebrow"><span class="dot"></span> سُدّد ٥٬٠٠٠ من ١٢٠٬٠٠٠
+          <span class="chev" style="margin-inline-start:auto">⌄</span></div>
+        <div class="big"><span class="cu num" data-to="115000">٠</span><span class="riyal">ر.س</span></div>
+        <div class="sub">متبقّي · بنسبة <b>٩٦٪</b> من التمويل</div>
+        <div class="comb" id="comb2"></div>
+        <div class="hero-foot">
+          <div>القسط القادم<b>١ يوليو</b></div>
+          <div>الأشهر المتبقية<b class="num">٢٣ شهر</b></div>
+          <div>الدخل الشهري<b class="num">٨٬٥٠٠</b></div>
+        </div>
+      </div>
+      <div class="exp hero-exp"><div class="exp-in">
+        <div class="row"><div class="mo">يوليو ٢٦</div><div class="bar"><i data-w="8"></i></div><div class="rm num">١١٠٬٠٠٠</div></div>
+        <div class="row"><div class="mo">أغسطس ٢٦</div><div class="bar"><i data-w="12"></i></div><div class="rm num">١٠٥٬٠٠٠</div></div>
+        <div class="row"><div class="mo">سبتمبر ٢٦</div><div class="bar"><i data-w="17"></i></div><div class="rm num">١٠٠٬٠٠٠</div></div>
+      </div></div>
+      <div class="tap-hint">اضغط للتوقّع ▾</div>
+    </div>
+    <div class="note">تصميم ٢ · بيانات تجريبية وهمية</div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="screen intro" id="s-set">
+    <div class="h2">الإعدادات</div>
+    <div class="card"><div style="padding:18px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:11px"><div style="width:38px;height:38px;border-radius:11px;background:var(--surface-3);display:grid;place-items:center">☁️</div>
+        <div><div style="font-size:13.5px;font-weight:600">مزامنة Google Sheets</div><div style="font-size:11px;color:var(--muted)">آخر مزامنة قبل ٣ دقائق</div></div></div>
+      <div style="color:var(--mint);font-size:13px;font-weight:600">متصل ✓</div>
+    </div></div>
+    <div class="note">تصميم ٢ · بيانات تجريبية وهمية</div>
+  </section>
+
+</div>
+
+<!-- bottom sheet -->
+<div class="backdrop" id="backdrop" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="handle"></div>
+  <h3>تحليل رسالة بنكية</h3>
+  <p class="desc">الصق رسالة الـ SMS ونستخرج العملية تلقائياً</p>
+  <div class="sms-box">تم استرداد مبلغ قدره SAR 75.00 من NOON إلى بطاقة ائتمان SAB Mastercard Alfursan (1321)<br>الرصيد: SAR 1,842.50</div>
+  <div class="result">
+    <div class="head">
+      <div class="big num">+ ٧٥٫٠٠<span class="riyal" style="color:rgba(47,212,155,.7)">ر.س</span></div>
+      <div class="mer">NOON <span>· استرداد</span></div>
+      <span class="tag">➕ استرداد</span>
+    </div>
+    <div class="body">
+      <div class="recon"><div class="rt">💡 تنبيه مطابقة الرصيد</div>
+        <div class="rl">المتوقّع <b class="num">١٬٥٧٥٫٠٠</b> · الفعلي <b class="num">١٬٨٤٢٫٥٠</b> — فرق <b class="num">٢٦٧٫٥٠ ر.س</b> غير مسجّل.</div>
+      </div>
+      <button class="btn">💾 حفظ وإرسال</button>
+    </div>
+  </div>
+</div>
+
+<nav class="nav"><div class="nav-inner">
+  <div class="glow" id="glow"></div>
+  <button class="nav-btn on" data-s="s-dash" onclick="go(this,0)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>
+  <button class="nav-btn" data-s="s-hist" onclick="go(this,1)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 9h6M9 13h4"/></svg></button>
+  <button class="nav-btn fab" onclick="openSheet()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="nav-btn" data-s="s-fin" onclick="go(this,3)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-6"/></svg></button>
+  <button class="nav-btn" data-s="s-set" onclick="go(this,4)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2.3-1.3L13.7 2h-3.4l-.3 2.5A7 7 0 0 0 7.7 5.8l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5.3 12c0 .4 0 .9.1 1.3l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2.3 1.3l.3 2.5h3.4l.3-2.5a7 7 0 0 0 2.3-1.3l2.3 1 2-3.4-2-1.5c.1-.4.1-.9.1-1.3z"/></svg></button>
+</div></nav>
+
+<script>
+var reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+// build combs
+function buildComb(id){
+  var el=document.getElementById(id); if(!el) return;
+  for(var i=1;i<=24;i++){
+    var s=document.createElement('span');
+    if(i===1)s.className='paid'; else if(i===2)s.className='now';
+    el.appendChild(s);
+  }
+}
+buildComb('comb'); buildComb('comb2');
+
+// animate comb bars rising (staggered)
+function riseComb(id){
+  var el=document.getElementById(id); if(!el) return;
+  [].forEach.call(el.children,function(s,i){
+    var full = s.classList.contains('paid')||s.classList.contains('now');
+    setTimeout(function(){ s.style.height = full?'100%':'60%'; }, reduce?0:120+i*22);
+  });
+}
+
+// count-up
+function countUp(el){
+  var to=+el.dataset.to;
+  if(reduce){ el.textContent=to.toLocaleString('ar-SA'); return; }
+  var dur=1100, t0=null;
+  function step(t){
+    if(!t0)t0=t; var p=Math.min(1,(t-t0)/dur);
+    var e=1-Math.pow(1-p,3); // easeOutCubic
+    el.textContent=Math.round(to*e).toLocaleString('ar-SA');
+    if(p<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+function runCountUps(scope){
+  (scope||document).querySelectorAll('.cu').forEach(function(el){
+    if(el.dataset.done)return; el.dataset.done=1; countUp(el);
+  });
+}
+
+// donut fill
+function fillRing(){
+  var r=document.getElementById('ring1'); if(r) setTimeout(function(){ r.style.strokeDashoffset='166'; }, 250); // ~37%
+}
+
+// expand month-spend: animate inner bars + tracks the first time
+function animateSpend(head){
+  var card=head.closest('.xcard');
+  if(!card.classList.contains('open'))return;
+  card.querySelectorAll('#bars .b').forEach(function(b,i){
+    setTimeout(function(){ b.querySelector('i').style.height=b.dataset.h+'%'; }, reduce?0:i*45);
+  });
+  card.querySelectorAll('.catrow .track i').forEach(function(t){
+    setTimeout(function(){ t.style.width=t.dataset.w+'%'; },150);
+  });
+}
+
+// hero projection bars fill when opened
+document.querySelectorAll('.hero.xcard').forEach(function(h){
+  h.addEventListener('click',function(){
+    if(h.classList.contains('open')){
+      h.querySelectorAll('.hero-exp .bar i').forEach(function(i){
+        setTimeout(function(){ i.style.width=i.dataset.w+'%'; },120);
+      });
+    }
+  });
+});
+
+// nav
+var positions=[0,1,2,3,4];
+function placeGlow(idx){
+  var glow=document.getElementById('glow');
+  // buttons: indices 0,1,(fab=2 skip),3,4 — width 50 + gap 6, fab width 58
+  var x = idx*56; if(idx>=3) x = 2*56 + 64 + (idx-3)*56; // account for fab(58)+gap
+  // RTL: move opposite
+  glow.style.transform='translateX(-'+x+'px)';
+}
+function go(btn,idx){
+  document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('on')});
+  btn.classList.add('on');
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on')});
+  var t=document.getElementById(btn.dataset.s);
+  if(t){ t.classList.remove('intro'); void t.offsetWidth; t.classList.add('intro','on'); }
+  placeGlow(idx);
+  runCountUps(t);
+  if(btn.dataset.s==='s-fin') riseComb('comb2');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function openSheet(){ document.getElementById('backdrop').classList.add('on'); document.getElementById('sheet').classList.add('on'); }
+function closeSheet(){ document.getElementById('backdrop').classList.remove('on'); document.getElementById('sheet').classList.remove('on'); }
+
+function toggleTheme(){
+  var h=document.documentElement, dark=h.getAttribute('data-theme')==='dark';
+  h.setAttribute('data-theme',dark?'light':'dark');
+  document.getElementById('themeBtn').textContent=dark?'☀️':'🌙';
+}
+
+// init
+window.addEventListener('load',function(){
+  placeGlow(0);
+  setTimeout(function(){ runCountUps(); fillRing(); riseComb('comb'); }, 200);
+});
+</script>
+</body>
+</html>
