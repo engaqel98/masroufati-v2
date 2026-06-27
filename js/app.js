@@ -53,6 +53,13 @@ function closeAddSheet() {
   document.getElementById('add-sheet').classList.remove('on');
 }
 
+// يبدّل الزر العلوي بين «لصق» (وضع التحرير) و«حفظ» (بعد التحليل)
+function showTopSave(on) {
+  var p = document.getElementById('btn-paste'), s = document.getElementById('btn-savetop');
+  if (p) p.style.display = on ? 'none' : '';
+  if (s) s.style.display = on ? '' : 'none';
+}
+
 // ============================================================
 // PRIVACY — إخفاء الأرقام (الافتراضي: مخفية عند كل فتح)
 // ============================================================

@@ -4,11 +4,12 @@
 function analyze() {
   var txt = document.getElementById('sms-input').value.trim();
   var area = document.getElementById('result-area');
-  if (!txt) { area.innerHTML = '<div class="alert alert-yellow">⚠️ الرجاء لصق رسالة SMS</div>'; return; }
+  if (!txt) { area.innerHTML = '<div class="alert alert-yellow">⚠️ الرجاء لصق رسالة SMS</div>'; if (typeof showTopSave === 'function') showTopSave(false); return; }
 
   var parsed = detectAndParse(txt);
   if (!parsed || !parsed.amount) {
     if (typeof saveFailedParse === 'function') saveFailedParse(txt);   // احفظها للمعالجة لاحقاً
+    if (typeof showTopSave === 'function') showTopSave(false);
     area.innerHTML = '<div class="alert alert-red">⚠️ تعذّر استخراج البيانات — حُفظت الرسالة في «الإعدادات ← رسائل لم تُحلَّل» لمعالجتها لاحقاً.</div>'
       + '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="manualFromSMS()">✍️ أدخلها يدوياً الآن</button></div>';
     return;
@@ -86,11 +87,10 @@ function analyze() {
   html += '<div class="field" style="margin-top:8px"><label>' + (isCredit ? '👥 سداد من شخص (اختياري)' : '👥 نيابة عن (اختياري)') + '</label>';
   html += '<input type="text" id="behalf-edit" list="people-list" placeholder="' + (isCredit ? 'اسم الشخص — يُخصم من المتبقي عليه' : 'اكتب اسم الشخص أو اختر من القائمة') + '"' + (parsed.behalf ? ' value="' + htmlEsc(parsed.behalf) + '"' : '') + '>';
   html += '</div>';
-  html += '<div class="btn-row">';
-  html += '<button class="btn btn-green" onclick="saveEntry()">💾 حفظ وإرسال</button>';
-  html += '<button class="btn btn-outline" onclick="clearSMS()">مسح</button>';
-  html += '</div>';
   html += '<div id="save-status"></div>';
+  html += '<div class="btn-row" style="margin-top:8px">';
+  html += '<button class="btn btn-outline" onclick="clearSMS()">🗑 مسح</button>';
+  html += '</div>';
 
   // === التفاصيل / التعديل (سكرول للأسفل عند الحاجة) ===
   html += '<div class="divider"></div>';
@@ -110,11 +110,13 @@ function analyze() {
   html += '</div></div>';
 
   area.innerHTML = html;
+  if (typeof showTopSave === 'function') showTopSave(true);   // أظهر «حفظ» مكان «لصق»
 }
 
 function clearSMS() {
   document.getElementById('sms-input').value = '';
   document.getElementById('result-area').innerHTML = '';
+  if (typeof showTopSave === 'function') showTopSave(false);   // ارجع «لصق»
 }
 
 // يقرأ الحافظة مباشرة ويحلّل — يوفّر خطوة "اضغط النص ← لصق" اليدوية

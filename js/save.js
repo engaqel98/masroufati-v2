@@ -233,6 +233,7 @@ async function saveEntry() {
     if (sms) sms.value = '';
     window._parsed = null;
     document.getElementById('result-area').innerHTML = '<div class="alert alert-green">✅ حُفظت — الصق الرسالة التالية</div>';
+    if (typeof showTopSave === 'function') showTopSave(false);   // ارجع زر «لصق» مكان «حفظ»
   }
 }
 
