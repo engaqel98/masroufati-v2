@@ -35,6 +35,7 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
   font-variant-numeric:tabular-nums;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .riyal{font-size:.52em;font-weight:500;color:var(--muted);margin-inline-start:4px;letter-spacing:0}
+.money.hid{letter-spacing:.12em}
 
 .app{max-width:480px;margin:0 auto;min-height:100%;position:relative;padding:0 18px 130px}
 .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
@@ -49,28 +50,27 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
   display:grid;place-items:center;font-size:20px;box-shadow:0 8px 22px -8px var(--violet-ink)}
 .brand h1{font-size:17px;font-weight:700;letter-spacing:-.02em}
 .brand p{font-size:11.5px;color:var(--muted);margin-top:1px}
+.top-actions{display:flex;gap:8px}
 .icon-btn{width:42px;height:42px;border-radius:13px;border:1px solid var(--line);background:var(--surface);
   color:var(--text);display:grid;place-items:center;cursor:pointer;font-size:17px;transition:transform .2s var(--ease)}
-.icon-btn:active{transform:scale(.88) rotate(-12deg)}
+.icon-btn svg{width:20px;height:20px}
+.icon-btn.lng{font-size:12.5px;font-weight:700}
+.icon-btn:active{transform:scale(.86)}
 
 .screen{display:none}
 .screen.on{display:block}
 .intro>*{opacity:0;transform:translateY(16px);animation:rise .6s var(--ease) forwards}
-.intro>*:nth-child(1){animation-delay:.05s}
-.intro>*:nth-child(2){animation-delay:.12s}
-.intro>*:nth-child(3){animation-delay:.19s}
-.intro>*:nth-child(4){animation-delay:.26s}
+.intro>*:nth-child(1){animation-delay:.05s}.intro>*:nth-child(2){animation-delay:.12s}
+.intro>*:nth-child(3){animation-delay:.19s}.intro>*:nth-child(4){animation-delay:.26s}
 .intro>*:nth-child(5){animation-delay:.33s}
 @keyframes rise{to{opacity:1;transform:none}}
 
-/* expandable mechanic — max-height (bulletproof collapse) */
 .exp{max-height:0;overflow:hidden;transition:max-height .46s var(--ease)}
 .open>.exp,.xcard.open .exp{max-height:660px}
 .exp-in{overflow:hidden;min-height:0}
 .chev{transition:transform .4s var(--spring);color:var(--muted);font-size:18px;line-height:1}
 .open .chev,.xcard.open .chev{transform:rotate(180deg)}
 
-/* hero */
 .hero{position:relative;border-radius:var(--r-lg);overflow:hidden;color:#fff;cursor:pointer;
   background:linear-gradient(150deg,var(--violet-ink),#3A2D9E 60%,#2A1F7A);box-shadow:var(--shadow);
   transition:transform .35s var(--spring)}
@@ -95,14 +95,12 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 .hero-exp .row .mo{font-size:12.5px;color:#fff;width:84px;font-weight:500}
 .hero-exp .row .bar{flex:1;height:7px;border-radius:5px;background:rgba(255,255,255,.16);overflow:hidden}
 .hero-exp .row .bar i{display:block;height:100%;width:0;background:var(--gold);border-radius:5px;transition:width .7s var(--ease)}
-.hero-exp .row .rm{font-size:12px;color:rgba(255,255,255,.85);width:70px;text-align:end}
+.hero-exp .row .rm{font-size:12px;color:rgba(255,255,255,.85);width:78px;text-align:end}
 .tap-hint{font-size:10.5px;color:rgba(255,255,255,.55);text-align:center;padding-bottom:12px;position:relative}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);margin-top:14px;overflow:hidden}
 .xhead{padding:18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background .2s}
 .xhead:active{background:var(--surface-2)}
-.xtitle{font-size:14px;font-weight:600}
-
 .spend-grid{display:flex;gap:18px;align-items:center;width:100%}
 .donut{position:relative;width:96px;height:96px;flex:none}
 .donut svg{transform:rotate(-90deg)}
@@ -113,7 +111,6 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 .spend-info{flex:1;min-width:0;text-align:start}
 .spend-info .amt{font-size:28px;font-weight:700;letter-spacing:-.03em}
 .delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;margin-top:6px;color:var(--mint);background:var(--mint-dim)}
-
 .spend-exp .exp-in{padding:0 18px 18px}
 .bars{display:flex;align-items:flex-end;gap:7px;height:90px;margin:6px 0 4px}
 .bars .b{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
@@ -122,7 +119,7 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 .bars .b span{font-size:10px;color:var(--faint)}
 .catrow{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid var(--line)}
 .catrow .sw{width:10px;height:10px;border-radius:3px;flex:none}
-.catrow .nm{font-size:13px;flex:none;width:64px}
+.catrow .nm{font-size:13px;flex:none;width:74px}
 .catrow .track{flex:1;height:8px;border-radius:5px;background:var(--surface-3);overflow:hidden}
 .catrow .track i{display:block;height:100%;width:0;border-radius:5px;transition:width .8s var(--ease)}
 .catrow .vv{font-size:12.5px;font-weight:600;width:54px;text-align:end}
@@ -132,8 +129,8 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 .stat .v{font-size:19px;font-weight:700}
 .stat .k{font-size:11px;color:var(--muted);margin-top:3px}
 
-.txhead{font-size:13px;font-weight:600;margin:24px 4px 8px;display:flex;justify-content:space-between;align-items:center}
-.txhead .more{font-size:12px;color:var(--violet);font-weight:500}
+.txhead{font-size:13px;font-weight:600;margin:24px 4px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.txhead .more{font-size:12px;color:var(--violet);font-weight:500;text-align:end}
 .xtx{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:9px;overflow:hidden;cursor:pointer;transition:transform .25s var(--spring),border-color .25s}
 .xtx:active{transform:scale(.99)}
 .xtx.open{border-color:var(--line-2)}
@@ -160,13 +157,12 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 .tx-acts button:active{transform:scale(.95)}
 .tx-acts .del{color:var(--coral);border-color:rgba(255,107,90,.3)}
 
-/* nav with sliding indicator */
 .nav{position:fixed;bottom:0;inset-inline:0;z-index:30;display:flex;justify-content:center;pointer-events:none;
   padding-bottom:max(14px,env(safe-area-inset-bottom))}
 .nav-inner{pointer-events:auto;position:relative;display:flex;align-items:center;gap:6px;background:var(--surface);
   border:1px solid var(--line-2);border-radius:24px;padding:8px;box-shadow:0 16px 40px -14px rgba(0,0,0,.6);backdrop-filter:blur(14px)}
 .glow{position:absolute;top:8px;height:50px;width:50px;border-radius:17px;background:var(--surface-3);
-  transition:transform .42s var(--spring);z-index:0}
+  transition:transform .42s var(--spring);z-index:0;inset-inline-start:8px}
 .nav-btn{width:50px;height:50px;border:0;background:transparent;border-radius:17px;color:var(--faint);
   display:grid;place-items:center;cursor:pointer;transition:color .3s,transform .2s var(--ease);position:relative;z-index:1}
 .nav-btn svg{width:23px;height:23px}
@@ -177,7 +173,6 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 .nav-btn.fab svg{width:26px;height:26px}
 .nav-btn.fab:active{transform:scale(.9) rotate(90deg)}
 
-/* bottom sheet */
 .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .35s;z-index:40;backdrop-filter:blur(2px)}
 .backdrop.on{opacity:1;pointer-events:auto}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;max-width:480px;margin:0 auto;background:var(--surface);
@@ -222,8 +217,13 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 <div class="app">
 
   <div class="top">
-    <div class="brand"><div class="logo">💳</div><div><h1>مصروفاتي</h1><p>تصميم ٢ · تفاعلي</p></div></div>
-    <button class="icon-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    <div class="brand"><div class="logo">💳</div>
+      <div><h1 data-i18n="brand">مصروفاتي</h1><p data-i18n="brand_sub">تصميم ٢ · تفاعلي</p></div></div>
+    <div class="top-actions">
+      <button class="icon-btn lng" id="langBtn" onclick="toggleLang()">EN</button>
+      <button class="icon-btn" id="eyeBtn" onclick="toggleReveal()" title="إظهار/إخفاء"></button>
+      <button class="icon-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+    </div>
   </div>
 
   <!-- DASHBOARD -->
@@ -231,24 +231,24 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 
     <div class="hero xcard" onclick="this.classList.toggle('open')">
       <div class="hero-pad">
-        <div class="eyebrow"><span class="dot"></span> خطة التمويل · يتبقّى ٢٣ شهر
+        <div class="eyebrow"><span class="dot"></span> <span data-i18n="hero_eyebrow">خطة التمويل · يتبقّى ٢٣ شهر</span>
           <span class="chev" style="margin-inline-start:auto">⌄</span></div>
-        <div class="big"><span class="cu num" data-to="115000">٠</span><span class="riyal">ر.س</span></div>
-        <div class="sub">المتبقّي من إجمالي <b>١٢٠٬٠٠٠ ر.س</b></div>
+        <div class="big"><span class="money" data-cu data-v="115000">٠</span><span class="riyal" data-i18n="sar">ر.س</span></div>
+        <div class="sub"><span data-i18n="hero_sub">المتبقّي من إجمالي</span> <b class="money" data-v="120000">٠</b> <span data-i18n="sar">ر.س</span></div>
         <div class="comb" id="comb"></div>
         <div class="hero-foot">
-          <div>التقدّم<b class="num">شهر ٢ / ٢٤</b></div>
-          <div>القسط الشهري<b class="num">٥٬٠٠٠ ر.س</b></div>
-          <div>الانتهاء<b>ديسمبر ٢٠٢٧</b></div>
+          <div><span data-i18n="f_progress">التقدّم</span><b data-i18n="f_progress_v">شهر ٢ / ٢٤</b></div>
+          <div><span data-i18n="f_payment">القسط الشهري</span><b><span class="money" data-v="5000">٠</span> <span data-i18n="sar">ر.س</span></b></div>
+          <div><span data-i18n="f_ends">الانتهاء</span><b data-i18n="f_ends_v">ديسمبر ٢٠٢٧</b></div>
         </div>
       </div>
       <div class="exp hero-exp"><div class="exp-in">
-        <div class="row"><div class="mo">يوليو ٢٦</div><div class="bar"><i data-w="8"></i></div><div class="rm num">١١٠٬٠٠٠</div></div>
-        <div class="row"><div class="mo">أغسطس ٢٦</div><div class="bar"><i data-w="12"></i></div><div class="rm num">١٠٥٬٠٠٠</div></div>
-        <div class="row"><div class="mo">سبتمبر ٢٦</div><div class="bar"><i data-w="17"></i></div><div class="rm num">١٠٠٬٠٠٠</div></div>
-        <div class="row"><div class="mo">أكتوبر ٢٦</div><div class="bar"><i data-w="21"></i></div><div class="rm num">٩٥٬٠٠٠</div></div>
+        <div class="row"><div class="mo" data-i18n="mo_jul">يوليو ٢٦</div><div class="bar"><i data-w="8"></i></div><div class="rm money" data-v="110000">٠</div></div>
+        <div class="row"><div class="mo" data-i18n="mo_aug">أغسطس ٢٦</div><div class="bar"><i data-w="12"></i></div><div class="rm money" data-v="105000">٠</div></div>
+        <div class="row"><div class="mo" data-i18n="mo_sep">سبتمبر ٢٦</div><div class="bar"><i data-w="17"></i></div><div class="rm money" data-v="100000">٠</div></div>
+        <div class="row"><div class="mo" data-i18n="mo_oct">أكتوبر ٢٦</div><div class="bar"><i data-w="21"></i></div><div class="rm money" data-v="95000">٠</div></div>
       </div></div>
-      <div class="tap-hint">اضغط للتوقّع ▾</div>
+      <div class="tap-hint" data-i18n="tap_forecast">اضغط للتوقّع ▾</div>
     </div>
 
     <div class="card xcard">
@@ -260,158 +260,158 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
               <circle class="ring" cx="48" cy="48" r="42" fill="none" stroke="var(--violet)" stroke-width="9"
                 stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264" id="ring1"/>
             </svg>
-            <div class="mid"><b class="num">٣٧٪</b><span>من الدخل</span></div>
+            <div class="mid"><b data-i18n="pct_income_v">٣٧٪</b><span data-i18n="pct_income">من الدخل</span></div>
           </div>
           <div class="spend-info">
-            <div style="font-size:12px;color:var(--muted)">صرف يونيو</div>
-            <div class="amt"><span class="cu num" data-to="3120">٠</span><span class="riyal">ر.س</span></div>
-            <div class="delta">▼ ٨٪ عن مايو</div>
+            <div style="font-size:12px;color:var(--muted)" data-i18n="spend_label">صرف يونيو</div>
+            <div class="amt"><span class="money" data-cu data-v="3120">٠</span><span class="riyal" data-i18n="sar">ر.س</span></div>
+            <div class="delta" data-i18n="spend_delta">▼ ٨٪ عن مايو</div>
           </div>
           <span class="chev">⌄</span>
         </div>
       </div>
       <div class="exp spend-exp"><div class="exp-in">
         <div class="bars" id="bars">
-          <div class="b" data-h="40"><i></i><span>أحد</span></div>
-          <div class="b" data-h="62"><i></i><span>إثن</span></div>
-          <div class="b" data-h="35"><i></i><span>ثلا</span></div>
-          <div class="b peak" data-h="92"><i></i><span>أرب</span></div>
-          <div class="b" data-h="50"><i></i><span>خمي</span></div>
-          <div class="b" data-h="70"><i></i><span>جمع</span></div>
-          <div class="b" data-h="28"><i></i><span>سبت</span></div>
+          <div class="b" data-h="40"><i></i><span data-i18n="d_sun">أحد</span></div>
+          <div class="b" data-h="62"><i></i><span data-i18n="d_mon">إثن</span></div>
+          <div class="b" data-h="35"><i></i><span data-i18n="d_tue">ثلا</span></div>
+          <div class="b peak" data-h="92"><i></i><span data-i18n="d_wed">أرب</span></div>
+          <div class="b" data-h="50"><i></i><span data-i18n="d_thu">خمي</span></div>
+          <div class="b" data-h="70"><i></i><span data-i18n="d_fri">جمع</span></div>
+          <div class="b" data-h="28"><i></i><span data-i18n="d_sat">سبت</span></div>
         </div>
-        <div class="catrow"><span class="sw" style="background:var(--mint)"></span><span class="nm">أساسيات</span>
-          <div class="track"><i data-w="68" style="background:var(--mint)"></i></div><span class="vv num">١٬٦٤٠</span></div>
-        <div class="catrow"><span class="sw" style="background:var(--gold)"></span><span class="nm">كماليات</span>
-          <div class="track"><i data-w="41" style="background:var(--gold)"></i></div><span class="vv num">٩٨٠</span></div>
-        <div class="catrow"><span class="sw" style="background:var(--faint)"></span><span class="nm">أخرى</span>
-          <div class="track"><i data-w="21" style="background:var(--faint)"></i></div><span class="vv num">٥٠٠</span></div>
+        <div class="catrow"><span class="sw" style="background:var(--mint)"></span><span class="nm" data-i18n="cat_ess">أساسيات</span>
+          <div class="track"><i data-w="68" style="background:var(--mint)"></i></div><span class="vv money" data-v="1640">٠</span></div>
+        <div class="catrow"><span class="sw" style="background:var(--gold)"></span><span class="nm" data-i18n="cat_lux">كماليات</span>
+          <div class="track"><i data-w="41" style="background:var(--gold)"></i></div><span class="vv money" data-v="980">٠</span></div>
+        <div class="catrow"><span class="sw" style="background:var(--faint)"></span><span class="nm" data-i18n="cat_oth">أخرى</span>
+          <div class="track"><i data-w="21" style="background:var(--faint)"></i></div><span class="vv money" data-v="500">٠</span></div>
       </div></div>
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="v"><span class="cu num" data-to="27">٠</span></div><div class="k">عملية الشهر</div></div>
-      <div class="stat"><div class="v"><span class="cu num" data-to="104">٠</span></div><div class="k">متوسط يومي</div></div>
-      <div class="stat"><div class="v"><span class="cu num" data-to="5380">٠</span></div><div class="k">متبقّي الدخل</div></div>
+      <div class="stat"><div class="v"><span class="money" data-cu data-v="27">٠</span></div><div class="k" data-i18n="st_count">عملية الشهر</div></div>
+      <div class="stat"><div class="v"><span class="money" data-cu data-v="104">٠</span></div><div class="k" data-i18n="st_avg">متوسط يومي</div></div>
+      <div class="stat"><div class="v"><span class="money" data-cu data-v="5380">٠</span></div><div class="k" data-i18n="st_left">متبقّي الدخل</div></div>
     </div>
 
-    <div class="txhead">آخر العمليات <span class="more">اضغط أي عملية للتفاصيل</span></div>
+    <div class="txhead"><span data-i18n="recent">آخر العمليات</span> <span class="more" data-i18n="tap_hint">اضغط أي عملية للتفاصيل</span></div>
 
     <div class="xtx" onclick="this.classList.toggle('open')">
       <div class="tx-main"><div class="ic">↩️</div>
-        <div class="body"><div class="n">NOON</div><div class="m"><span class="pill in">استرداد</span> SAB Mastercard</div></div>
-        <div class="amt plus num">+ ٧٥</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+        <div class="body"><div class="n">NOON</div><div class="m"><span class="pill in" data-i18n="pill_refund">استرداد</span> <span data-i18n="bank_sab">SAB Mastercard</span></div></div>
+        <div class="amt plus num">+ <span class="money" data-v="75">٠</span></div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
       <div class="exp"><div class="exp-in tx-detail">
         <div class="grid">
-          <div class="kv"><span>التاريخ والوقت</span><b class="num">٢٧ يونيو · ١٢:٥٦</b></div>
-          <div class="kv"><span>الرصيد بعدها</span><b class="num">١٬٨٤٢٫٥٠ ر.س</b></div>
+          <div class="kv"><span data-i18n="dt_time">التاريخ والوقت</span><b data-i18n="tx1_time">٢٧ يونيو · ١٢:٥٦</b></div>
+          <div class="kv"><span data-i18n="dt_bal">الرصيد بعدها</span><b><span class="money" data-v="1842.5" data-dec="2">٠</span> <span data-i18n="sar">ر.س</span></b></div>
         </div>
-        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+        <div class="tx-acts"><button data-i18n="act_edit">✎ تعديل</button><button data-i18n="act_behalf">👥 نيابة</button><button class="del" data-i18n="act_del">🗑 حذف</button></div>
       </div></div>
     </div>
 
     <div class="xtx" onclick="this.classList.toggle('open')">
       <div class="tx-main"><div class="ic">🛒</div>
-        <div class="body"><div class="n">بنده — تموينات</div><div class="m"><span class="pill ess">أساسيات</span> الراجحي</div></div>
-        <div class="amt num">١٨٠</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+        <div class="body"><div class="n" data-i18n="m_panda">بنده — تموينات</div><div class="m"><span class="pill ess" data-i18n="cat_ess">أساسيات</span> <span data-i18n="bank_rajhi">الراجحي</span></div></div>
+        <div class="amt num"><span class="money" data-v="180">٠</span></div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
       <div class="exp"><div class="exp-in tx-detail">
         <div class="grid">
-          <div class="kv"><span>التاريخ والوقت</span><b class="num">٢٦ يونيو · ٢٠:١٤</b></div>
-          <div class="kv"><span>الرصيد بعدها</span><b class="num">١٬٧٦٧٫٥٠ ر.س</b></div>
+          <div class="kv"><span data-i18n="dt_time">التاريخ والوقت</span><b data-i18n="tx2_time">٢٦ يونيو · ٢٠:١٤</b></div>
+          <div class="kv"><span data-i18n="dt_bal">الرصيد بعدها</span><b><span class="money" data-v="1767.5" data-dec="2">٠</span> <span data-i18n="sar">ر.س</span></b></div>
         </div>
-        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+        <div class="tx-acts"><button data-i18n="act_edit">✎ تعديل</button><button data-i18n="act_behalf">👥 نيابة</button><button class="del" data-i18n="act_del">🗑 حذف</button></div>
       </div></div>
     </div>
 
     <div class="xtx" onclick="this.classList.toggle('open')">
       <div class="tx-main"><div class="ic">📚</div>
-        <div class="body"><div class="n">مكتبة جرير</div><div class="m"><span class="pill lux">كماليات</span> الأول (SAB)</div></div>
-        <div class="amt num">٦٠</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+        <div class="body"><div class="n" data-i18n="m_jarir">مكتبة جرير</div><div class="m"><span class="pill lux" data-i18n="cat_lux">كماليات</span> <span data-i18n="bank_sab2">الأول (SAB)</span></div></div>
+        <div class="amt num"><span class="money" data-v="60">٠</span></div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
       <div class="exp"><div class="exp-in tx-detail">
         <div class="grid">
-          <div class="kv"><span>التاريخ والوقت</span><b class="num">٢٥ يونيو · ١٧:٠٢</b></div>
-          <div class="kv"><span>طريقة الدفع</span><b>Apple Pay</b></div>
+          <div class="kv"><span data-i18n="dt_time">التاريخ والوقت</span><b data-i18n="tx3_time">٢٥ يونيو · ١٧:٠٢</b></div>
+          <div class="kv"><span data-i18n="dt_method">طريقة الدفع</span><b>Apple Pay</b></div>
         </div>
-        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+        <div class="tx-acts"><button data-i18n="act_edit">✎ تعديل</button><button data-i18n="act_behalf">👥 نيابة</button><button class="del" data-i18n="act_del">🗑 حذف</button></div>
       </div></div>
     </div>
 
-    <div class="note">تصميم ٢ · بيانات تجريبية وهمية — اضغط البطاقات لتتوسّع</div>
+    <div class="note" data-i18n="note_dash">تصميم ٢ · بيانات تجريبية وهمية — اضغط البطاقات لتتوسّع</div>
   </section>
 
   <!-- HISTORY -->
   <section class="screen intro" id="s-hist">
-    <div class="h2">السجل</div>
-    <div class="search"><span>🔍</span><input placeholder="ابحث: تاجر، مبلغ، ملاحظة…"></div>
+    <div class="h2" data-i18n="nav_hist">السجل</div>
+    <div class="search"><span>🔍</span><input data-i18n-ph="search_ph" placeholder="ابحث: تاجر، مبلغ، ملاحظة…"></div>
     <div class="chips">
-      <div class="chip on">الكل</div><div class="chip">أساسيات</div><div class="chip">كماليات</div>
-      <div class="chip">سداد التمويل</div><div class="chip">⬇️ وارد</div><div class="chip">👥 نيابة</div><div class="chip">🔎 فجوات</div>
+      <div class="chip on" data-i18n="chip_all">الكل</div><div class="chip" data-i18n="cat_ess">أساسيات</div><div class="chip" data-i18n="cat_lux">كماليات</div>
+      <div class="chip" data-i18n="chip_loan">سداد التمويل</div><div class="chip" data-i18n="chip_in">⬇️ وارد</div><div class="chip" data-i18n="chip_behalf">👥 نيابة</div><div class="chip" data-i18n="chip_gaps">🔎 فجوات</div>
     </div>
     <div class="xtx" onclick="this.classList.toggle('open')">
       <div class="tx-main"><div class="ic">↩️</div>
-        <div class="body"><div class="n">NOON</div><div class="m"><span class="pill in">استرداد</span> ٢٧ يونيو</div></div>
-        <div class="amt plus num">+ ٧٥</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+        <div class="body"><div class="n">NOON</div><div class="m"><span class="pill in" data-i18n="pill_refund">استرداد</span> <span data-i18n="h_jun27">٢٧ يونيو</span></div></div>
+        <div class="amt plus num">+ <span class="money" data-v="75">٠</span></div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
       <div class="exp"><div class="exp-in tx-detail">
-        <div class="grid"><div class="kv"><span>الوقت</span><b class="num">١٢:٥٦</b></div><div class="kv"><span>الرصيد</span><b class="num">١٬٨٤٢٫٥٠</b></div></div>
-        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+        <div class="grid"><div class="kv"><span data-i18n="dt_t">الوقت</span><b data-i18n="t_1256">١٢:٥٦</b></div><div class="kv"><span data-i18n="dt_balshort">الرصيد</span><b class="money" data-v="1842.5" data-dec="2">٠</b></div></div>
+        <div class="tx-acts"><button data-i18n="act_edit">✎ تعديل</button><button data-i18n="act_behalf">👥 نيابة</button><button class="del" data-i18n="act_del">🗑 حذف</button></div>
       </div></div>
     </div>
     <div class="xtx" onclick="this.classList.toggle('open')">
       <div class="tx-main"><div class="ic">🎬</div>
-        <div class="body"><div class="n">Netflix</div><div class="m"><span class="pill lux">كماليات</span> ٢٤ يونيو</div></div>
-        <div class="amt num">٥٦</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+        <div class="body"><div class="n">Netflix</div><div class="m"><span class="pill lux" data-i18n="cat_lux">كماليات</span> <span data-i18n="h_jun24">٢٤ يونيو</span></div></div>
+        <div class="amt num"><span class="money" data-v="56">٠</span></div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
       <div class="exp"><div class="exp-in tx-detail">
-        <div class="grid"><div class="kv"><span>الوقت</span><b class="num">٠٩:٠٠</b></div><div class="kv"><span>متكرر</span><b>اشتراك شهري</b></div></div>
-        <div class="tx-acts"><button>✎ تعديل</button><button>👥 نيابة</button><button class="del">🗑 حذف</button></div>
+        <div class="grid"><div class="kv"><span data-i18n="dt_t">الوقت</span><b data-i18n="t_0900">٠٩:٠٠</b></div><div class="kv"><span data-i18n="dt_recur">متكرر</span><b data-i18n="v_sub">اشتراك شهري</b></div></div>
+        <div class="tx-acts"><button data-i18n="act_edit">✎ تعديل</button><button data-i18n="act_behalf">👥 نيابة</button><button class="del" data-i18n="act_del">🗑 حذف</button></div>
       </div></div>
     </div>
     <div class="xtx" onclick="this.classList.toggle('open')">
       <div class="tx-main"><div class="ic">💸</div>
-        <div class="body"><div class="n">راتب</div><div class="m"><span class="pill in">راتب</span> ٢٥ يونيو</div></div>
-        <div class="amt plus num">+ ٨٬٥٠٠</div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
+        <div class="body"><div class="n" data-i18n="m_salary">راتب</div><div class="m"><span class="pill in" data-i18n="pill_salary">راتب</span> <span data-i18n="h_jun25">٢٥ يونيو</span></div></div>
+        <div class="amt plus num">+ <span class="money" data-v="8500">٠</span></div><span class="chev" style="margin-inline-start:8px">⌄</span></div>
       <div class="exp"><div class="exp-in tx-detail">
-        <div class="grid"><div class="kv"><span>الوقت</span><b class="num">٠٠:٠١</b></div><div class="kv"><span>الجهة</span><b>إيداع راتب</b></div></div>
-        <div class="tx-acts"><button>✎ تعديل</button><button class="del">🗑 حذف</button></div>
+        <div class="grid"><div class="kv"><span data-i18n="dt_t">الوقت</span><b data-i18n="t_0001">٠٠:٠١</b></div><div class="kv"><span data-i18n="dt_src">الجهة</span><b data-i18n="v_salary_dep">إيداع راتب</b></div></div>
+        <div class="tx-acts"><button data-i18n="act_edit">✎ تعديل</button><button class="del" data-i18n="act_del">🗑 حذف</button></div>
       </div></div>
     </div>
-    <div class="note">تصميم ٢ · بيانات تجريبية وهمية</div>
+    <div class="note" data-i18n="note_demo">تصميم ٢ · بيانات تجريبية وهمية</div>
   </section>
 
   <!-- FINANCING -->
   <section class="screen intro" id="s-fin">
-    <div class="h2">التمويل</div>
+    <div class="h2" data-i18n="nav_fin">التمويل</div>
     <div class="hero xcard" onclick="this.classList.toggle('open')">
       <div class="hero-pad">
-        <div class="eyebrow"><span class="dot"></span> سُدّد ٥٬٠٠٠ من ١٢٠٬٠٠٠
+        <div class="eyebrow"><span class="dot"></span> <span data-i18n="fin_eyebrow">سُدّد ٥٬٠٠٠ من ١٢٠٬٠٠٠</span>
           <span class="chev" style="margin-inline-start:auto">⌄</span></div>
-        <div class="big"><span class="cu num" data-to="115000">٠</span><span class="riyal">ر.س</span></div>
-        <div class="sub">متبقّي · بنسبة <b>٩٦٪</b> من التمويل</div>
+        <div class="big"><span class="money" data-cu data-v="115000">٠</span><span class="riyal" data-i18n="sar">ر.س</span></div>
+        <div class="sub" data-i18n="fin_sub">متبقّي · بنسبة ٩٦٪ من التمويل</div>
         <div class="comb" id="comb2"></div>
         <div class="hero-foot">
-          <div>القسط القادم<b>١ يوليو</b></div>
-          <div>الأشهر المتبقية<b class="num">٢٣ شهر</b></div>
-          <div>الدخل الشهري<b class="num">٨٬٥٠٠</b></div>
+          <div><span data-i18n="fin_next">القسط القادم</span><b data-i18n="fin_next_v">١ يوليو</b></div>
+          <div><span data-i18n="fin_left">الأشهر المتبقية</span><b data-i18n="fin_left_v">٢٣ شهر</b></div>
+          <div><span data-i18n="fin_income">الدخل الشهري</span><b><span class="money" data-v="8500">٠</span></b></div>
         </div>
       </div>
       <div class="exp hero-exp"><div class="exp-in">
-        <div class="row"><div class="mo">يوليو ٢٦</div><div class="bar"><i data-w="8"></i></div><div class="rm num">١١٠٬٠٠٠</div></div>
-        <div class="row"><div class="mo">أغسطس ٢٦</div><div class="bar"><i data-w="12"></i></div><div class="rm num">١٠٥٬٠٠٠</div></div>
-        <div class="row"><div class="mo">سبتمبر ٢٦</div><div class="bar"><i data-w="17"></i></div><div class="rm num">١٠٠٬٠٠٠</div></div>
+        <div class="row"><div class="mo" data-i18n="mo_jul">يوليو ٢٦</div><div class="bar"><i data-w="8"></i></div><div class="rm money" data-v="110000">٠</div></div>
+        <div class="row"><div class="mo" data-i18n="mo_aug">أغسطس ٢٦</div><div class="bar"><i data-w="12"></i></div><div class="rm money" data-v="105000">٠</div></div>
+        <div class="row"><div class="mo" data-i18n="mo_sep">سبتمبر ٢٦</div><div class="bar"><i data-w="17"></i></div><div class="rm money" data-v="100000">٠</div></div>
       </div></div>
-      <div class="tap-hint">اضغط للتوقّع ▾</div>
+      <div class="tap-hint" data-i18n="tap_forecast">اضغط للتوقّع ▾</div>
     </div>
-    <div class="note">تصميم ٢ · بيانات تجريبية وهمية</div>
+    <div class="note" data-i18n="note_demo">تصميم ٢ · بيانات تجريبية وهمية</div>
   </section>
 
   <!-- SETTINGS -->
   <section class="screen intro" id="s-set">
-    <div class="h2">الإعدادات</div>
-    <div class="card"><div style="padding:18px;display:flex;align-items:center;justify-content:space-between">
+    <div class="h2" data-i18n="nav_set">الإعدادات</div>
+    <div class="card"><div style="padding:18px;display:flex;align-items:center;justify-content:space-between;gap:10px">
       <div style="display:flex;align-items:center;gap:11px"><div style="width:38px;height:38px;border-radius:11px;background:var(--surface-3);display:grid;place-items:center">☁️</div>
-        <div><div style="font-size:13.5px;font-weight:600">مزامنة Google Sheets</div><div style="font-size:11px;color:var(--muted)">آخر مزامنة قبل ٣ دقائق</div></div></div>
-      <div style="color:var(--mint);font-size:13px;font-weight:600">متصل ✓</div>
+        <div><div style="font-size:13.5px;font-weight:600" data-i18n="set_sync">مزامنة Google Sheets</div><div style="font-size:11px;color:var(--muted)" data-i18n="set_sync_sub">آخر مزامنة قبل ٣ دقائق</div></div></div>
+      <div style="color:var(--mint);font-size:13px;font-weight:600" data-i18n="set_connected">متصل ✓</div>
     </div></div>
-    <div class="note">تصميم ٢ · بيانات تجريبية وهمية</div>
+    <div class="note" data-i18n="note_demo">تصميم ٢ · بيانات تجريبية وهمية</div>
   </section>
 
 </div>
@@ -420,20 +420,20 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 <div class="backdrop" id="backdrop" onclick="closeSheet()"></div>
 <div class="sheet" id="sheet">
   <div class="handle"></div>
-  <h3>تحليل رسالة بنكية</h3>
-  <p class="desc">الصق رسالة الـ SMS ونستخرج العملية تلقائياً</p>
+  <h3 data-i18n="sheet_title">تحليل رسالة بنكية</h3>
+  <p class="desc" data-i18n="sheet_desc">الصق رسالة الـ SMS ونستخرج العملية تلقائياً</p>
   <div class="sms-box">تم استرداد مبلغ قدره SAR 75.00 من NOON إلى بطاقة ائتمان SAB Mastercard Alfursan (1321)<br>الرصيد: SAR 1,842.50</div>
   <div class="result">
     <div class="head">
-      <div class="big num">+ ٧٥٫٠٠<span class="riyal" style="color:rgba(47,212,155,.7)">ر.س</span></div>
-      <div class="mer">NOON <span>· استرداد</span></div>
-      <span class="tag">➕ استرداد</span>
+      <div class="big num">+ <span class="money" data-v="75" data-dec="2">٠</span><span class="riyal" data-i18n="sar" style="color:rgba(47,212,155,.7)">ر.س</span></div>
+      <div class="mer">NOON <span>· <span data-i18n="pill_refund">استرداد</span></span></div>
+      <span class="tag">➕ <span data-i18n="pill_refund">استرداد</span></span>
     </div>
     <div class="body">
-      <div class="recon"><div class="rt">💡 تنبيه مطابقة الرصيد</div>
-        <div class="rl">المتوقّع <b class="num">١٬٥٧٥٫٠٠</b> · الفعلي <b class="num">١٬٨٤٢٫٥٠</b> — فرق <b class="num">٢٦٧٫٥٠ ر.س</b> غير مسجّل.</div>
+      <div class="recon"><div class="rt" data-i18n="recon_t">💡 تنبيه مطابقة الرصيد</div>
+        <div class="rl"><span data-i18n="recon_exp">المتوقّع</span> <b class="money" data-v="1575" data-dec="2">٠</b> · <span data-i18n="recon_act">الفعلي</span> <b class="money" data-v="1842.5" data-dec="2">٠</b> — <span data-i18n="recon_diff">فرق</span> <b><span class="money" data-v="267.5" data-dec="2">٠</span> <span data-i18n="sar">ر.س</span></b> <span data-i18n="recon_unrec">غير مسجّل</span>.</div>
       </div>
-      <button class="btn">💾 حفظ وإرسال</button>
+      <button class="btn" data-i18n="save_send">💾 حفظ وإرسال</button>
     </div>
   </div>
 </div>
@@ -454,82 +454,133 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg
 
 <script>
 var reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+var lang = 'ar';
+var revealed = false;   // الأرقام مخفية افتراضياً عند الفتح
 
-// build combs
-function buildComb(id){
-  var el=document.getElementById(id); if(!el) return;
-  for(var i=1;i<=24;i++){
-    var s=document.createElement('span');
-    if(i===1)s.className='paid'; else if(i===2)s.className='now';
-    el.appendChild(s);
+var I18N = {
+  ar:{
+    brand:'مصروفاتي', brand_sub:'تصميم ٢ · تفاعلي', sar:'ر.س',
+    hero_eyebrow:'خطة التمويل · يتبقّى ٢٣ شهر', hero_sub:'المتبقّي من إجمالي',
+    f_progress:'التقدّم', f_progress_v:'شهر ٢ / ٢٤', f_payment:'القسط الشهري', f_ends:'الانتهاء', f_ends_v:'ديسمبر ٢٠٢٧',
+    mo_jul:'يوليو ٢٦', mo_aug:'أغسطس ٢٦', mo_sep:'سبتمبر ٢٦', mo_oct:'أكتوبر ٢٦', tap_forecast:'اضغط للتوقّع ▾',
+    pct_income_v:'٣٧٪', pct_income:'من الدخل', spend_label:'صرف يونيو', spend_delta:'▼ ٨٪ عن مايو',
+    d_sun:'أحد', d_mon:'إثن', d_tue:'ثلا', d_wed:'أرب', d_thu:'خمي', d_fri:'جمع', d_sat:'سبت',
+    cat_ess:'أساسيات', cat_lux:'كماليات', cat_oth:'أخرى',
+    st_count:'عملية الشهر', st_avg:'متوسط يومي', st_left:'متبقّي الدخل',
+    recent:'آخر العمليات', tap_hint:'اضغط أي عملية للتفاصيل',
+    pill_refund:'استرداد', pill_salary:'راتب', bank_sab:'SAB Mastercard', bank_rajhi:'الراجحي', bank_sab2:'الأول (SAB)',
+    m_panda:'بنده — تموينات', m_jarir:'مكتبة جرير', m_salary:'راتب',
+    dt_time:'التاريخ والوقت', dt_bal:'الرصيد بعدها', dt_method:'طريقة الدفع', dt_t:'الوقت', dt_balshort:'الرصيد',
+    dt_recur:'متكرر', dt_src:'الجهة', v_sub:'اشتراك شهري', v_salary_dep:'إيداع راتب',
+    tx1_time:'٢٧ يونيو · ١٢:٥٦', tx2_time:'٢٦ يونيو · ٢٠:١٤', tx3_time:'٢٥ يونيو · ١٧:٠٢',
+    t_1256:'١٢:٥٦', t_0900:'٠٩:٠٠', t_0001:'٠٠:٠١', h_jun27:'٢٧ يونيو', h_jun24:'٢٤ يونيو', h_jun25:'٢٥ يونيو',
+    act_edit:'✎ تعديل', act_behalf:'👥 نيابة', act_del:'🗑 حذف',
+    nav_hist:'السجل', nav_fin:'التمويل', nav_set:'الإعدادات',
+    search_ph:'ابحث: تاجر، مبلغ، ملاحظة…', chip_all:'الكل', chip_loan:'سداد التمويل', chip_in:'⬇️ وارد', chip_behalf:'👥 نيابة', chip_gaps:'🔎 فجوات',
+    fin_eyebrow:'سُدّد ٥٬٠٠٠ من ١٢٠٬٠٠٠', fin_sub:'متبقّي · بنسبة ٩٦٪ من التمويل',
+    fin_next:'القسط القادم', fin_next_v:'١ يوليو', fin_left:'الأشهر المتبقية', fin_left_v:'٢٣ شهر', fin_income:'الدخل الشهري',
+    set_sync:'مزامنة Google Sheets', set_sync_sub:'آخر مزامنة قبل ٣ دقائق', set_connected:'متصل ✓',
+    sheet_title:'تحليل رسالة بنكية', sheet_desc:'الصق رسالة الـ SMS ونستخرج العملية تلقائياً',
+    recon_t:'💡 تنبيه مطابقة الرصيد', recon_exp:'المتوقّع', recon_act:'الفعلي', recon_diff:'فرق', recon_unrec:'غير مسجّل', save_send:'💾 حفظ وإرسال',
+    note_dash:'تصميم ٢ · بيانات تجريبية وهمية — اضغط البطاقات لتتوسّع', note_demo:'تصميم ٢ · بيانات تجريبية وهمية'
+  },
+  en:{
+    brand:'Masroufati', brand_sub:'Design 2 · Interactive', sar:'SAR',
+    hero_eyebrow:'Financing plan · 23 months left', hero_sub:'Remaining of',
+    f_progress:'Progress', f_progress_v:'Month 2 / 24', f_payment:'Monthly payment', f_ends:'Ends', f_ends_v:'Dec 2027',
+    mo_jul:'Jul 26', mo_aug:'Aug 26', mo_sep:'Sep 26', mo_oct:'Oct 26', tap_forecast:'Tap for forecast ▾',
+    pct_income_v:'37%', pct_income:'of income', spend_label:'June spending', spend_delta:'▼ 8% vs May',
+    d_sun:'Sun', d_mon:'Mon', d_tue:'Tue', d_wed:'Wed', d_thu:'Thu', d_fri:'Fri', d_sat:'Sat',
+    cat_ess:'Essentials', cat_lux:'Luxuries', cat_oth:'Other',
+    st_count:'Transactions', st_avg:'Daily avg', st_left:'Income left',
+    recent:'Recent activity', tap_hint:'Tap any item for details',
+    pill_refund:'Refund', pill_salary:'Salary', bank_sab:'SAB Mastercard', bank_rajhi:'Al Rajhi', bank_sab2:'SAB',
+    m_panda:'Panda — Groceries', m_jarir:'Jarir Bookstore', m_salary:'Salary',
+    dt_time:'Date & time', dt_bal:'Balance after', dt_method:'Payment method', dt_t:'Time', dt_balshort:'Balance',
+    dt_recur:'Recurring', dt_src:'Source', v_sub:'Monthly subscription', v_salary_dep:'Salary deposit',
+    tx1_time:'Jun 27 · 12:56', tx2_time:'Jun 26 · 20:14', tx3_time:'Jun 25 · 17:02',
+    t_1256:'12:56', t_0900:'09:00', t_0001:'00:01', h_jun27:'Jun 27', h_jun24:'Jun 24', h_jun25:'Jun 25',
+    act_edit:'✎ Edit', act_behalf:'👥 On behalf', act_del:'🗑 Delete',
+    nav_hist:'History', nav_fin:'Financing', nav_set:'Settings',
+    search_ph:'Search: merchant, amount, note…', chip_all:'All', chip_loan:'Loan payment', chip_in:'⬇️ Incoming', chip_behalf:'👥 On behalf', chip_gaps:'🔎 Gaps',
+    fin_eyebrow:'Paid 5,000 of 120,000', fin_sub:'Remaining · 96% of financing',
+    fin_next:'Next payment', fin_next_v:'Jul 1', fin_left:'Months left', fin_left_v:'23 months', fin_income:'Monthly income',
+    set_sync:'Google Sheets sync', set_sync_sub:'Last synced 3 min ago', set_connected:'Connected ✓',
+    sheet_title:'Analyze bank SMS', sheet_desc:'Paste the SMS and we extract the transaction automatically',
+    recon_t:'💡 Balance check', recon_exp:'Expected', recon_act:'Actual', recon_diff:'Diff', recon_unrec:'unrecorded', save_send:'💾 Save & send',
+    note_dash:'Design 2 · Fictional sample data — tap cards to expand', note_demo:'Design 2 · Fictional sample data'
   }
-}
-buildComb('comb'); buildComb('comb2');
+};
 
-// animate comb bars rising (staggered)
-function riseComb(id){
-  var el=document.getElementById(id); if(!el) return;
-  [].forEach.call(el.children,function(s,i){
-    var full = s.classList.contains('paid')||s.classList.contains('now');
-    setTimeout(function(){ s.style.height = full?'100%':'60%'; }, reduce?0:120+i*22);
+var EYE_OPEN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+var EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7c2 0 3.7.6 5.2 1.5M22 12s-3.5 7-10 7c-2 0-3.7-.6-5.2-1.5"/><path d="M9.5 9.5a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
+
+function fmtNum(v, dec){
+  var n=Number(v);
+  var opt = dec? {minimumFractionDigits:dec, maximumFractionDigits:dec} : {maximumFractionDigits:0};
+  return n.toLocaleString(lang==='ar'?'ar-SA':'en-US', opt);
+}
+function maskFor(el){ return el.dataset.dec? '••••••' : '••••'; }
+
+function renderMoney(animate){
+  document.querySelectorAll('.money').forEach(function(el){
+    if(!revealed){ el.classList.add('hid'); el.textContent=maskFor(el); return; }
+    el.classList.remove('hid');
+    var dec = el.dataset.dec? +el.dataset.dec : 0;
+    if(animate && el.hasAttribute('data-cu') && !reduce){ countUpTo(el, +el.dataset.v, dec); }
+    else el.textContent = fmtNum(el.dataset.v, dec);
   });
 }
-
-// count-up
-function countUp(el){
-  var to=+el.dataset.to;
-  if(reduce){ el.textContent=to.toLocaleString('ar-SA'); return; }
-  var dur=1100, t0=null;
+function countUpTo(el, to, dec){
+  var dur=1000, t0=null;
   function step(t){
-    if(!t0)t0=t; var p=Math.min(1,(t-t0)/dur);
-    var e=1-Math.pow(1-p,3); // easeOutCubic
-    el.textContent=Math.round(to*e).toLocaleString('ar-SA');
-    if(p<1)requestAnimationFrame(step);
+    if(!t0)t0=t; var p=Math.min(1,(t-t0)/dur), e=1-Math.pow(1-p,3);
+    el.textContent = fmtNum(to*e, dec);
+    if(p<1)requestAnimationFrame(step); else el.textContent=fmtNum(to,dec);
   }
   requestAnimationFrame(step);
 }
-function runCountUps(scope){
-  (scope||document).querySelectorAll('.cu').forEach(function(el){
-    if(el.dataset.done)return; el.dataset.done=1; countUp(el);
-  });
-}
 
-// donut fill
-function fillRing(){
-  var r=document.getElementById('ring1'); if(r) setTimeout(function(){ r.style.strokeDashoffset='166'; }, 250); // ~37%
+function applyLang(){
+  var d=I18N[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.dataset.i18n; if(d[k]!=null) el.textContent=d[k]; });
+  document.querySelectorAll('[data-i18n-ph]').forEach(function(el){ var k=el.dataset.i18nPh; if(d[k]!=null) el.placeholder=d[k]; });
+  var h=document.documentElement;
+  h.lang=lang; h.dir = lang==='ar'?'rtl':'ltr';
+  document.getElementById('langBtn').textContent = lang==='ar'?'EN':'ع';
+  renderMoney(false);
 }
+function toggleLang(){ lang = lang==='ar'?'en':'ar'; applyLang(); placeGlow(curIdx); }
 
-// expand month-spend: animate inner bars + tracks the first time
+function updateEye(){ document.getElementById('eyeBtn').innerHTML = revealed?EYE_OFF:EYE_OPEN; }
+function toggleReveal(){ revealed=!revealed; updateEye(); renderMoney(revealed); }
+
+// comb
+function buildComb(id){ var el=document.getElementById(id); if(!el)return;
+  for(var i=1;i<=24;i++){ var s=document.createElement('span'); if(i===1)s.className='paid'; else if(i===2)s.className='now'; el.appendChild(s);} }
+buildComb('comb'); buildComb('comb2');
+function riseComb(id){ var el=document.getElementById(id); if(!el)return;
+  [].forEach.call(el.children,function(s,i){ var full=s.classList.contains('paid')||s.classList.contains('now');
+    setTimeout(function(){ s.style.height=full?'100%':'60%'; }, reduce?0:120+i*22); }); }
+
+function fillRing(){ var r=document.getElementById('ring1'); if(r) setTimeout(function(){ r.style.strokeDashoffset='166'; },250); }
+
 function animateSpend(head){
-  var card=head.closest('.xcard');
-  if(!card.classList.contains('open'))return;
-  card.querySelectorAll('#bars .b').forEach(function(b,i){
-    setTimeout(function(){ b.querySelector('i').style.height=b.dataset.h+'%'; }, reduce?0:i*45);
-  });
-  card.querySelectorAll('.catrow .track i').forEach(function(t){
-    setTimeout(function(){ t.style.width=t.dataset.w+'%'; },150);
-  });
+  var card=head.closest('.xcard'); if(!card.classList.contains('open'))return;
+  card.querySelectorAll('#bars .b').forEach(function(b,i){ setTimeout(function(){ b.querySelector('i').style.height=b.dataset.h+'%'; }, reduce?0:i*45); });
+  card.querySelectorAll('.catrow .track i').forEach(function(t){ setTimeout(function(){ t.style.width=t.dataset.w+'%'; },150); });
 }
-
-// hero projection bars fill when opened
 document.querySelectorAll('.hero.xcard').forEach(function(h){
-  h.addEventListener('click',function(){
-    if(h.classList.contains('open')){
-      h.querySelectorAll('.hero-exp .bar i').forEach(function(i){
-        setTimeout(function(){ i.style.width=i.dataset.w+'%'; },120);
-      });
-    }
-  });
+  h.addEventListener('click',function(){ if(h.classList.contains('open')){
+    h.querySelectorAll('.hero-exp .bar i').forEach(function(i){ setTimeout(function(){ i.style.width=i.dataset.w+'%'; },120); }); } });
 });
 
-// nav
-var positions=[0,1,2,3,4];
+var curIdx=0;
 function placeGlow(idx){
-  var glow=document.getElementById('glow');
-  // buttons: indices 0,1,(fab=2 skip),3,4 — width 50 + gap 6, fab width 58
-  var x = idx*56; if(idx>=3) x = 2*56 + 64 + (idx-3)*56; // account for fab(58)+gap
-  // RTL: move opposite
-  glow.style.transform='translateX(-'+x+'px)';
+  curIdx=idx; var glow=document.getElementById('glow');
+  var x = idx*56; if(idx>=3) x = 2*56 + 64 + (idx-3)*56;
+  var sign = (document.documentElement.dir==='rtl')? -1 : 1;
+  glow.style.transform='translateX('+(sign*x)+'px)';
 }
 function go(btn,idx){
   document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('on')});
@@ -538,24 +589,18 @@ function go(btn,idx){
   var t=document.getElementById(btn.dataset.s);
   if(t){ t.classList.remove('intro'); void t.offsetWidth; t.classList.add('intro','on'); }
   placeGlow(idx);
-  runCountUps(t);
+  renderMoney(revealed);
   if(btn.dataset.s==='s-fin') riseComb('comb2');
   window.scrollTo({top:0,behavior:'smooth'});
 }
-
 function openSheet(){ document.getElementById('backdrop').classList.add('on'); document.getElementById('sheet').classList.add('on'); }
 function closeSheet(){ document.getElementById('backdrop').classList.remove('on'); document.getElementById('sheet').classList.remove('on'); }
+function toggleTheme(){ var h=document.documentElement, dark=h.getAttribute('data-theme')==='dark';
+  h.setAttribute('data-theme',dark?'light':'dark'); document.getElementById('themeBtn').textContent=dark?'☀️':'🌙'; }
 
-function toggleTheme(){
-  var h=document.documentElement, dark=h.getAttribute('data-theme')==='dark';
-  h.setAttribute('data-theme',dark?'light':'dark');
-  document.getElementById('themeBtn').textContent=dark?'☀️':'🌙';
-}
-
-// init
 window.addEventListener('load',function(){
-  placeGlow(0);
-  setTimeout(function(){ runCountUps(); fillRing(); riseComb('comb'); }, 200);
+  applyLang(); updateEye(); placeGlow(0);
+  setTimeout(function(){ fillRing(); riseComb('comb'); },200);
 });
 </script>
 </body>
