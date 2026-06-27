@@ -662,3 +662,9 @@ body.priv input[type="number"]:focus { filter: none; }
 .manual-details[open] summary { color: var(--text); margin-bottom: 8px; }
 .sheet .res2 { margin-top: 8px; }
 .icon-btn svg { width: 20px; height: 20px; }
+/* Collapsible advanced filters / account summary in History */
+.hist-extra { margin-bottom: 12px; }
+.hist-extra > summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--muted);
+  padding: 11px 14px; list-style: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--rs); }
+.hist-extra > summary::-webkit-details-marker { display: none; }
+.hist-extra[open] > summary { color: var(--text); margin-bottom: 12px; }

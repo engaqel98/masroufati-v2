@@ -851,7 +851,10 @@ function renderHistory() {
     + (histDay ? '<button class="hist-day-clear" onclick="setHistDay(\'\')" title="مسح اليوم">✕</button>' : '')
     + '</div>';
 
-  var filterBars = searchBar + dayBar + monthBar + personBar;
+  // البحث ظاهر دائماً؛ بقية الفلاتر (يوم/شهر/شخص) داخل قسم قابل للطي — لواجهة نظيفة كالمعاينة
+  var extraFilters = dayBar + monthBar + personBar;
+  var filterBars = searchBar
+    + '<details class="hist-extra"><summary>🎚️ فلاتر متقدّمة</summary>' + extraFilters + '</details>';
 
   if (!data.length) {
     el.innerHTML = filterBars + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histPerson !== 'all' ? ' لـ ' + htmlEsc(histPerson) : '') + (histDay ? ' بتاريخ ' + htmlEsc(histDay) : (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '')) + (histSearch ? ' مطابقة لـ «' + htmlEsc(histSearch) + '»' : '') + '</div></div>';
@@ -959,7 +962,10 @@ function renderHistory() {
   totalCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = filterBars + summary + inCard + totalCard + rows + sheetBtn;
+  var acctSummary = (summary || inCard)
+    ? '<details class="hist-extra" style="margin-top:12px"><summary>📊 ملخّص الحساب (الرصيد والوارد)</summary>' + summary + inCard + '</details>'
+    : '';
+  el.innerHTML = filterBars + totalCard + rows + acctSummary + sheetBtn;
 }
 
 // ============================================================

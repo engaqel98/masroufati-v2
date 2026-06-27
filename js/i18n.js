@@ -90,6 +90,8 @@ var REPL_RAW = [
    'Difference between actual and expected balance — likely unrecorded transactions/refunds. Record to close the gap.'],
   ['المتوقّع ', 'Expected '], [' · الفعلي ', ' · Actual '],
   ['💵 سجّل', '💵 Record'],
+  ['🎚️ فلاتر متقدّمة', '🎚️ Advanced filters'],
+  ['📊 ملخّص الحساب (الرصيد والوارد)', '📊 Account summary (balance & incoming)'],
   ['الرصيد المتاح', 'Available balance'],
   ['⬇️ الوارد لكل بطاقة/حساب', '⬇️ Incoming per card/account'],
   ['إجمالي الوارد', 'Total incoming'],
