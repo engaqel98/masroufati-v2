@@ -988,7 +988,7 @@ function renderHistory() {
   var acctSummary = (summary || inCard)
     ? '<details class="hist-extra" style="margin-top:12px"><summary>📊 ملخّص الحساب (الرصيد والوارد)</summary>' + summary + inCard + '</details>'
     : '';
-  el.innerHTML = filterBars + totalCard + rows + acctSummary + sheetBtn;
+  el.innerHTML = filterBars + acctSummary + totalCard + rows + sheetBtn;
 }
 
 // ============================================================
