@@ -676,3 +676,9 @@ body.priv input[type="number"]:focus { filter: none; }
 .tx-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .tx-detail .tx-acts { padding-top: 12px; border-top: 1px solid var(--border-soft); }
 .cat-divider { height: 1px; background: var(--border-soft); margin: 16px 0 14px; }
+.acct-block { padding: 11px 0; border-bottom: 1px solid var(--border-soft); }
+.acct-block:last-of-type { border-bottom: 0; }
+.acct-name { font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+.acct-line { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); padding: 2px 0; }
+.acct-line b { font-weight: 700; color: var(--text); }
+.acct-in { color: var(--green); }

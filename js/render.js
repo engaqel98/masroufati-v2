@@ -916,16 +916,8 @@ function renderHistory() {
     if (newer) balByCard[key] = e;
   });
   var balKeys = Object.keys(balByCard);
-  var summary = '';
-  if (balKeys.length) {
-    summary += '<div class="card" style="margin-bottom:10px"><div class="card-body"><div class="card-title">الرصيد المتاح</div>';
-    balKeys.forEach(function(k) {
-      summary += '<div class="settings-row"><span>' + k + '</span><span class="settings-val">' + fmt(balByCard[k].balance) + ' ر.س</span></div>';
-    });
-    summary += '</div></div>';
-  }
 
-  // ملخّص الوارد (سداد/إضافة) لكل بطاقة/حساب خلال الشهر المحدد — مستقل عن فلتر التصنيف
+  // الوارد لكل بطاقة/حساب
   var inByAcct = {};
   expenses.forEach(function(e) {
     if (e.direction !== 'credit') return;
@@ -937,17 +929,28 @@ function renderHistory() {
     inByAcct[k].sum += (e.amount || 0);
     inByAcct[k].count++;
   });
-  var inKeys = Object.keys(inByAcct).sort(function(a, b) { return inByAcct[b].sum - inByAcct[a].sum; });
-  var inCard = '';
-  if (inKeys.length) {
-    inCard += '<div class="card" style="margin-bottom:10px"><div class="card-body"><div class="card-title">⬇️ الوارد لكل بطاقة/حساب' + (histMonth !== 'all' ? ' · ' + ymLabel(histMonth) : '') + '</div>';
+
+  // بطاقة واحدة: الرصيد + الوارد لكل حساب
+  var allAcct = {};
+  balKeys.forEach(function(k) { allAcct[k] = true; });
+  Object.keys(inByAcct).forEach(function(k) { allAcct[k] = true; });
+  var acctKeys = Object.keys(allAcct).sort(function(a, b) {
+    var ba = balByCard[a] ? (parseFloat(balByCard[a].balance) || 0) : 0;
+    var bb = balByCard[b] ? (parseFloat(balByCard[b].balance) || 0) : 0;
+    return bb - ba;
+  });
+  var acctCard = '';
+  if (acctKeys.length) {
     var inTotal = 0;
-    inKeys.forEach(function(k) {
-      inTotal += inByAcct[k].sum;
-      inCard += '<div class="settings-row"><span>' + htmlEsc(k) + ' <span style="color:var(--muted);font-size:11px">(' + inByAcct[k].count + ')</span></span><span class="settings-val" style="color:var(--green)">+ ' + fmt(inByAcct[k].sum) + ' ر.س</span></div>';
+    acctCard += '<div class="card" style="margin-bottom:10px"><div class="card-body"><div class="card-title">💳 الأرصدة والوارد' + (histMonth !== 'all' ? ' · ' + ymLabel(histMonth) : '') + '</div>';
+    acctKeys.forEach(function(k) {
+      acctCard += '<div class="acct-block"><div class="acct-name">' + htmlEsc(k) + '</div>';
+      if (balByCard[k]) acctCard += '<div class="acct-line"><span>الرصيد المتاح</span><b>' + fmt(balByCard[k].balance) + ' ر.س</b></div>';
+      if (inByAcct[k]) { inTotal += inByAcct[k].sum; acctCard += '<div class="acct-line"><span>الوارد (' + inByAcct[k].count + ')</span><b class="acct-in">+ ' + fmt(inByAcct[k].sum) + ' ر.س</b></div>'; }
+      acctCard += '</div>';
     });
-    if (inKeys.length > 1) inCard += '<div class="settings-row" style="border-top:1px solid var(--border-soft);margin-top:6px;padding-top:8px"><span style="font-weight:700">إجمالي الوارد</span><span class="settings-val" style="color:var(--green);font-weight:800">+ ' + fmt(inTotal) + ' ر.س</span></div>';
-    inCard += '</div></div>';
+    if (inTotal > 0) acctCard += '<div class="settings-row" style="border-top:1px solid var(--border-soft);margin-top:4px;padding-top:10px"><span style="font-weight:700">إجمالي الوارد</span><span class="settings-val acct-in" style="font-weight:800">+ ' + fmt(inTotal) + ' ر.س</span></div>';
+    acctCard += '</div></div>';
   }
 
   var rows = '';
@@ -985,8 +988,8 @@ function renderHistory() {
   totalCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  var acctSummary = (summary || inCard)
-    ? '<details class="hist-extra" style="margin-top:12px"><summary>📊 ملخّص الحساب (الرصيد والوارد)</summary>' + summary + inCard + '</details>'
+  var acctSummary = acctCard
+    ? '<details class="hist-extra"><summary>📊 ملخّص الحساب (الرصيد والوارد)</summary>' + acctCard + '</details>'
     : '';
   el.innerHTML = filterBars + acctSummary + totalCard + rows + sheetBtn;
 }

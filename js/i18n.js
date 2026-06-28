@@ -94,7 +94,7 @@ var REPL_RAW = [
   ['💵 سجّل', '💵 Record'],
   ['🎚️ فلاتر متقدّمة', '🎚️ Advanced filters'],
   ['📊 ملخّص الحساب (الرصيد والوارد)', '📊 Account summary (balance & incoming)'],
-  ['الرصيد المتاح', 'Available balance'],
+  ['💳 الأرصدة والوارد', '💳 Balances & incoming'], ['الرصيد المتاح', 'Available balance'], ['الوارد (', 'Incoming ('],
   ['⬇️ الوارد لكل بطاقة/حساب', '⬇️ Incoming per card/account'],
   ['إجمالي الوارد', 'Total incoming'],
   ['الرصيد: ', 'Balance: '], ['الرصيد', 'Balance'],
