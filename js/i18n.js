@@ -189,7 +189,7 @@ var REPL_RAW = [
   ['إضافة (وارد)', 'Credit (incoming)'],
   ['الكل', 'All'], ['⬇️ وارد', '⬇️ Incoming'], ['👥 نيابة', '👥 On behalf'],
   ['البنك', 'Bank'], ['مسح', 'Clear'],
-  ['المبلغ الأصلي', 'Original amount'], ['✎ تعديل', '✎ Edit'], ['🗑 حذف', '🗑 Delete'],
+  ['المبلغ الأصلي', 'Original amount'], ['✎ تعديل', '✎ Edit'], ['🗑 حذف', '🗑 Delete'], ['عُدّل من ', 'Edited from '],
   // عام
   [' من ', ' of ']
 ];

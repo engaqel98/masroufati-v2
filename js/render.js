@@ -740,16 +740,16 @@ function txRowHtml(e) {
   s += '<div class="tx-body"><div class="tx-n">' + (e.merchant || '—') + '</div>';
   s += '<div class="tx-m"><span class="pill ' + pillClass(e.type, isCredit) + '">' + (e.type || '') + '</span>'
     + (e.bank ? ' ' + e.bank : '')
-    + (e.behalf ? ' <span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span>' : '') + '</div></div>';
+    + (e.behalf ? ' <span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span>' : '') + '</div>';
+  if (e.balance !== '' && e.balance != null) s += '<div class="tx-meta">الرصيد: ' + fmt(e.balance) + ' ر.س</div>';
+  if (edited) s += '<div class="tx-meta">عُدّل من ' + fmt(e.origAmount) + ' ر.س</div>';
+  if (e.note) s += '<div class="tx-meta">📝 ' + htmlEsc(e.note) + '</div>';
+  s += '</div>';
   s += '<div class="tx-end"><div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
     + '<div class="tx-date">' + dateLine + '</div></div>';
   s += '<span class="tx-chev">⌄</span>';
   s += '</div>';
-  s += '<div class="tx-exp"><div class="tx-detail"><div class="kv-grid">';
-  if (e.balance !== '' && e.balance != null) s += '<div class="kv"><span>الرصيد</span><b>' + fmt(e.balance) + ' ر.س</b></div>';
-  if (edited) s += '<div class="kv"><span>المبلغ الأصلي</span><b>' + fmt(e.origAmount) + ' ر.س</b></div>';
-  if (e.note) s += '<div class="kv"><span>ملاحظة</span><b>' + htmlEsc(e.note) + '</b></div>';
-  s += '</div><div class="tx-acts">';
+  s += '<div class="tx-exp"><div class="tx-detail"><div class="tx-acts">';
   s += '<button onclick="event.stopPropagation();editEntry(\'' + eid + '\')">✎ تعديل</button>';
   s += '<button class="act-del" onclick="event.stopPropagation();deleteEntry(\'' + eid + '\')">🗑 حذف</button>';
   s += '</div></div></div>';
