@@ -543,14 +543,30 @@ function renderDashboard() {
 
   var html = '';
 
-  html += finHeroHtml();   // بطل التمويل (مشترك بين اللوحة والتمويل)
+  // ١) آخر العمليات (أعلى شيء)
+  (function () {
+    var recent = expenses.filter(function (e) { return !isSettlement(e); }).slice().sort(function (a, b) {
+      var da = a.date || '', db = b.date || '';
+      if (da !== db) return da < db ? 1 : -1;
+      var ta = fmtTime(a.time), tb = fmtTime(b.time);
+      if (ta !== tb) return ta < tb ? 1 : -1;
+      return (Number(b.id) || 0) - (Number(a.id) || 0);
+    }).slice(0, 5);
+    if (recent.length) {
+      html += '<div class="sec-head" style="margin-top:2px"><span>آخر العمليات</span><span class="sec-more" onclick="switchTab(\'history\')">عرض الكل ›</span></div>';
+      recent.forEach(function (e) { html += txRowHtml(e); });
+    }
+  })();
 
-  // شريط التنقّل بين الأشهر (لو فيه أكثر من شهر بيانات)
+  // ٢) بطل التمويل
+  html += finHeroHtml();
+
+  // ٣) شريط التنقّل بين الأشهر
   var monthsAvail = availableMonths();
   if (monthsAvail.length > 1) {
     var idx = monthsAvail.indexOf(curM);
     if (idx < 0) idx = 0;
-    var canNewer = idx > 0;            // أحدث = idx أقل (مصفوفة معكوسة)
+    var canNewer = idx > 0;
     var canOlder = idx < monthsAvail.length - 1;
     html += '<div class="month-nav stagger">';
     html += '<button class="month-nav-btn" ' + (canOlder ? 'onclick="navDash(1)"' : 'disabled') + ' aria-label="شهر أقدم">‹</button>';
@@ -559,14 +575,11 @@ function renderDashboard() {
     html += '</div>';
   }
 
-  // بطاقة "صرف الشهر" — دائرة نسبة الصرف من الدخل + شريط التصنيفات (تصميم ٢)
+  // ٤) بطاقة مدموجة: دائرة صرف الشهر + المتبقي حسب التصنيف + الالتزام
   (function () {
     var inc = settings.salary || 0;
     var pct = inc > 0 ? Math.min(100, Math.round((spent / inc) * 100)) : 0;
     var C = 264, off = Math.round(C - C * pct / 100);
-    var ess = byType['أساسيات'], lux = byType['كماليات'], oth = unkSafe();
-    function unkSafe() { return byType['غير محدد']; }
-    // دلتا مقابل الشهر السابق
     var pm = prevMonthKey(curM);
     var prevSpent = 0;
     expenses.forEach(function (e) {
@@ -589,15 +602,22 @@ function renderDashboard() {
     html += '<div class="spend2-info"><div class="spend2-lbl">صرف ' + monthLabel + '</div>'
       + '<div class="spend2-amt">' + fmt(spent) + ' <span class="cur">ر.س</span></div>' + deltaHtml + '</div>';
     html += '</div>';
-    html += '<div class="spine">'
-      + (ess > 0 ? '<i style="flex:' + ess + ';background:var(--c-ess)"></i>' : '')
-      + (lux > 0 ? '<i style="flex:' + lux + ';background:var(--c-lux)"></i>' : '')
-      + (oth > 0 ? '<i style="flex:' + oth + ';background:var(--c-unk)"></i>' : '')
-      + (ess + lux + oth === 0 ? '<i style="flex:1;background:var(--border)"></i>' : '') + '</div>';
+    html += '<div class="cat-divider"></div>';
+    html += catBudgetRow('أساسيات', 'dot-ess', 'var(--c-ess)', byType['أساسيات'], settings.basic);
+    html += catBudgetRow('كماليات', 'dot-lux', 'var(--c-lux)', byType['كماليات'], freeBudget);
+    html += catBudgetRow('سداد التمويل', 'dot-loan', 'var(--c-loan)', byType['سداد التمويل'], settings.payment);
+    html += '<div class="cat-row"><div class="cat-head"><span class="cat-name"><span class="dot-unk">●</span> غير محدد</span><span class="cat-left">صُرف ' + fmtInt(byType['غير محدد']) + ' ر.س</span></div><div class="cat-sub">بدون سقف — صنّفها لتدخل أحد المظاريف</div></div>';
+    var _committed = byType['سداد التمويل'] >= settings.payment;
+    var _budgetOK = (byType['أساسيات'] + byType['كماليات']) <= (settings.salary - settings.payment);
+    var _ok = _committed && _budgetOK;
+    html += '<div class="commit-row"><span class="commit-icon">' + (_ok ? '✅' : '❌') + '</span><span>' + (_ok ? 'ملتزم بالخطة هذا الشهر' : 'غير ملتزم بعد') + '</span></div>';
+    if (!_committed) html += '<div class="alert alert-red" style="margin-top:8px">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + fmtInt(settings.payment) + ' ر.س)</div>';
+    if (byType['أساسيات'] > settings.basic) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الأساسيات تجاوزت الهدف</div>';
+    if (byType['كماليات'] > freeBudget) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الكماليات تجاوزت الفائض الحر</div>';
     html += '</div></div>';
   })();
 
-  // إحصائيات سريعة (٣ بطاقات)
+  // ٥) إحصائيات سريعة (٣ بطاقات)
   (function () {
     var d = new Date();
     var isThisMonth = curM === today().substring(0, 7);
@@ -611,65 +631,25 @@ function renderDashboard() {
     html += '</div>';
   })();
 
-  // آخر العمليات (أحدث ٥)
+  // ٦) نيابة عن آخرين (قابل للطي لتقصير الصفحة)
   (function () {
-    var recent = expenses.filter(function (e) { return !isSettlement(e); }).slice().sort(function (a, b) {
-      var da = a.date || '', db = b.date || '';
-      if (da !== db) return da < db ? 1 : -1;
-      var ta = fmtTime(a.time), tb = fmtTime(b.time);
-      if (ta !== tb) return ta < tb ? 1 : -1;
-      return (Number(b.id) || 0) - (Number(a.id) || 0);
-    }).slice(0, 5);
-    if (recent.length) {
-      html += '<div class="sec-head"><span>آخر العمليات</span><span class="sec-more" onclick="switchTab(\'history\')">عرض الكل ›</span></div>';
-      recent.forEach(function (e) { html += txRowHtml(e); });
-    }
-  })();
-
-  // بطاقة شاملة: المتبقي حسب كل تصنيف (مع غير محدد + نيابة)
-  var unk = byType['غير محدد'];
-  var nPaid = 0, nRefund = 0;
-  expenses.forEach(function(e) {
-    if (!e.behalf) return;
-    if (e.direction === 'credit') nRefund += (e.amount || 0); else nPaid += (e.amount || 0);
-  });
-  var nOwed = nPaid - nRefund;
-  html += '<div class="card stagger"><div class="card-body">';
-  html += '<div class="card-title">📊 المتبقي حسب التصنيف · ' + monthLabel + '</div>';
-  html += catBudgetRow('أساسيات', 'dot-ess', 'var(--c-ess)', byType['أساسيات'], settings.basic);
-  html += catBudgetRow('كماليات', 'dot-lux', 'var(--c-lux)', byType['كماليات'], freeBudget);
-  html += catBudgetRow('سداد التمويل', 'dot-loan', 'var(--c-loan)', byType['سداد التمويل'], settings.payment);
-  html += '<div class="cat-row"><div class="cat-head"><span class="cat-name"><span class="dot-unk">●</span> غير محدد</span><span class="cat-left">صُرف ' + fmtInt(unk) + ' ر.س</span></div><div class="cat-sub">بدون سقف — صنّفها لتدخل أحد المظاريف</div></div>';
-  // مؤشّر الالتزام + تنبيهات (مدموج من تبويب التمويل)
-  var _committed = byType['سداد التمويل'] >= settings.payment;
-  var _budgetOK = (byType['أساسيات'] + byType['كماليات']) <= (settings.salary - settings.payment);
-  var _ok = _committed && _budgetOK;
-  html += '<div class="commit-row"><span class="commit-icon">' + (_ok ? '✅' : '❌') + '</span><span>' + (_ok ? 'ملتزم بالخطة هذا الشهر' : 'غير ملتزم بعد') + '</span></div>';
-  if (!_committed) html += '<div class="alert alert-red" style="margin-top:8px">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + fmtInt(settings.payment) + ' ر.س)</div>';
-  if (byType['أساسيات'] > settings.basic) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الأساسيات تجاوزت الهدف</div>';
-  if (byType['كماليات'] > freeBudget) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الكماليات تجاوزت الفائض الحر</div>';
-  html += '</div></div>';
-
-  // بطاقة "نيابة عن آخرين" — تجميع لكل اسم عبر كل الفترات (ليس الشهر فقط)
-  var byPerson = {};
-  expenses.forEach(function(e) {
-    var name = e.behalf ? String(e.behalf).trim() : '';
-    if (!name) return;
-    if (!byPerson[name]) byPerson[name] = { paid: 0, refunded: 0, count: 0 };
-    var amt = e.amount || 0;
-    if (e.direction === 'credit') byPerson[name].refunded += amt;
-    else byPerson[name].paid += amt;
-    byPerson[name].count++;
-  });
-  var people = Object.keys(byPerson).map(function(n) {
-    return { name: n, paid: byPerson[n].paid, refunded: byPerson[n].refunded, count: byPerson[n].count, owed: byPerson[n].paid - byPerson[n].refunded };
-  });
-  people.sort(function(a, b) { return b.owed - a.owed; });
-
-  if (people.length) {
+    var byPerson = {};
+    expenses.forEach(function(e) {
+      var name = e.behalf ? String(e.behalf).trim() : '';
+      if (!name) return;
+      if (!byPerson[name]) byPerson[name] = { paid: 0, refunded: 0, count: 0 };
+      var amt = e.amount || 0;
+      if (e.direction === 'credit') byPerson[name].refunded += amt; else byPerson[name].paid += amt;
+      byPerson[name].count++;
+    });
+    var people = Object.keys(byPerson).map(function(n) {
+      return { name: n, paid: byPerson[n].paid, refunded: byPerson[n].refunded, count: byPerson[n].count, owed: byPerson[n].paid - byPerson[n].refunded };
+    });
+    people.sort(function(a, b) { return b.owed - a.owed; });
+    if (!people.length) return;
     var totalOwed = people.reduce(function(s, p) { return s + p.owed; }, 0);
-    html += '<div class="card stagger"><div class="card-body">';
-    html += '<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>👥 نيابة عن آخرين</span><span class="behalf-total' + (totalOwed > 0.005 ? ' owe-pos' : ' owe-zero') + '">المجموع لك عند الآخرين: <b>' + fmt(totalOwed) + '</b></span></div>';
+    html += '<details class="hist-extra" style="margin-top:6px"><summary>👥 نيابة عن آخرين · المجموع لك: ' + fmt(totalOwed) + ' ر.س</summary>';
+    html += '<div class="card"><div class="card-body">';
     people.forEach(function(p) {
       var cls = p.owed > 0.005 ? ' owe-pos' : ' owe-zero';
       html += '<div class="behalf-row">';
@@ -682,8 +662,8 @@ function renderDashboard() {
       html += '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="recordSettlement(\'' + jsStr(p.name) + '\')">💵 سجّل سداد / تصفية</button></div>';
       html += '</div>';
     });
-    html += '</div></div>';
-  }
+    html += '</div></div></details>';
+  })();
 
   // خطة الأشهر القادمة (قابلة للطي) — مدموجة من تبويب التمويل
   (function () {
@@ -1099,6 +1079,15 @@ function renderFinance() {
 function renderSettings() {
   var el = document.getElementById('settings-content');
   var html = '';
+
+  // المظهر واللغة
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  var en = (typeof isEN === 'function') && isEN();
+  html += '<div class="card"><div class="card-body">';
+  html += '<div class="card-title">المظهر واللغة</div>';
+  html += '<div class="settings-row"><span>الوضع الداكن</span><button class="btn btn-outline btn-sm" onclick="toggleTheme();renderSettings()">' + (dark ? '🌙 مفعّل' : '☀️ معطّل') + '</button></div>';
+  html += '<div class="settings-row"><span>اللغة · Language</span><button class="btn btn-outline btn-sm" onclick="toggleLang()">' + (en ? 'English' : 'العربية') + '</button></div>';
+  html += '</div></div>';
 
   html += '<div class="card"><div class="card-body">';
   html += '<div class="card-title">إعدادات التمويل</div>';

@@ -131,6 +131,9 @@ var REPL_RAW = [
   ['الأشهر القادمة', 'Upcoming months'],
   ['الشهر', 'Month'], ['القسط', 'Installment'],
   // ===== الإعدادات =====
+  ['المجموع لك: ', 'Total owed to you: '],
+  ['المظهر واللغة', 'Appearance & language'], ['الوضع الداكن', 'Dark mode'], ['اللغة · Language', 'Language'],
+  ['مفعّل', 'On'], ['معطّل', 'Off'],
   ['إعدادات التمويل', 'Financing settings'],
   ['الراتب (ر.س)', 'Salary (SAR)'], ['القسط الشهري (ر.س)', 'Monthly payment (SAR)'],
   ['أساسيات (ر.س)', 'Essentials (SAR)'], ['إجمالي التمويل (ر.س)', 'Total financing (SAR)'],
