@@ -668,3 +668,6 @@ body.priv input[type="number"]:focus { filter: none; }
   padding: 11px 14px; list-style: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--rs); }
 .hist-extra > summary::-webkit-details-marker { display: none; }
 .hist-extra[open] > summary { color: var(--text); margin-bottom: 12px; }
+.commit-row { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--border-soft); font-size: 13px; font-weight: 600; }
+.commit-row .commit-icon { font-size: 17px; }

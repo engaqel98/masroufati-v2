@@ -640,7 +640,14 @@ function renderDashboard() {
   html += catBudgetRow('كماليات', 'dot-lux', 'var(--c-lux)', byType['كماليات'], freeBudget);
   html += catBudgetRow('سداد التمويل', 'dot-loan', 'var(--c-loan)', byType['سداد التمويل'], settings.payment);
   html += '<div class="cat-row"><div class="cat-head"><span class="cat-name"><span class="dot-unk">●</span> غير محدد</span><span class="cat-left">صُرف ' + fmtInt(unk) + ' ر.س</span></div><div class="cat-sub">بدون سقف — صنّفها لتدخل أحد المظاريف</div></div>';
-  html += '<div class="cat-row"><div class="cat-head"><span class="cat-name">👥 نيابة عن آخرين</span><span class="cat-left' + (nOwed > 0.005 ? '' : ' ') + '">باقي على الآخرين ' + fmtInt(nOwed) + ' ر.س</span></div><div class="cat-sub">دفعت ' + fmt(nPaid) + ' · استرد ' + fmt(nRefund) + ' · تراكمي (مستثناة من ميزانيتك)</div></div>';
+  // مؤشّر الالتزام + تنبيهات (مدموج من تبويب التمويل)
+  var _committed = byType['سداد التمويل'] >= settings.payment;
+  var _budgetOK = (byType['أساسيات'] + byType['كماليات']) <= (settings.salary - settings.payment);
+  var _ok = _committed && _budgetOK;
+  html += '<div class="commit-row"><span class="commit-icon">' + (_ok ? '✅' : '❌') + '</span><span>' + (_ok ? 'ملتزم بالخطة هذا الشهر' : 'غير ملتزم بعد') + '</span></div>';
+  if (!_committed) html += '<div class="alert alert-red" style="margin-top:8px">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + fmtInt(settings.payment) + ' ر.س)</div>';
+  if (byType['أساسيات'] > settings.basic) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الأساسيات تجاوزت الهدف</div>';
+  if (byType['كماليات'] > freeBudget) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الكماليات تجاوزت الفائض الحر</div>';
   html += '</div></div>';
 
   // بطاقة "نيابة عن آخرين" — تجميع لكل اسم عبر كل الفترات (ليس الشهر فقط)
@@ -677,6 +684,19 @@ function renderDashboard() {
     });
     html += '</div></div>';
   }
+
+  // خطة الأشهر القادمة (قابلة للطي) — مدموجة من تبويب التمويل
+  (function () {
+    var sp = String(settings.start || '2026-05').split('-');
+    var fsy = parseInt(sp[0], 10), fsm = parseInt(sp[1], 10);
+    var nowD = new Date();
+    var mNum = Math.max(1, Math.min(24, (nowD.getFullYear() - fsy) * 12 + (nowD.getMonth() + 1 - fsm) + 1));
+    html += '<details class="hist-extra" style="margin-top:6px"><summary>📅 خطة الأشهر القادمة</summary>';
+    html += '<div class="card"><div class="card-body" style="overflow-x:auto"><table class="fin-table">';
+    html += '<tr><th>#</th><th>الشهر</th><th>القسط</th><th>المتبقي</th><th></th></tr>';
+    html += projectionRows(mNum, settings.total, settings.payment, settings.start);
+    html += '</table></div></div></details>';
+  })();
 
   el.innerHTML = html;
   if (typeof animateCounts === 'function') animateCounts(el);

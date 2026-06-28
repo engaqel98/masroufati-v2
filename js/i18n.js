@@ -67,6 +67,7 @@ var REPL_RAW = [
   ['صرف ', 'Spending '], ['من الدخل', 'of income'], ['عن الشهر السابق', 'vs last month'],
   ['عملية الشهر', 'Transactions'], ['متوسط يومي', 'Daily avg'], ['متبقّي الدخل', 'Income left'],
   ['آخر العمليات', 'Recent activity'], ['عرض الكل ›', 'View all ›'], ['➕ إدخال يدوي', '➕ Manual entry'],
+  ['📅 خطة الأشهر القادمة', '📅 Upcoming months plan'], ['ملتزم بالخطة هذا الشهر', 'On track this month'],
   // ===== اللوحة =====
   ['خطة التمويل · يتبقّى ', 'Financing plan · '],
   ['المتبقّي من إجمالي ', 'Remaining of '],
@@ -281,12 +282,11 @@ function applyLang() {
   h.setAttribute('dir', isEN() ? 'ltr' : 'rtl');
   updateLangButton();
   // أعد رسم التبويب الظاهر (لتحديث الأرقام للّغة) ثم ترجم كامل الواجهة الثابتة + المودال
-  var visible = ['parse', 'history', 'finance', 'settings'].filter(function (id) {
+  var visible = ['parse', 'history', 'settings'].filter(function (id) {
     var s = document.getElementById('sec-' + id); return s && s.style.display !== 'none';
   })[0] || 'parse';
   if (visible === 'parse' && typeof renderDashboard === 'function') renderDashboard();
   if (visible === 'history' && typeof renderHistory === 'function') renderHistory();
-  if (visible === 'finance' && typeof renderFinance === 'function') renderFinance();
   if (visible === 'settings' && typeof renderSettings === 'function') renderSettings();
   translateTree(document.querySelector('.container'));
   translateTree(document.getElementById('edit-modal'));
