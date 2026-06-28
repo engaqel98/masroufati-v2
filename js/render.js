@@ -631,7 +631,27 @@ function renderDashboard() {
     html += '</div>';
   })();
 
-  // ٦) نيابة عن آخرين (قابل للطي لتقصير الصفحة)
+  // ٦) أرصدة البطاقات والحسابات (قابل للطي) — أحدث رصيد لكل بطاقة
+  (function () {
+    var balByCard = {};
+    expenses.forEach(function (e) {
+      if (e.balance === '' || e.balance == null) return;
+      var key = e.card ? ('•••• ' + e.card) : (e.bank || '—');
+      var cur = balByCard[key];
+      var newer = !cur || (e.date || '') > (cur.date || '') || ((e.date || '') === (cur.date || '') && (Number(e.id) || 0) > (Number(cur.id) || 0));
+      if (newer) balByCard[key] = e;
+    });
+    var balKeys = Object.keys(balByCard);
+    if (!balKeys.length) return;
+    html += '<details class="hist-extra" style="margin-top:6px"><summary>💳 أرصدة البطاقات والحسابات</summary>';
+    html += '<div class="card"><div class="card-body">';
+    balKeys.forEach(function (k) {
+      html += '<div class="settings-row"><span>' + htmlEsc(k) + '</span><span class="settings-val">' + fmt(balByCard[k].balance) + ' ر.س</span></div>';
+    });
+    html += '</div></div></details>';
+  })();
+
+  // ٧) نيابة عن آخرين (قابل للطي لتقصير الصفحة)
   (function () {
     var byPerson = {};
     expenses.forEach(function(e) {

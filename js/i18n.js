@@ -68,6 +68,7 @@ var REPL_RAW = [
   ['عملية الشهر', 'Transactions'], ['متوسط يومي', 'Daily avg'], ['متبقّي الدخل', 'Income left'],
   ['آخر العمليات', 'Recent activity'], ['عرض الكل ›', 'View all ›'], ['➕ إدخال يدوي', '➕ Manual entry'],
   ['📅 خطة الأشهر القادمة', '📅 Upcoming months plan'], ['ملتزم بالخطة هذا الشهر', 'On track this month'],
+  ['💳 أرصدة البطاقات والحسابات', '💳 Card & account balances'],
   // ===== اللوحة =====
   ['خطة التمويل · يتبقّى ', 'Financing plan · '],
   ['المتبقّي من إجمالي ', 'Remaining of '],
