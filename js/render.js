@@ -631,7 +631,7 @@ function renderDashboard() {
     html += '</div>';
   })();
 
-  // ٦) أرصدة البطاقات والحسابات (قابل للطي) — أحدث رصيد لكل بطاقة
+  // ٦) الأرصدة والوارد لكل حساب (قابل للطي) — نفس بطاقة السجل
   (function () {
     var balByCard = {};
     expenses.forEach(function (e) {
@@ -641,13 +641,33 @@ function renderDashboard() {
       var newer = !cur || (e.date || '') > (cur.date || '') || ((e.date || '') === (cur.date || '') && (Number(e.id) || 0) > (Number(cur.id) || 0));
       if (newer) balByCard[key] = e;
     });
-    var balKeys = Object.keys(balByCard);
-    if (!balKeys.length) return;
-    html += '<details class="hist-extra" style="margin-top:6px"><summary>💳 أرصدة البطاقات والحسابات</summary>';
-    html += '<div class="card"><div class="card-body">';
-    balKeys.forEach(function (k) {
-      html += '<div class="settings-row"><span>' + htmlEsc(k) + '</span><span class="settings-val">' + fmt(balByCard[k].balance) + ' ر.س</span></div>';
+    var inByAcct = {};
+    expenses.forEach(function (e) {
+      if (e.direction !== 'credit' || e.behalf) return;
+      if (!(e.date && e.date.indexOf(curM) === 0)) return;   // وارد شهر اللوحة
+      var k = accountKey(e) || '—';
+      if (!inByAcct[k]) inByAcct[k] = { sum: 0, count: 0 };
+      inByAcct[k].sum += (e.amount || 0); inByAcct[k].count++;
     });
+    var allAcct = {};
+    Object.keys(balByCard).forEach(function (k) { allAcct[k] = true; });
+    Object.keys(inByAcct).forEach(function (k) { allAcct[k] = true; });
+    var acctKeys = Object.keys(allAcct).sort(function (a, b) {
+      var ba = balByCard[a] ? (parseFloat(balByCard[a].balance) || 0) : 0;
+      var bb = balByCard[b] ? (parseFloat(balByCard[b].balance) || 0) : 0;
+      return bb - ba;
+    });
+    if (!acctKeys.length) return;
+    var inTotal = 0;
+    html += '<details class="hist-extra" style="margin-top:6px"><summary>💳 الأرصدة والوارد</summary>';
+    html += '<div class="card"><div class="card-body">';
+    acctKeys.forEach(function (k) {
+      html += '<div class="acct-block"><div class="acct-name">' + htmlEsc(k) + '</div>';
+      if (balByCard[k]) html += '<div class="acct-line"><span>الرصيد المتاح</span><b>' + fmt(balByCard[k].balance) + ' ر.س</b></div>';
+      if (inByAcct[k]) { inTotal += inByAcct[k].sum; html += '<div class="acct-line"><span>الوارد (' + inByAcct[k].count + ')</span><b class="acct-in">+ ' + fmt(inByAcct[k].sum) + ' ر.س</b></div>'; }
+      html += '</div>';
+    });
+    if (inTotal > 0) html += '<div class="settings-row" style="border-top:1px solid var(--border-soft);margin-top:4px;padding-top:10px"><span style="font-weight:700">إجمالي الوارد</span><span class="settings-val acct-in" style="font-weight:800">+ ' + fmt(inTotal) + ' ر.س</span></div>';
     html += '</div></div></details>';
   })();
 
