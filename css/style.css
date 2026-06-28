@@ -671,3 +671,5 @@ body.priv input[type="number"]:focus { filter: none; }
 .commit-row { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding-top: 12px;
   border-top: 1px solid var(--border-soft); font-size: 13px; font-weight: 600; }
 .commit-row .commit-icon { font-size: 17px; }
+.tx-end { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
+.tx-date { font-size: 10.5px; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }

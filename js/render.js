@@ -741,11 +741,11 @@ function txRowHtml(e) {
   s += '<div class="tx-m"><span class="pill ' + pillClass(e.type, isCredit) + '">' + (e.type || '') + '</span>'
     + (e.bank ? ' ' + e.bank : '')
     + (e.behalf ? ' <span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span>' : '') + '</div></div>';
-  s += '<div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>';
+  s += '<div class="tx-end"><div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
+    + '<div class="tx-date">' + dateLine + '</div></div>';
   s += '<span class="tx-chev">⌄</span>';
   s += '</div>';
   s += '<div class="tx-exp"><div class="tx-detail"><div class="kv-grid">';
-  s += '<div class="kv"><span>التاريخ</span><b>' + dateLine + '</b></div>';
   if (e.balance !== '' && e.balance != null) s += '<div class="kv"><span>الرصيد</span><b>' + fmt(e.balance) + ' ر.س</b></div>';
   if (edited) s += '<div class="kv"><span>المبلغ الأصلي</span><b>' + fmt(e.origAmount) + ' ر.س</b></div>';
   if (e.note) s += '<div class="kv"><span>ملاحظة</span><b>' + htmlEsc(e.note) + '</b></div>';
