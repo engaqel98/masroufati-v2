@@ -514,6 +514,47 @@ function catBudgetRow(name, dotCls, colorVar, spent, budget) {
   return html;
 }
 
+// بطاقة الأرصدة والوارد للوحة (قابلة للطي) — تُعرض أول الصفحة
+function dashBalancesHtml(curM) {
+  var balByCard = {};
+  expenses.forEach(function (e) {
+    if (e.balance === '' || e.balance == null) return;
+    var key = e.card ? ('•••• ' + e.card) : (e.bank || '—');
+    var cur = balByCard[key];
+    var newer = !cur || (e.date || '') > (cur.date || '') || ((e.date || '') === (cur.date || '') && (Number(e.id) || 0) > (Number(cur.id) || 0));
+    if (newer) balByCard[key] = e;
+  });
+  var inByAcct = {};
+  expenses.forEach(function (e) {
+    if (e.direction !== 'credit' || e.behalf) return;
+    if (!(e.date && e.date.indexOf(curM) === 0)) return;
+    var k = accountKey(e) || '—';
+    if (!inByAcct[k]) inByAcct[k] = { sum: 0, count: 0 };
+    inByAcct[k].sum += (e.amount || 0); inByAcct[k].count++;
+  });
+  var allAcct = {};
+  Object.keys(balByCard).forEach(function (k) { allAcct[k] = true; });
+  Object.keys(inByAcct).forEach(function (k) { allAcct[k] = true; });
+  var acctKeys = Object.keys(allAcct).sort(function (a, b) {
+    var ba = balByCard[a] ? (parseFloat(balByCard[a].balance) || 0) : 0;
+    var bb = balByCard[b] ? (parseFloat(balByCard[b].balance) || 0) : 0;
+    return bb - ba;
+  });
+  if (!acctKeys.length) return '';
+  var inTotal = 0, h = '';
+  h += '<details class="hist-extra" style="margin-bottom:14px"><summary>💳 الأرصدة والوارد</summary>';
+  h += '<div class="card"><div class="card-body">';
+  acctKeys.forEach(function (k) {
+    h += '<div class="acct-block"><div class="acct-name">' + htmlEsc(k) + '</div>';
+    if (balByCard[k]) h += '<div class="acct-line"><span>الرصيد المتاح</span><b>' + fmt(balByCard[k].balance) + ' ر.س</b></div>';
+    if (inByAcct[k]) { inTotal += inByAcct[k].sum; h += '<div class="acct-line"><span>الوارد (' + inByAcct[k].count + ')</span><b class="acct-in">+ ' + fmt(inByAcct[k].sum) + ' ر.س</b></div>'; }
+    h += '</div>';
+  });
+  if (inTotal > 0) h += '<div class="settings-row" style="border-top:1px solid var(--border-soft);margin-top:4px;padding-top:10px"><span style="font-weight:700">إجمالي الوارد</span><span class="settings-val acct-in" style="font-weight:800">+ ' + fmt(inTotal) + ' ر.س</span></div>';
+  h += '</div></div></details>';
+  return h;
+}
+
 function renderDashboard() {
   var el = document.getElementById('dashboard');
   if (!el) return;
@@ -543,7 +584,9 @@ function renderDashboard() {
 
   var html = '';
 
-  // ١) آخر العمليات (أعلى شيء)
+  html += dashBalancesHtml(curM);   // الأرصدة والوارد (مطوي) — أول شيء
+
+  // ١) آخر العمليات
   (function () {
     var recent = expenses.filter(function (e) { return !isSettlement(e); }).slice().sort(function (a, b) {
       var da = a.date || '', db = b.date || '';
@@ -629,46 +672,6 @@ function renderDashboard() {
     html += '<div class="stat2"><div class="stat2-v">' + fmtInt(avg) + '</div><div class="stat2-k">متوسط يومي</div></div>';
     html += '<div class="stat2"><div class="stat2-v">' + fmtInt(incLeft) + '</div><div class="stat2-k">متبقّي الدخل</div></div>';
     html += '</div>';
-  })();
-
-  // ٦) الأرصدة والوارد لكل حساب (قابل للطي) — نفس بطاقة السجل
-  (function () {
-    var balByCard = {};
-    expenses.forEach(function (e) {
-      if (e.balance === '' || e.balance == null) return;
-      var key = e.card ? ('•••• ' + e.card) : (e.bank || '—');
-      var cur = balByCard[key];
-      var newer = !cur || (e.date || '') > (cur.date || '') || ((e.date || '') === (cur.date || '') && (Number(e.id) || 0) > (Number(cur.id) || 0));
-      if (newer) balByCard[key] = e;
-    });
-    var inByAcct = {};
-    expenses.forEach(function (e) {
-      if (e.direction !== 'credit' || e.behalf) return;
-      if (!(e.date && e.date.indexOf(curM) === 0)) return;   // وارد شهر اللوحة
-      var k = accountKey(e) || '—';
-      if (!inByAcct[k]) inByAcct[k] = { sum: 0, count: 0 };
-      inByAcct[k].sum += (e.amount || 0); inByAcct[k].count++;
-    });
-    var allAcct = {};
-    Object.keys(balByCard).forEach(function (k) { allAcct[k] = true; });
-    Object.keys(inByAcct).forEach(function (k) { allAcct[k] = true; });
-    var acctKeys = Object.keys(allAcct).sort(function (a, b) {
-      var ba = balByCard[a] ? (parseFloat(balByCard[a].balance) || 0) : 0;
-      var bb = balByCard[b] ? (parseFloat(balByCard[b].balance) || 0) : 0;
-      return bb - ba;
-    });
-    if (!acctKeys.length) return;
-    var inTotal = 0;
-    html += '<details class="hist-extra" style="margin-top:6px"><summary>💳 الأرصدة والوارد</summary>';
-    html += '<div class="card"><div class="card-body">';
-    acctKeys.forEach(function (k) {
-      html += '<div class="acct-block"><div class="acct-name">' + htmlEsc(k) + '</div>';
-      if (balByCard[k]) html += '<div class="acct-line"><span>الرصيد المتاح</span><b>' + fmt(balByCard[k].balance) + ' ر.س</b></div>';
-      if (inByAcct[k]) { inTotal += inByAcct[k].sum; html += '<div class="acct-line"><span>الوارد (' + inByAcct[k].count + ')</span><b class="acct-in">+ ' + fmt(inByAcct[k].sum) + ' ر.س</b></div>'; }
-      html += '</div>';
-    });
-    if (inTotal > 0) html += '<div class="settings-row" style="border-top:1px solid var(--border-soft);margin-top:4px;padding-top:10px"><span style="font-weight:700">إجمالي الوارد</span><span class="settings-val acct-in" style="font-weight:800">+ ' + fmt(inTotal) + ' ر.س</span></div>';
-    html += '</div></div></details>';
   })();
 
   // ٧) نيابة عن آخرين (قابل للطي لتقصير الصفحة)
