@@ -215,7 +215,10 @@ function parseSAB(txt) {
 // صيغة أي بنك أو جاء بنك جديد يظل قادراً على القراءة.
 // ============================================================
 function extractAmountSmart(txt) {
-  var fxCur = null, fxAmt = null, fxRate = null, sar = null, total = null, m;
+  var fxCur = null, fxAmt = null, fxRate = null, sar = null, total = null, instal = null, m;
+  // قسط تمويل: المبلغ = «القسط» وليس «المبلغ المتبقي» (يأخذ الأولوية)
+  m = txt.match(new RegExp('(?:القسط|قسط)\\s*:?\\s*' + SAR_TOKEN + '?\\s*([\\d,]+\\.?\\d*)', 'i'));
+  if (m) instal = parseFloat(m[1].replace(/,/g, ''));
   // عملات معروفة فقط (تفادي التقاط أسماء/أكواد عشوائية)
   m = txt.match(/\b(AED|USD|EUR|GBP|QAR|KWD|BHD|OMR|JOD|EGP|TRY|INR|PKR|CNY|JPY|CHF|CAD|AUD|MAD|TND|THB|MYR|IDR)\s*[: ]?\s*([\d,]+\.?\d*)/);
   if (m) { fxCur = m[1]; fxAmt = parseFloat(m[2].replace(/,/g, '')); }
@@ -228,7 +231,7 @@ function extractAmountSmart(txt) {
   if (m) total = parseFloat(m[1].replace(/,/g, ''));
   m = txt.match(/سعر الصرف[:\s]*([\d.]+)/);
   if (m) fxRate = parseFloat(m[1]);
-  return { amount: (total || sar || fxAmt), fxCurrency: fxCur, fxAmount: fxAmt, fxRate: fxRate };
+  return { amount: (instal || total || sar || fxAmt), fxCurrency: fxCur, fxAmount: fxAmt, fxRate: fxRate };
 }
 
 function extractMerchant(txt, direction) {
