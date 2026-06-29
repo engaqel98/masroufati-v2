@@ -17,6 +17,20 @@ function analyze() {
 
   var isCredit = parsed.direction === 'credit';
   if (!isCredit) parsed.type = classifyMerchant(parsed.merchant, parsed.txType);
+
+  // عملية دولية بلا «مبلغ بالريال»: استنتج المبلغ الفعلي بالريال من فرق الرصيد عن آخر عملية
+  if (parsed.fxCurrency && parsed.fxAmount && Math.abs((parsed.amount || 0) - parsed.fxAmount) < 0.001
+      && parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
+    var _pe = lastBalanceFor(accountKey(parsed));
+    if (_pe && (parsed.date || '') >= (_pe.date || '')) {
+      var _delta = Math.abs(parseFloat(_pe.balance) - parseFloat(parsed.balance));
+      if (_delta > 0.009) {
+        parsed.fxRate = Math.round((_delta / parsed.fxAmount) * 100000) / 100000;
+        parsed.amount = Math.round(_delta * 100) / 100;
+      }
+    }
+  }
+
   window._parsed = parsed;
 
   var hasAuto = !isCredit && parsed.type && parsed.type !== 'غير محدد';
