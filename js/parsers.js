@@ -154,10 +154,16 @@ function parseSAB(txt) {
   var isRefund = /استرداد|استرجاع|مرتجع|refund|reversal/i.test(txt);
   // معاملة دولية: تُكتشف عبر "نقاط البيع الدولي" أو "سعر الصرف" أو وجود عملة أجنبية
   var fxCur = null, fxAmount = null, fxRate = null;
-  var curMatch = txt.match(/بمبلغ\s+([A-Z]{3})\s*([\d,]+\.?\d*)/);
+  var curMatch = txt.match(/بمبلغ\s+([A-Z]{3})\s*([\d,]+\.?\d*)/);   // بمبلغ USD 10.50
   if (curMatch && curMatch[1] !== 'SAR' && curMatch[1] !== 'SR') {
     fxCur = curMatch[1];
     fxAmount = parseFloat(curMatch[2].replace(/,/g, ''));
+  } else {
+    curMatch = txt.match(/بمبلغ\s+([\d,]+\.?\d*)\s*([A-Z]{3})/);     // بمبلغ 10.50 USD
+    if (curMatch && curMatch[2] !== 'SAR' && curMatch[2] !== 'SR') {
+      fxCur = curMatch[2];
+      fxAmount = parseFloat(curMatch[1].replace(/,/g, ''));
+    }
   }
   var rateMatch = txt.match(/سعر الصرف[:\s]*([\d.]+)/);
   if (rateMatch) fxRate = parseFloat(rateMatch[1]);
@@ -171,9 +177,12 @@ function parseSAB(txt) {
       || txt.match(/المبلغ بالريال[:\s]*([\d,]+\.?\d*)/)
       || txt.match(/بالريال[:\s]*([\d,]+\.?\d*)/);
     if (m) amount = parseFloat(m[1].replace(/,/g, ''));
+    if (!amount && fxAmount) amount = fxAmount;   // لا يوجد مبلغ بالريال → استخدم المبلغ الأجنبي (وليس الرصيد)
   }
   if (!amount) {
-    m = txt.match(/بمبلغ\s*([\d,]+\.?\d*)\s*(?:SAR|SR)/i) || txt.match(/بمبلغ\s*(?:SAR|SR)\s*([\d,]+\.?\d*)/i) || txt.match(/(?:SAR|SR)\s*([\d,]+\.?\d*)/i) || txt.match(/([\d,]+\.?\d*)\s*(?:SAR|SR)/i);
+    // استبعد سطر الرصيد حتى لا يُلتقط الرصيد كمبلغ العملية
+    var noBal = txt.replace(/(?:الرصيد|رصيدك)[^\n\r]*/g, '');
+    m = noBal.match(/بمبلغ\s*([\d,]+\.?\d*)\s*(?:SAR|SR)/i) || noBal.match(/بمبلغ\s*(?:SAR|SR)\s*([\d,]+\.?\d*)/i) || noBal.match(/(?:SAR|SR)\s*([\d,]+\.?\d*)/i) || noBal.match(/([\d,]+\.?\d*)\s*(?:SAR|SR)/i);
     if (m) amount = parseFloat(m[1].replace(/,/g, ''));
   }
   if (!amount) return null;

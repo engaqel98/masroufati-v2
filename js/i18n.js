@@ -194,6 +194,7 @@ var REPL_RAW = [
   ['الكل', 'All'], ['⬇️ وارد', '⬇️ Incoming'], ['👥 نيابة', '👥 On behalf'],
   ['البنك', 'Bank'], ['مسح', 'Clear'],
   ['المبلغ الأصلي', 'Original amount'], ['✎ تعديل', '✎ Edit'], ['🗑 حذف', '🗑 Delete'], ['عُدّل من ', 'Edited from '],
+  ['⚠️ تحليل خاطئ', '⚠️ Wrong result'], ['حُفظت في «رسائل لم تُحلَّل» لمراجعتها لاحقاً. شكراً!', 'Saved to "Unparsed messages" for later review. Thanks!'],
   // عام
   [' من ', ' of ']
 ];

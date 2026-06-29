@@ -90,6 +90,7 @@ function analyze() {
   html += '<div id="save-status"></div>';
   html += '<div class="btn-row" style="margin-top:8px">';
   html += '<button class="btn btn-outline" onclick="clearSMS()">🗑 مسح</button>';
+  html += '<button class="btn btn-outline" onclick="reportWrongParse()">⚠️ تحليل خاطئ</button>';
   html += '</div>';
 
   // === التفاصيل / التعديل (سكرول للأسفل عند الحاجة) ===
@@ -117,6 +118,17 @@ function clearSMS() {
   document.getElementById('sms-input').value = '';
   document.getElementById('result-area').innerHTML = '';
   if (typeof showTopSave === 'function') showTopSave(false);   // ارجع «لصق»
+}
+
+// زر "تحليل خاطئ" — يحفظ الرسالة في أرشيف «لم تُحلَّل» لمعالجتها لاحقاً بدل التصحيح اليدوي كل مرة
+function reportWrongParse() {
+  var sms = document.getElementById('sms-input');
+  var txt = sms ? sms.value.trim() : '';
+  if (txt && typeof saveFailedParse === 'function') saveFailedParse(txt);
+  window._parsed = null;
+  if (sms) sms.value = '';
+  document.getElementById('result-area').innerHTML = '<div class="alert alert-yellow">⚠️ حُفظت في «رسائل لم تُحلَّل» لمراجعتها لاحقاً. شكراً!</div>';
+  if (typeof showTopSave === 'function') showTopSave(false);
 }
 
 // يقرأ الحافظة مباشرة ويحلّل — يوفّر خطوة "اضغط النص ← لصق" اليدوية
