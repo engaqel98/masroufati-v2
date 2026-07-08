@@ -669,9 +669,12 @@ function budgetLevel(spent, cap) {
 // النيابة دفتر ذمم (مستثناة)، والوارد لا يُحتسب في الصرف.
 function monthSummary(ym) {
   var byType = { 'أساسيات': 0, 'كماليات': 0, 'سداد التمويل': 0, 'غير محدد': 0 };
-  var incoming = 0, count = 0, days = {}, merchants = {};
+  var incoming = 0, count = 0, days = {}, merchants = {}, pendingFx = [];
   expenses.forEach(function (e) {
     if (!e.date || e.date.indexOf(ym) !== 0 || e.behalf) return;
+    // عملية بعملتها الأجنبية بدون تحويل — مبلغها بالريال غير معروف بعد، تُستبعد من كل المجاميع
+    // (تُعرض منفصلة) حتى لا يُحسب رقمها الخام على إنه ريال
+    if (e.fxUnconverted) { pendingFx.push(e); return; }
     if (e.direction === 'credit') { incoming += (e.amount || 0); return; }
     var t = byType.hasOwnProperty(e.type) ? e.type : 'غير محدد';
     byType[t] += (e.amount || 0);
@@ -687,7 +690,7 @@ function monthSummary(ym) {
   Object.keys(merchants).forEach(function (k) { if (!top || merchants[k].sum > top.sum) top = merchants[k]; });
   var pm = prevMonthKey(ym), prevSpend = 0;
   expenses.forEach(function (e) {
-    if (!e.date || e.date.indexOf(pm) !== 0 || e.behalf || e.direction === 'credit' || e.type === 'سداد التمويل') return;
+    if (!e.date || e.date.indexOf(pm) !== 0 || e.behalf || e.direction === 'credit' || e.type === 'سداد التمويل' || e.fxUnconverted) return;
     prevSpend += (e.amount || 0);
   });
   return {
@@ -695,7 +698,8 @@ function monthSummary(ym) {
     saved: (settings.salary || 0) - spend - loan, topMerchant: top,
     count: count, daysWithData: Object.keys(days).length, prevSpend: prevSpend,
     committed: loan >= settings.payment,
-    budgetOK: (byType['أساسيات'] + byType['كماليات']) <= (settings.salary - settings.payment)
+    budgetOK: (byType['أساسيات'] + byType['كماليات']) <= (settings.salary - settings.payment),
+    pendingFx: pendingFx
   };
 }
 
@@ -735,6 +739,9 @@ function monthSummaryCardHtml(ym, opts) {
   h += '<div class="acct-line"><span>🧾 عدد العمليات</span><b>' + s.count + '</b></div>';
   var ok = s.committed && s.budgetOK;
   h += '<div class="commit-row"><span class="commit-icon">' + (ok ? '✅' : '❌') + '</span><span>' + (ok ? 'التزمت بالخطة هذا الشهر' : 'لم تلتزم بالخطة بالكامل') + '</span></div>';
+  if (s.pendingFx.length) {
+    h += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:6px">🌍 + ' + s.pendingFx.length + ' عملية دولية غير محوَّلة (' + s.pendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة أعلاه — عدّلها من فلتر «عمليات دولية» بالسجل</div>';
+  }
   if (opts.closing) h += '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" onclick="dismissMonthClose()">✓ ابدأ الشهر الجديد</button></div>';
   h += '</div></div>';
   return h;
@@ -759,7 +766,7 @@ function dashBalancesHtml(curM) {
   });
   var inByAcct = {};
   expenses.forEach(function (e) {
-    if (e.direction !== 'credit' || e.behalf) return;
+    if (e.direction !== 'credit' || e.behalf || e.fxUnconverted) return;
     if (!(e.date && e.date.indexOf(curM) === 0)) return;
     var k = accountKey(e) || '—';
     if (!inByAcct[k]) inByAcct[k] = { sum: 0, count: 0 };
@@ -804,7 +811,10 @@ function renderDashboard() {
   // العمليات المدينة فقط للتجميع المالي (نستثني الدائن)
   var month = monthAll.filter(function(e) { return e.direction !== 'credit'; });
   var byType = { 'أساسيات': 0, 'كماليات': 0, 'سداد التمويل': 0, 'غير محدد': 0 };
+  var monthPendingFx = [];
   month.forEach(function(e) {
+    // عملية بعملتها الأجنبية بدون تحويل — مستبعدة من كل مجاميع الميزانية حتى تُصحَّح يدوياً
+    if (e.fxUnconverted) { monthPendingFx.push(e); return; }
     var t = byType.hasOwnProperty(e.type) ? e.type : 'غير محدد';
     byType[t] += (e.amount || 0);
   });
@@ -873,7 +883,7 @@ function renderDashboard() {
     var pm = prevMonthKey(curM);
     var prevSpent = 0;
     expenses.forEach(function (e) {
-      if (!e.date || e.date.indexOf(pm) !== 0 || e.behalf || e.direction === 'credit') return;
+      if (!e.date || e.date.indexOf(pm) !== 0 || e.behalf || e.direction === 'credit' || e.fxUnconverted) return;
       if (e.type === 'سداد التمويل') return;
       prevSpent += (e.amount || 0);
     });
@@ -904,6 +914,9 @@ function renderDashboard() {
     if (!_committed) html += '<div class="alert alert-red" style="margin-top:8px">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + fmtInt(settings.payment) + ' ر.س)</div>';
     if (byType['أساسيات'] > settings.basic) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الأساسيات تجاوزت الهدف</div>';
     if (byType['كماليات'] > freeBudget) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الكماليات تجاوزت الفائض الحر</div>';
+    if (monthPendingFx.length) {
+      html += '<div class="alert alert-blue" style="margin-top:8px">🌍 + ' + monthPendingFx.length + ' عملية دولية غير محوَّلة (' + monthPendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة أعلاه — عدّلها من فلتر «عمليات دولية» بالسجل</div>';
+    }
     html += '</div></div>';
   })();
 
@@ -1112,11 +1125,37 @@ function recordFeeGapAt(i) {
   recordFeeSettlement(ids, Math.abs(g.diff), g.date, g.card, g.bank, 'history');
 }
 
+// تبويب عمليات دولية بانتظار التحويل — كل عملية fxUnconverted بكل الأوقات (بلا فلاتر شهر/بحث)،
+// لسهولة الوصول لها وتصحيحها دفعة واحدة بدل البحث عنها بين كل العمليات
+function renderFxPendingTab(el) {
+  var items = expenses.filter(function (e) { return e.fxUnconverted; });
+  if (!items.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">لا توجد عمليات دولية بانتظار التحويل.</div></div>';
+    return;
+  }
+  items.sort(function (a, b) {
+    var da = a.date || '', db = b.date || '';
+    if (da !== db) return da < db ? 1 : -1;
+    var ta = fmtTime(a.time), tb = fmtTime(b.time);
+    return ta < tb ? 1 : -1;
+  });
+  var html = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
+  html += '<div style="font-size:13px;color:var(--muted)">' + items.length + ' عملية بانتظار المبلغ الصحيح بالريال</div>';
+  html += '<div style="font-size:11.5px;color:var(--muted);margin-top:6px">بعملتها الأجنبية بدون سعر صرف أو مبلغ نهائي واضح بالرسالة — مسجَّلة مؤقتاً بعملتها الأصلية وغير محسوبة بأي مصروف أو دفتر ذمم. عدّل كل عملية بالمبلغ الصحيح من كشف حسابك متى ما وصلك.</div>';
+  html += '</div></div>';
+  html += '<div class="card"><div class="card-body">';
+  items.forEach(function (e) { html += txRowHtml(e); });
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
 function renderHistory() {
   var el = document.getElementById('history-content');
 
   // تبويب مستقل: فجوات الرصيد (مستقل عن فلاتر الشهر/البحث)
   if (histFilter === 'gaps') { renderGapsTab(el); return; }
+  // تبويب مستقل: عمليات دولية بانتظار التحويل (كل الأوقات، بلا فلاتر شهر/بحث)
+  if (histFilter === 'fxpending') { renderFxPendingTab(el); return; }
 
   // أشخاص "نيابة عن" ضمن نطاق الشهر المحدد — لبناء فلتر الاسم في عرض الدفتر
   var behalfPeople = {};
@@ -1209,11 +1248,12 @@ function renderHistory() {
 
   // الصرف = مدين بدون القسط وبدون نيابة (تماشياً مع لوحة الملخّص)
   // ونحسب أيضاً مجاميع النيابة (دفعت/استرد) لعرضها تحت فلتر النيابة
-  var spendTotal = 0, loanTotal = 0;
+  var spendTotal = 0, loanTotal = 0, histPendingFx = [];
   data.forEach(function(e) {
     if (e.behalf) return;                       // النيابة مستثناة من الصرف/القسط
-    var amt = e.amount || 0;
     if (e.direction === 'credit') return;
+    if (e.fxUnconverted) { histPendingFx.push(e); return; }   // مبلغ أجنبي غير محوَّل — مستبعد من الصرف حتى يُصحَّح
+    var amt = e.amount || 0;
     if (e.type === 'سداد التمويل') loanTotal += amt;
     else spendTotal += amt;
   });
@@ -1246,7 +1286,7 @@ function renderHistory() {
   var inByAcct = {};
   expenses.forEach(function(e) {
     if (e.direction !== 'credit') return;
-    if (e.behalf) return;   // تسويات/سداد الأشخاص تخص دفتر الذمم فقط — ليست دخلاً على البطاقة
+    if (e.behalf || e.fxUnconverted) return;   // تسويات/سداد الأشخاص تخص دفتر الذمم فقط، والمبالغ غير المحوَّلة مستبعدة حتى تُصحَّح
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
     if (histDay && e.date !== histDay) return;
     var k = accountKey(e) || '—';
@@ -1285,13 +1325,15 @@ function renderHistory() {
   if (histFilter === 'سداد التمويل') {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · سداد التمويل</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
   } else if (histFilter === 'incoming') {
-    var incTotal = 0, incByType = {};
+    var incTotal = 0, incByType = {}, incPendingFx = [];
     data.forEach(function(e) {
+      if (e.fxUnconverted) { incPendingFx.push(e); return; }
       incTotal += (e.amount || 0);
       var tt = e.type || 'إضافة';
       incByType[tt] = (incByType[tt] || 0) + (e.amount || 0);
     });
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · وارد للرصيد</span><span style="font-weight:700;color:var(--green)">+ ' + fmt(incTotal) + ' ر.س</span></div>';
+    if (incPendingFx.length) totalCard += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:6px">🌍 + ' + incPendingFx.length + ' عملية دولية غير محوَّلة (' + incPendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة أعلاه</div>';
     var incKeys = Object.keys(incByType).sort(function(a, b) { return incByType[b] - incByType[a]; });
     if (incKeys.length > 1) {
       incKeys.forEach(function(tt) {
@@ -1312,6 +1354,7 @@ function renderHistory() {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · الصرف</span><span style="font-weight:700">' + fmt(spendTotal) + ' ر.س</span></div>';
     if (loanTotal > 0) totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">سداد التمويل (منفصل)</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
     if (behalfPaid > 0 || behalfRefund > 0) totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">نيابة عن آخرين (مستثناة)</span><span style="font-weight:700;color:var(--hero-1)">' + fmt(behalfPaid - behalfRefund) + ' ر.س</span></div>';
+    if (histPendingFx.length) totalCard += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:6px">🌍 + ' + histPendingFx.length + ' عملية دولية غير محوَّلة (' + histPendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة أعلاه — عدّلها من فلتر «عمليات دولية»</div>';
   }
   totalCard += '</div></div>';
 
@@ -1376,7 +1419,7 @@ function renderFinance() {
   var endD = new Date(sy, sm - 1 + 23); // الشهر الـ24 (آخر قسط)
   var endLabel = mNames[endD.getMonth()] + ' ' + endD.getFullYear();
   var curM = today().substring(0,7);
-  var thisMonth = expenses.filter(function(e) { return e.date && e.date.startsWith(curM) && !e.behalf && e.direction !== 'credit'; });
+  var thisMonth = expenses.filter(function(e) { return e.date && e.date.startsWith(curM) && !e.behalf && e.direction !== 'credit' && !e.fxUnconverted; });
   var essAct = thisMonth.filter(function(e) { return e.type==='أساسيات'; }).reduce(function(s,e) { return s+(e.amount||0); },0);
   var luxAct = thisMonth.filter(function(e) { return e.type==='كماليات'; }).reduce(function(s,e) { return s+(e.amount||0); },0);
   var loanAct = thisMonth.filter(function(e) { return e.type==='سداد التمويل'; }).reduce(function(s,e) { return s+(e.amount||0); },0);

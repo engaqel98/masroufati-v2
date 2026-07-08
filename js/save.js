@@ -146,7 +146,7 @@ function curMonthCapped() {
   var m = today().substring(0, 7);
   var t = { 'أساسيات': 0, 'كماليات': 0 };
   expenses.forEach(function (e) {
-    if (!e.date || e.date.indexOf(m) !== 0 || e.behalf || e.direction === 'credit') return;
+    if (!e.date || e.date.indexOf(m) !== 0 || e.behalf || e.direction === 'credit' || e.fxUnconverted) return;
     if (t.hasOwnProperty(e.type)) t[e.type] += (e.amount || 0);
   });
   return t;
@@ -664,8 +664,13 @@ async function saveEdit() {
 
   // حدّث محلياً
   Object.keys(fields).forEach(function(k) { entry[k] = fields[k]; });
-  // تعديل العملية يدوياً = تأكيد المستخدم للمبلغ — تُمسح علامة "عملية دولية غير محوَّلة"
-  if (entry.fxUnconverted) entry.fxUnconverted = false;
+  // تعديل عملية "غير محوَّلة" مو بالضرورة يعني تصحيح المبلغ — ممكن التعديل لسبب ثاني (تصنيف/ملاحظة)
+  // قبل ما يوصل كشف الحساب. نسأل صراحة بدل ما نفترض ونمسح العلامة بصمت.
+  if (entry.fxUnconverted) {
+    if (confirm('هذي العملية معلَّمة «عملية دولية غير محوَّلة» — المبلغ الحالي بعد التعديل: ' + fmt(entry.amount) + ' ر.س.\nهل هذا هو المبلغ الصحيح النهائي بالريال (من كشف الحساب)؟\n\nموافق = نعم، صحّحته بالكامل.\nإلغاء = لا، التعديل كان لسبب ثاني — خلّها بانتظار المبلغ الصحيح.')) {
+      entry.fxUnconverted = false;
+    }
+  }
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
   if (fields.behalf && typeof registerPerson === 'function') registerPerson(fields.behalf);
   if (typeof learnMerchant === 'function') learnMerchant(fields.merchant, fields.type, fields.direction);
