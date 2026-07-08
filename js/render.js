@@ -30,8 +30,17 @@ function analyze() {
       var _expectedBeforeThis = parseFloat(_pe.balance) + signedSinceAnchor(_acctK, _pe, parsed);
       var _delta = isCredit ? (parseFloat(parsed.balance) - _expectedBeforeThis) : (_expectedBeforeThis - parseFloat(parsed.balance));
       if (_delta > 0.009) {
-        parsed.fxRate = Math.round((_delta / parsed.fxAmount) * 100000) / 100000;
-        parsed.amount = Math.round(_delta * 100) / 100;
+        var _impliedRate = _delta / parsed.fxAmount;
+        var _saneRate = FX_SANE_RATE[parsed.fxCurrency];
+        // لو السعر المُستنتَج بعيد جداً عن سعر واقعي معروف لهذي العملة، الأرجح إن فيه عملية
+        // أخرى غير مسجَّلة بين آخر رصيد وهذي العملية امتصّت جزء من الفرق — ما نثق بالرقم
+        // ونعرض تحذير بدل ما نستبدل المبلغ برقم غلط بثقة.
+        if (_saneRate && (_impliedRate < _saneRate * 0.4 || _impliedRate > _saneRate * 2.5)) {
+          parsed.fxInferenceSuspicious = { delta: Math.round(_delta * 100) / 100, impliedRate: Math.round(_impliedRate * 100000) / 100000, saneRate: _saneRate, prevBalance: parseFloat(_pe.balance), prevDate: _pe.date };
+        } else {
+          parsed.fxRate = Math.round(_impliedRate * 100000) / 100000;
+          parsed.amount = Math.round(_delta * 100) / 100;
+        }
       }
     }
   }
@@ -58,6 +67,19 @@ function analyze() {
   html += '</div>';
 
   html += '<div class="res-body">';
+
+  // استنتاج المبلغ من فرق الرصيد طلّع سعر صرف غير منطقي — الأرجح فيه عملية أخرى غير مسجَّلة
+  // بين آخر رصيد وهذي العملية امتصّت جزء من الفرق. ما نستبدل المبلغ برقم غلط بثقة —
+  // نحذّر ونسيب المبلغ الأجنبي الخام ليعدّله المستخدم يدوياً بالمبلغ الصحيح بالريال.
+  if (parsed.fxInferenceSuspicious) {
+    var _s = parsed.fxInferenceSuspicious;
+    html += '<div class="alert alert-yellow" style="margin-bottom:8px">'
+      + '⚠️ <b>ما قدرنا نحسب المبلغ بالريال بثقة</b><br>'
+      + 'الفرق بين آخر رصيد معروف (' + fmt(_s.prevBalance) + ' ر.س بتاريخ ' + _s.prevDate + ') والرصيد الحالي = ' + fmt(_s.delta) + ' ر.س — يعطي سعر صرف ' + _s.impliedRate + ' لعملة ' + (parsed.fxCurrency || '') + ' غير منطقي (المتوقّع تقريباً ' + _s.saneRate + ').<br>'
+      + 'الأرجح فيه عملية أخرى غير مسجَّلة بين آخر رصيد وهذي العملية.<br>'
+      + '<b>المبلغ تحت (' + fmt(parsed.amount) + ' ' + (parsed.fxCurrency || '') + ') لسه بعملته الأجنبية بدون تحويل</b> — عدّله يدوياً بالمبلغ الصحيح بالريال من كشف حسابك قبل الحفظ.'
+      + '</div>';
+  }
 
   // === مطابقة الرصيد: قارن الرصيد المتوقّع بالفعلي للكشف عن عمليات/استردادات غير مُسجَّلة ===
   window._recon = null;
