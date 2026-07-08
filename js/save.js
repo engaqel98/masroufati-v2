@@ -523,13 +523,30 @@ async function syncFromSheets() {
     var resp = await fetch(appendKey(settings.webapp + '?action=read'));
     var json = await resp.json();
     if (json.status === 'ok' && json.rows && json.rows.length > 0) {
-      // احفظ حقل "نيابة" محلياً قبل الاستبدال — يبقى موجوداً حتى لو الـbackend ما يخزّنه
-      var localBehalf = {};
-      expenses.forEach(function(e) { if (e && e.behalf) localBehalf[String(e.id)] = e.behalf; });
-      json.rows.forEach(function(r) {
-        if (r && !r.behalf && localBehalf[String(r.id)]) r.behalf = localBehalf[String(r.id)];
+      // احفظ الحقول المحلية-فقط قبل الاستبدال — الـbackend/الشيت ما يخزّنها (لا عمود لها)، فلو ما
+      // أعدنا تطبيقها بعد كل استبدال (يصير تلقائياً عند كل فتح للتطبيق — js/app.js) تنمسح بصمت:
+      // "نيابة عن"، رسوم/عملات دولية معلَّقة التحويل. "synced" مستثناة عمداً — وجود الصف بالقراءة
+      // دليل مباشر إنه فعلاً وصل للشيت، فأي علامة "false" قديمة عليه تصير غير صحيحة وتُتجاهل.
+      var LOCAL_ONLY_FIELDS = ['behalf', 'intlFee', 'intlFeeSettled', 'fxUnconverted', 'fxCurrency'];
+      var localFieldsById = {}, unsynced = [];
+      expenses.forEach(function(e) {
+        if (!e) return;
+        // عملية اتحفظت محلياً بس ما وصلت للشيت بعد — لو ما ظهرت بالقراءة، لازم تبقى محلياً
+        // بدل ما يمسحها الاستبدال الكامل بصمت (فقدان بيانات حقيقي، مش مجرد نسيان علامة)
+        if (e.synced === false) unsynced.push(e);
+        var saved = {}, has = false;
+        LOCAL_ONLY_FIELDS.forEach(function(k) { if (e[k] !== undefined && e[k] !== '') { saved[k] = e[k]; has = true; } });
+        if (has) localFieldsById[String(e.id)] = saved;
       });
-      expenses = json.rows;
+      var syncedIds = {};
+      json.rows.forEach(function(r) {
+        if (r && r.id != null) syncedIds[String(r.id)] = true;
+        var saved = r && localFieldsById[String(r.id)];
+        if (!saved) return;
+        Object.keys(saved).forEach(function(k) { if (r[k] === undefined || r[k] === '') r[k] = saved[k]; });
+      });
+      var stillUnsynced = unsynced.filter(function(e) { return !syncedIds[String(e.id)]; });
+      expenses = json.rows.concat(stillUnsynced);
       localStorage.setItem('expenses_v2', JSON.stringify(expenses));
       if (typeof refreshPeopleList === 'function') refreshPeopleList();
       if (typeof refreshAccountsList === 'function') refreshAccountsList();
