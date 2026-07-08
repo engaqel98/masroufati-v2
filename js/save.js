@@ -286,6 +286,11 @@ async function saveEntry() {
     return;
   }
   var p = window._parsed;
+  // تحذير استنتاج المبلغ من فرق الرصيد كان غير منطقي، والمبلغ لسه بالعملة الأجنبية الخام
+  // (المستخدم ما عدّله) — تأكيد صريح قبل الحفظ حتى لا يُحفظ رقم غير محوَّل بالغلط
+  if (p.fxInferenceSuspicious && Math.abs(amt - p.fxAmount) < 0.005) {
+    if (!confirm('⚠️ المبلغ (' + amt + ') لسه هو الرقم الأجنبي الخام بدون تحويل لريال — التحويل التلقائي كان غير منطقي (تنبيه أعلاه). متأكد تبي تحفظه بهذا الشكل بدون تصحيح؟')) return;
+  }
   var noteEl = document.getElementById('note-edit');
   var behalfEl = document.getElementById('behalf-edit');
   p.note = noteEl ? noteEl.value : '';
