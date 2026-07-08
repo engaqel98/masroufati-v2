@@ -286,10 +286,10 @@ async function saveEntry() {
     return;
   }
   var p = window._parsed;
-  // تحذير استنتاج المبلغ من فرق الرصيد كان غير منطقي، والمبلغ لسه بالعملة الأجنبية الخام
-  // (المستخدم ما عدّله) — تأكيد صريح قبل الحفظ حتى لا يُحفظ رقم غير محوَّل بالغلط
-  if (p.fxInferenceSuspicious && Math.abs(amt - p.fxAmount) < 0.005) {
-    if (!confirm('⚠️ المبلغ (' + amt + ') لسه هو الرقم الأجنبي الخام بدون تحويل لريال — التحويل التلقائي كان غير منطقي (تنبيه أعلاه). متأكد تبي تحفظه بهذا الشكل بدون تصحيح؟')) return;
+  // الرسالة ما فيها سعر صرف نحوّل بيه، والمبلغ لسه بالعملة الأجنبية الخام (المستخدم ما عدّله) —
+  // تأكيد صريح قبل الحفظ حتى لا يُحفظ رقم أجنبي بالغلط على إنه بالريال
+  if (p.fxUnconverted && Math.abs(amt - p.fxAmount) < 0.005) {
+    if (!confirm('⚠️ المبلغ (' + amt + ' ' + (p.fxCurrency || '') + ') لسه بعملته الأجنبية بدون تحويل لريال. متأكد تبي تحفظه بهذا الشكل بدون تصحيح؟')) return;
   }
   var noteEl = document.getElementById('note-edit');
   var behalfEl = document.getElementById('behalf-edit');
@@ -370,6 +370,9 @@ async function doSave(p, statusId) {
   };
   // رسوم دولية (محلي فقط، لا تُرسل لـ Sheets) — تُستخدم لتفسير فرق مطابقة الرصيد لاحقاً
   if (p.intlFee != null) entry.intlFee = p.intlFee;
+  // عملية دولية بعملتها الأجنبية بدون تحويل (محلي فقط) — تُستخدم لتفسير فجوات لاحقة ولإظهار
+  // تنبيه بالسجل حتى تُصحَّح يدوياً؛ تُمسح عند تعديل العملية (saveEdit)
+  if (p.fxUnconverted) { entry.fxUnconverted = true; entry.fxCurrency = p.fxCurrency; }
 
   // كشف التكرار قبل الحفظ — نفس التاريخ/المبلغ/التاجر/الاتجاه
   if (typeof isDuplicate === 'function' && isDuplicate(entry)) {
@@ -661,6 +664,8 @@ async function saveEdit() {
 
   // حدّث محلياً
   Object.keys(fields).forEach(function(k) { entry[k] = fields[k]; });
+  // تعديل العملية يدوياً = تأكيد المستخدم للمبلغ — تُمسح علامة "عملية دولية غير محوَّلة"
+  if (entry.fxUnconverted) entry.fxUnconverted = false;
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
   if (fields.behalf && typeof registerPerson === 'function') registerPerson(fields.behalf);
   if (typeof learnMerchant === 'function') learnMerchant(fields.merchant, fields.type, fields.direction);

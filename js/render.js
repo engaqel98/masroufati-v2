@@ -18,33 +18,6 @@ function analyze() {
   var isCredit = parsed.direction === 'credit';
   if (!isCredit) parsed.type = classifyMerchant(parsed.merchant, parsed.txType);
 
-  // عملية دولية بلا «مبلغ بالريال»: استنتج المبلغ الفعلي بالريال من فرق الرصيد عن آخر عملية.
-  // مهم: المقارنة لازم تكون مقابل الرصيد المتوقّع بعد احتساب أي عمليات مسجَّلة بين آخر مرساة
-  // وهذي العملية (signedSinceAnchor) — مو الفرق الخام بين آخر رصيدين، وإلا أي حركة أخرى بينهما
-  // (حتى لو غير مرتبطة) تنحسب غلط ضمن المبلغ الأجنبي المُستنتَج.
-  if (parsed.fxCurrency && parsed.fxAmount && Math.abs((parsed.amount || 0) - parsed.fxAmount) < 0.001
-      && parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
-    var _acctK = accountKey(parsed);
-    var _pe = lastBalanceFor(_acctK, parsed);
-    if (_pe) {
-      var _expectedBeforeThis = parseFloat(_pe.balance) + signedSinceAnchor(_acctK, _pe, parsed);
-      var _delta = isCredit ? (parseFloat(parsed.balance) - _expectedBeforeThis) : (_expectedBeforeThis - parseFloat(parsed.balance));
-      if (_delta > 0.009) {
-        var _impliedRate = _delta / parsed.fxAmount;
-        var _saneRate = FX_SANE_RATE[parsed.fxCurrency];
-        // لو السعر المُستنتَج بعيد جداً عن سعر واقعي معروف لهذي العملة، الأرجح إن فيه عملية
-        // أخرى غير مسجَّلة بين آخر رصيد وهذي العملية امتصّت جزء من الفرق — ما نثق بالرقم
-        // ونعرض تحذير بدل ما نستبدل المبلغ برقم غلط بثقة.
-        if (_saneRate && (_impliedRate < _saneRate * 0.4 || _impliedRate > _saneRate * 2.5)) {
-          parsed.fxInferenceSuspicious = { delta: Math.round(_delta * 100) / 100, impliedRate: Math.round(_impliedRate * 100000) / 100000, saneRate: _saneRate, prevBalance: parseFloat(_pe.balance), prevDate: _pe.date };
-        } else {
-          parsed.fxRate = Math.round(_impliedRate * 100000) / 100000;
-          parsed.amount = Math.round(_delta * 100) / 100;
-        }
-      }
-    }
-  }
-
   window._parsed = parsed;
 
   var hasAuto = !isCredit && parsed.type && parsed.type !== 'غير محدد';
@@ -68,23 +41,23 @@ function analyze() {
 
   html += '<div class="res-body">';
 
-  // استنتاج المبلغ من فرق الرصيد طلّع سعر صرف غير منطقي — الأرجح فيه عملية أخرى غير مسجَّلة
-  // بين آخر رصيد وهذي العملية امتصّت جزء من الفرق. ما نستبدل المبلغ برقم غلط بثقة —
-  // نحذّر ونسيب المبلغ الأجنبي الخام ليعدّله المستخدم يدوياً بالمبلغ الصحيح بالريال.
-  if (parsed.fxInferenceSuspicious) {
-    var _s = parsed.fxInferenceSuspicious;
+  // الرسالة ما فيها مبلغ نهائي بالريال ولا سعر صرف معلن نحوّل بيه — المبلغ تحت لسه
+  // بعملته الأجنبية الخام. ما نخمّن من فرق الرصيد (ينكسر لو فيه عملية أخرى غير مسجَّلة
+  // بينهما) — نحذّر ونسيبه للمستخدم يصحّحه يدوياً من كشف حسابه أو لاحقاً برسالة تأكيد.
+  if (parsed.fxUnconverted) {
     html += '<div class="alert alert-yellow" style="margin-bottom:8px">'
-      + '⚠️ <b>ما قدرنا نحسب المبلغ بالريال بثقة</b><br>'
-      + 'الفرق بين آخر رصيد معروف (' + fmt(_s.prevBalance) + ' ر.س بتاريخ ' + _s.prevDate + ') والرصيد الحالي = ' + fmt(_s.delta) + ' ر.س — يعطي سعر صرف ' + _s.impliedRate + ' لعملة ' + (parsed.fxCurrency || '') + ' غير منطقي (المتوقّع تقريباً ' + _s.saneRate + ').<br>'
-      + 'الأرجح فيه عملية أخرى غير مسجَّلة بين آخر رصيد وهذي العملية.<br>'
-      + '<b>المبلغ تحت (' + fmt(parsed.amount) + ' ' + (parsed.fxCurrency || '') + ') لسه بعملته الأجنبية بدون تحويل</b> — عدّله يدوياً بالمبلغ الصحيح بالريال من كشف حسابك قبل الحفظ.'
+      + '🌍 <b>عملية دولية بدون سعر صرف بالرسالة</b><br>'
+      + 'المبلغ تحت (' + fmt(parsed.amount) + ' ' + (parsed.fxCurrency || '') + ') لسه بعملته الأجنبية بدون تحويل — الرسالة ما فيها سعر صرف ولا مبلغ نهائي بالريال.<br>'
+      + 'عدّله يدوياً بالمبلغ الصحيح بالريال من كشف حسابك، أو احفظه كذا وصحّحه لاحقاً إذا وصلتك رسالة تأكيد.'
       + '</div>';
   }
 
   // === مطابقة الرصيد: قارن الرصيد المتوقّع بالفعلي للكشف عن عمليات/استردادات غير مُسجَّلة ===
+  // (تُتخطّى كاملة لو هذي العملية نفسها fxUnconverted — أصلاً معروف إن مبلغها غير موثوق،
+  // فلا داعي لتنبيه فجوة إضافي مربك فوق التنبيه أعلاه)
   window._recon = null;
   window._pendingFeeGap = null;
-  if (parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
+  if (!parsed.fxUnconverted && parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
     var acctK = accountKey(parsed);
     var prevE = lastBalanceFor(acctK, parsed);
     if (prevE) {
@@ -96,9 +69,14 @@ function analyze() {
       // فرق يطابق رسوم دولية مذكورة بنفس الرسالة: البنك أحياناً ما يحدّث الرصيد المعروض بالرسوم فوراً
       // (تُخصم لاحقاً) — هذا مُفسَّر، مو عملية غير مسجَّلة، فلا نعرضه كفجوة
       var feeExplained = parsed.intlFee && Math.abs(Math.abs(diff) - parsed.intlFee) < 0.01;
+      // فيه عملية/عمليات دولية سابقة على نفس الحساب لسه محفوظة بعملتها الأجنبية بدون تحويل؟
+      // هذي الأرجح سبب أي فرق هنا (مبلغها غير موثوق أصلاً) — نوضّح السبب ونسهّل تعديلها
+      var pendingFx = (!feeExplained && Math.abs(diff) > 0.01)
+        ? expenses.filter(function (pe) { return accountKey(pe) === acctK && withinBalanceWindow(pe) && pe.fxUnconverted && isAfter(pe, prevE) && isBeforeRef(pe, parsed); })
+        : [];
       // فرق يطابق رسوم دولية سابقة لسه ما انسجّلت (البنك لحّق الرصيد بيها الحين، متأخرة) —
       // نعرضها بوضوح ونسأل المستخدم إذا يبغى يسجّلها، بدل ما نتجاهلها أو نعتبرها فجوة مجهولة
-      var pendingFees = (!feeExplained && Math.abs(diff) > 0.01)
+      var pendingFees = (!feeExplained && !pendingFx.length && Math.abs(diff) > 0.01)
         ? unsettledIntlFees(acctK).filter(function (pe) { return (pe.date || '') <= (parsed.date || ''); })
         : [];
       var pendingSum = pendingFees.reduce(function (s, pe) { return s + (pe.intlFee || 0); }, 0);
@@ -106,6 +84,13 @@ function analyze() {
 
       if (Math.abs(diff) > 0.01 && feeExplained) {
         html += '<div class="alert alert-blue" style="margin-bottom:8px;font-size:12px">ℹ️ فرق ' + fmt(Math.abs(diff)) + ' ر.س يطابق الرسوم الدولية لهذه العملية — البنك غالباً ما يحدّث الرصيد المعروض بالرسوم فوراً (تُخصم لاحقاً). مو فجوة حقيقية.</div>';
+      } else if (Math.abs(diff) > 0.01 && pendingFx.length) {
+        html += '<div class="alert alert-blue" style="margin-bottom:8px">'
+          + 'ℹ️ <b>الفرق يطابق عملية/عمليات دولية غير محوَّلة</b><br>'
+          + 'الأرجح سبب الفرق (' + fmt(Math.abs(diff)) + ' ر.س) عملية دولية سابقة لسه محفوظة بعملتها الأجنبية بدون تحويل:<br>'
+          + pendingFx.map(function (pe) { return '• ' + htmlEsc(pe.merchant || '—') + ' — ' + fmt(pe.amount) + ' ' + (pe.fxCurrency || '') + ' (' + pe.date + ') <button class="btn btn-outline btn-sm" style="margin-right:6px" onclick="editEntry(\'' + String(pe.id) + '\')">✏️ عدّل</button>'; }).join('<br>')
+          + '<span style="font-size:11px;color:var(--muted);display:block;margin-top:6px">يمكنك الحفظ عادي — عدّل العملية القديمة لما توصلك القيمة الصحيحة.</span>'
+          + '</div>';
       } else if (Math.abs(diff) > 0.01 && pendingMatch) {
         window._pendingFeeGap = { ids: pendingFees.map(function (pe) { return pe.id; }), total: pendingSum, date: parsed.date, card: parsed.card || '', bank: parsed.bank || '' };
         html += '<div class="alert alert-blue" id="pending-fee-alert" style="margin-bottom:8px">'
@@ -398,10 +383,13 @@ function detectBalanceGaps(limit) {
       if (ta !== tb) return ta < tb ? -1 : 1;
       return (Number(a.id) || 0) - (Number(b.id) || 0);
     });
-    var anchor = null, acc = 0;
+    var anchor = null, acc = 0, pendingFxSinceAnchor = [];
     arr.forEach(function(e) {
       var signed = (e.direction === 'credit' ? (e.amount || 0) : -(e.amount || 0));
       var hasBal = !(e.balance === '' || e.balance == null || isNaN(parseFloat(e.balance)));
+      // عملية دولية بعملتها الأجنبية الخام بدون تحويل — مبلغها غير موثوق أصلاً، نجمعها منذ
+      // آخر مرساة (تشمل e نفسها لو هي الحالة) لتفسير أي فرق بدل اعتباره فجوة مجهولة
+      if (e.fxUnconverted) pendingFxSinceAnchor.push(e);
       if (hasBal) {
         if (anchor) {
           var expected = parseFloat(anchor.balance) + acc + signed;
@@ -409,17 +397,24 @@ function detectBalanceGaps(limit) {
           // فرق يطابق رسوم دولية هذه العملية بالذات — مُفسَّر، مش فجوة حقيقية (نفس منطق تنبيه التحليل)
           var feeExplained = e.intlFee && Math.abs(Math.abs(diff) - e.intlFee) < 0.01;
           if (Math.abs(diff) > 0.01 && !feeExplained) {
-            // فرق يطابق رسوم دولية سابقة على نفس الحساب لسه ما انسجّلت — سبب معروف، نعرضه بوضوح
-            var pending = unsettledIntlFees(k).filter(function (pe) { return (pe.date || '') <= (e.date || ''); });
-            var pendingSum = pending.reduce(function (s, pe) { return s + (pe.intlFee || 0); }, 0);
-            var feeMatch = pending.length && Math.abs(Math.abs(diff) - pendingSum) < 0.01;
-            gaps.push({ acct: k, diff: diff, up: diff > 0, date: e.date, merchant: e.merchant,
-              card: e.card || '', bank: e.bank || '', expected: expected, curBal: parseFloat(e.balance),
-              anchorMerchant: anchor.merchant || '', anchorDate: anchor.date || '',
-              cause: feeMatch ? 'fee' : 'unknown', feeItems: feeMatch ? pending : [] });
+            if (pendingFxSinceAnchor.length) {
+              gaps.push({ acct: k, diff: diff, up: diff > 0, date: e.date, merchant: e.merchant,
+                card: e.card || '', bank: e.bank || '', expected: expected, curBal: parseFloat(e.balance),
+                anchorMerchant: anchor.merchant || '', anchorDate: anchor.date || '',
+                cause: 'fx', fxItems: pendingFxSinceAnchor.slice() });
+            } else {
+              // فرق يطابق رسوم دولية سابقة على نفس الحساب لسه ما انسجّلت — سبب معروف، نعرضه بوضوح
+              var pending = unsettledIntlFees(k).filter(function (pe) { return (pe.date || '') <= (e.date || ''); });
+              var pendingSum = pending.reduce(function (s, pe) { return s + (pe.intlFee || 0); }, 0);
+              var feeMatch = pending.length && Math.abs(Math.abs(diff) - pendingSum) < 0.01;
+              gaps.push({ acct: k, diff: diff, up: diff > 0, date: e.date, merchant: e.merchant,
+                card: e.card || '', bank: e.bank || '', expected: expected, curBal: parseFloat(e.balance),
+                anchorMerchant: anchor.merchant || '', anchorDate: anchor.date || '',
+                cause: feeMatch ? 'fee' : 'unknown', feeItems: feeMatch ? pending : [] });
+            }
           }
         }
-        anchor = e; acc = 0;
+        anchor = e; acc = 0; pendingFxSinceAnchor = [];
       } else {
         acc += signed;
       }
@@ -1012,6 +1007,7 @@ function txRowHtml(e) {
       ? '<div class="tx-meta" style="color:var(--muted)">🔗 رسوم دولية ' + fmt(e.intlFee) + ' ر.س — سُجِّلت لاحقاً</div>'
       : '<div class="tx-meta" style="color:var(--muted)">⏳ رسوم دولية ' + fmt(e.intlFee) + ' ر.س لسه ما انسجّلت</div>';
   }
+  if (e.fxUnconverted) s += '<div class="tx-meta" style="color:var(--c-lux)">🌍 عملية دولية — المبلغ أعلاه بعملة ' + (e.fxCurrency || '') + ' بدون تحويل، عدّلها بالمبلغ الصحيح بالريال</div>';
   s += '</div>';
   s += '<div class="tx-end"><div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
     + '<div class="tx-date">' + dateLine + '</div></div>';
@@ -1057,6 +1053,9 @@ function renderGapsTab(el) {
     if (g.cause === 'fee') {
       html += '<br><span style="font-size:11.5px;color:var(--muted)">🧾 السبب: رسوم دولية معلّقة — '
         + g.feeItems.map(function (fe) { return htmlEsc(fe.merchant || '—') + ' (' + fe.date + ')'; }).join('، ') + '</span>';
+    } else if (g.cause === 'fx') {
+      html += '<br><span style="font-size:11.5px;color:var(--muted)">🌍 السبب: عملية/عمليات دولية غير محوَّلة — '
+        + g.fxItems.map(function (fe) { return htmlEsc(fe.merchant || '—') + ' — ' + fmt(fe.amount) + ' ' + (fe.fxCurrency || '') + ' (' + fe.date + ')'; }).join('، ') + '</span>';
     } else {
       html += '<br><span style="font-size:11.5px;color:var(--muted)">بين عملية ' + htmlEsc(g.anchorMerchant || '—') + ' (' + g.anchorDate + ') وعملية ' + htmlEsc(g.merchant || '—') + ' (' + g.date + ')</span>';
     }
@@ -1064,6 +1063,10 @@ function renderGapsTab(el) {
     html += '<span style="font-weight:700;color:' + (g.up ? 'var(--green)' : '#d9822b') + '">' + (g.up ? '+ ' : '− ') + fmt(Math.abs(g.diff)) + ' ر.س</span>';
     if (g.cause === 'fee') {
       html += '<button class="btn btn-outline btn-sm" onclick="recordFeeGapAt(' + i + ')">💵 تسجيل كرسوم دولية</button>';
+    } else if (g.cause === 'fx') {
+      html += '<div class="btn-row">' + g.fxItems.map(function (fe) {
+        return '<button class="btn btn-outline btn-sm" onclick="editEntry(\'' + String(fe.id) + '\')">✏️ عدّل ' + htmlEsc(fe.merchant || '—') + '</button>';
+      }).join('') + '</div>';
     } else {
       html += '<button class="btn btn-outline btn-sm" onclick="recordUnknownGapAt(' + i + ')">💵 سجّل</button>';
     }

@@ -173,7 +173,7 @@ function parseSAB(txt) {
   var feeMatch = txt.match(/الرسوم الدولية(?:\s*بالريال)?[:\s]*([\d,]+\.?\d*)/);
   var intlFee = feeMatch ? parseFloat(feeMatch[1].replace(/,/g, '')) : null;
 
-  var amount = null, m;
+  var amount = null, m, fxUnconverted = false;
 
   if (isIntl) {
     // المبلغ النهائي بالريال = "المبلغ الإجمالي" (بعد الرسوم). احتياطياً "المبلغ بالريال" ثم "بالريال"
@@ -181,7 +181,11 @@ function parseSAB(txt) {
       || txt.match(/المبلغ بالريال[:\s]*([\d,]+\.?\d*)/)
       || txt.match(/بالريال[:\s]*([\d,]+\.?\d*)/);
     if (m) amount = parseFloat(m[1].replace(/,/g, ''));
-    if (!amount && fxAmount) amount = fxAmount;   // لا يوجد مبلغ بالريال → استخدم المبلغ الأجنبي (وليس الرصيد)
+    // لا يوجد مبلغ نهائي بالريال: لو الرسالة فيها سعر صرف معلن، حوّل بيه مباشرة (دقيق، مو تخمين).
+    // وإلا خذ المبلغ الأجنبي الخام مؤقتاً وعلّمه fxUnconverted ليصحّحه المستخدم يدوياً لاحقاً
+    // (بدل تخمين المبلغ من فرق الرصيد، اللي ينكسر لو فيه عملية أخرى غير مسجَّلة بينهما).
+    if (!amount && fxAmount && fxRate) amount = Math.round(fxAmount * fxRate * 100) / 100;
+    if (!amount && fxAmount) { amount = fxAmount; fxUnconverted = true; }
   }
   if (!amount) {
     // استبعد سطر الرصيد حتى لا يُلتقط الرصيد كمبلغ العملية
@@ -220,6 +224,7 @@ function parseSAB(txt) {
     if (fxRate) result.fxRate = fxRate;
   }
   if (intlFee != null) result.intlFee = intlFee;
+  if (fxUnconverted) result.fxUnconverted = true;
   return result;
 }
 
