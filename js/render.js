@@ -200,16 +200,25 @@ function pasteAndAnalyze() {
 // تهريب نص لاستخدامه داخل onclick='...'
 function jsStr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
-// صافي ما على شخص = (دفعت نيابة عنه) − (سدّده) عبر كل العمليات
+// صافي ما على شخص = (دفعت نيابة عنه) − (سدّده) عبر كل العمليات.
+// عمليات fxUnconverted (بعملتها الأجنبية بدون تحويل) مستبعدة — مبلغها بالريال غير معروف بعد،
+// فحسابها كأنها SAR يعطي رقم غلط. انظر personPendingFx لعرضها بشكل منفصل بدل تجاهلها بصمت.
 function personOwed(name) {
   var nm = String(name == null ? '' : name).trim();
   var paid = 0, refunded = 0;
   expenses.forEach(function(e) {
     if (!e.behalf || String(e.behalf).trim() !== nm) return;
+    if (e.fxUnconverted) return;
     var amt = e.amount || 0;
     if (e.direction === 'credit') refunded += amt; else paid += amt;
   });
   return paid - refunded;
+}
+
+// عمليات نيابة عن شخص معيّن بعملتها الأجنبية بدون تحويل — مستبعدة من personOwed حتى تُصحَّح
+function personPendingFx(name) {
+  var nm = String(name == null ? '' : name).trim();
+  return expenses.filter(function(e) { return e.behalf && String(e.behalf).trim() === nm && e.fxUnconverted; });
 }
 
 // تسجيل سداد من شخص: يضيف حركة وارد (credit) باسمه فتنقص من المتبقي عليه.
@@ -218,8 +227,12 @@ function recordSettlement(name) {
   var nm = String(name == null ? '' : name).trim();
   if (!nm) return;
   var owed = personOwed(nm);
+  var pendingFx = personPendingFx(nm);
   var def = owed > 0.005 ? String(Math.round(owed * 100) / 100) : '';
-  var v = prompt('كم سدّد «' + nm + '»؟\nالمتبقي عليه: ' + fmt(owed) + ' ر.س', def);
+  var pendingNote = pendingFx.length
+    ? '\n(+ ' + pendingFx.length + ' عملية دولية غير محوَّلة غير محسوبة: ' + pendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ' — صحّحها من السجل أولاً)'
+    : '';
+  var v = prompt('كم سدّد «' + nm + '»؟\nالمتبقي عليه: ' + fmt(owed) + ' ر.س' + pendingNote, def);
   if (v == null) return;
   var amt = parseFloat(v);
   if (!amt || amt <= 0) return;
@@ -914,13 +927,16 @@ function renderDashboard() {
     expenses.forEach(function(e) {
       var name = e.behalf ? String(e.behalf).trim() : '';
       if (!name) return;
-      if (!byPerson[name]) byPerson[name] = { paid: 0, refunded: 0, count: 0 };
+      if (!byPerson[name]) byPerson[name] = { paid: 0, refunded: 0, count: 0, pendingFx: [] };
+      // عملية بعملتها الأجنبية بدون تحويل — مبلغها بالريال غير معروف بعد، تُستبعد من المجموع
+      // (تُعرض منفصلة تحت) حتى لا يُحسب رقمها الخام على إنه ريال
+      if (e.fxUnconverted) { byPerson[name].pendingFx.push(e); return; }
       var amt = e.amount || 0;
       if (e.direction === 'credit') byPerson[name].refunded += amt; else byPerson[name].paid += amt;
       byPerson[name].count++;
     });
     var people = Object.keys(byPerson).map(function(n) {
-      return { name: n, paid: byPerson[n].paid, refunded: byPerson[n].refunded, count: byPerson[n].count, owed: byPerson[n].paid - byPerson[n].refunded };
+      return { name: n, paid: byPerson[n].paid, refunded: byPerson[n].refunded, count: byPerson[n].count, owed: byPerson[n].paid - byPerson[n].refunded, pendingFx: byPerson[n].pendingFx };
     });
     people.sort(function(a, b) { return b.owed - a.owed; });
     if (!people.length) return;
@@ -936,6 +952,9 @@ function renderDashboard() {
       html += '<div><span>استرد</span><b>' + fmt(p.refunded) + '</b></div>';
       html += '<div class="behalf-owed' + cls + '"><span>المتبقي عليه</span><b>' + fmt(p.owed) + '</b></div>';
       html += '</div>';
+      if (p.pendingFx.length) {
+        html += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:6px">🌍 + ' + p.pendingFx.length + ' عملية دولية غير محوَّلة (' + p.pendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة بعد — صحّحها من السجل</div>';
+      }
       html += '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="recordSettlement(\'' + jsStr(p.name) + '\')">💵 سجّل سداد / تصفية</button></div>';
       html += '</div>';
     });
@@ -1007,9 +1026,10 @@ function txRowHtml(e) {
       ? '<div class="tx-meta" style="color:var(--muted)">🔗 رسوم دولية ' + fmt(e.intlFee) + ' ر.س — سُجِّلت لاحقاً</div>'
       : '<div class="tx-meta" style="color:var(--muted)">⏳ رسوم دولية ' + fmt(e.intlFee) + ' ر.س لسه ما انسجّلت</div>';
   }
-  if (e.fxUnconverted) s += '<div class="tx-meta" style="color:var(--c-lux)">🌍 عملية دولية — المبلغ أعلاه بعملة ' + (e.fxCurrency || '') + ' بدون تحويل، عدّلها بالمبلغ الصحيح بالريال</div>';
+  if (e.fxUnconverted) s += '<div class="tx-meta" style="color:var(--c-lux)">🌍 عملية دولية بدون تحويل — عدّلها بالمبلغ الصحيح بالريال</div>';
   s += '</div>';
-  s += '<div class="tx-end"><div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
+  var amtUnit = e.fxUnconverted ? (e.fxCurrency || '') : 'ر.س';
+  s += '<div class="tx-end"><div class="tx-amt' + (isCredit ? ' plus' : '') + (e.fxUnconverted ? ' fx-pending' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ' + amtUnit + '</div>'
     + '<div class="tx-date">' + dateLine + '</div></div>';
   s += '<span class="tx-chev">⌄</span>';
   s += '</div>';
@@ -1107,6 +1127,7 @@ function renderHistory() {
     var nm = String(e.behalf).trim();
     if (!nm) return;
     if (!behalfPeople[nm]) behalfPeople[nm] = { paid: 0, refunded: 0, count: 0 };
+    if (e.fxUnconverted) return;   // مبلغ أجنبي غير محوَّل — مستبعد حتى لا يُحسب على إنه ريال
     var amt = e.amount || 0;
     if (e.direction === 'credit') behalfPeople[nm].refunded += amt; else behalfPeople[nm].paid += amt;
     behalfPeople[nm].count++;
@@ -1197,13 +1218,15 @@ function renderHistory() {
     else spendTotal += amt;
   });
   // مجاميع دفتر الذمم للشهر المحدد — مستقلة عن الفلتر، وتشمل التسويات (حتى المخفية من العمليات)
-  var behalfPaid = 0, behalfRefund = 0;
+  var behalfPaid = 0, behalfRefund = 0, behalfPendingFx = [];
   expenses.forEach(function(e) {
     if (!e.behalf) return;
     if (histMonth !== 'all' && !(e.date && e.date.indexOf(histMonth) === 0)) return;
     if (histDay && e.date !== histDay) return;
     if (histPerson !== 'all' && String(e.behalf).trim() !== histPerson) return;   // عند اختيار شخص: المجاميع تخصّه فقط
     if (!histMatch(e)) return;
+    // عملية بعملتها الأجنبية بدون تحويل — مستبعدة من المجاميع حتى لا تُحسب على إنها ريال
+    if (e.fxUnconverted) { behalfPendingFx.push(e); return; }
     var amt = e.amount || 0;
     if (e.direction === 'credit') behalfRefund += amt; else behalfPaid += amt;
   });
@@ -1281,6 +1304,9 @@ function renderHistory() {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · دفعت نيابة' + (onePerson ? ' عن ' + htmlEsc(histPerson) : '') + '</span><span style="font-weight:700;color:var(--hero-1)">' + fmt(behalfPaid) + ' ر.س</span></div>';
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">استرد</span><span style="font-weight:700;color:var(--green)">' + fmt(behalfRefund) + ' ر.س</span></div>';
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="font-weight:700">' + (onePerson ? 'المتبقي عليه' : 'المتبقي على الآخرين') + '</span><span style="font-weight:800;color:' + (net > 0.005 ? 'var(--hero-1)' : 'var(--green)') + '">' + fmt(net) + ' ر.س</span></div>';
+    if (behalfPendingFx.length) {
+      totalCard += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:6px">🌍 + ' + behalfPendingFx.length + ' عملية دولية غير محوَّلة (' + behalfPendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة أعلاه — صحّحها من السجل</div>';
+    }
     if (onePerson) totalCard += '<div class="btn-row" style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="recordSettlement(\'' + jsStr(histPerson) + '\')">💵 سجّل سداد / تصفية</button></div>';
   } else {
     totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · الصرف</span><span style="font-weight:700">' + fmt(spendTotal) + ' ر.س</span></div>';
