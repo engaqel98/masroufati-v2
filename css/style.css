@@ -273,6 +273,13 @@ select { cursor: pointer; }
 .cat-left { font-weight: 700; white-space: nowrap; }
 .cat-left.neg { color: var(--red-text); }
 .cat-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.cat-warn { font-size: 11.5px; font-weight: 600; color: var(--c-lux); margin-top: 5px;
+  display: flex; align-items: center; gap: 4px; }
+
+/* بانر بداية الشهر الجديد — إبراز ناعم */
+.month-close { border-color: color-mix(in srgb, var(--c-lux) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-lux) 14%, transparent); }
+.month-close .card-title { color: var(--c-lux); }
 
 /* ============================================================ Finance */
 .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-bottom: 13px; }

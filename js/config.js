@@ -22,12 +22,32 @@ var settings = JSON.parse(localStorage.getItem('settings_v2') || 'null') || {
 // ضمان وجود حقل المفتاح في الإعدادات القديمة المحفوظة قبل إضافة الحماية
 if (typeof settings.webappKey !== 'string') settings.webappKey = '';
 
+// الشهر الذي رآه المستخدم آخر مرة — يُستخدم لإظهار «ملخّص الشهر الماضي» مرة واحدة عند
+// دخول شهر جديد. الإعدادات القديمة قد لا تحتويه، فنضمن وجوده.
+if (typeof settings.lastSeenMonth !== 'string') settings.lastSeenMonth = '';
+
+// تفعيل إشعارات المتصفح الاستباقية عند الاقتراب من سقف الميزانية (opt-in).
+if (typeof settings.notify !== 'boolean') settings.notify = false;
+
+// تاريخ بدء مطابقة الرصيد (YYYY-MM-DD) — مطابقة الرصيد وتبويب «فجوات الرصيد» يتجاهلان
+// أي عمليات قبل هذا التاريخ تماماً، وتُحسب السلسلة من أول عملية برصيد بعده كمرساة جديدة.
+// مفيد بعد إعادة ضبط/تسوية الرصيد يدوياً (مثل إيداع بداية شهر) لقطع أثر بيانات قديمة غير دقيقة.
+if (typeof settings.balanceCutoff !== 'string') settings.balanceCutoff = '2026-07-01';
+
+// خزّان العتبات التي أُطلق عليها إشعار لكل شهر — لمنع تكرار الإشعار:
+// { 'YYYY-MM': { 'أساسيات:80': true, 'كماليات:100': true, ... } }
+var firedAlerts = JSON.parse(localStorage.getItem('alerts_v2') || '{}');
+
 // قائمة الأشخاص المسجّلين لـ"نيابة عن" — تُحفظ ضمن الإعدادات وتتوسّع تلقائياً
 // كل ما كُتب اسم جديد. (الإعدادات القديمة قد لا تحتوي الحقل، فنضمن وجوده.)
 if (!Array.isArray(settings.people)) settings.people = [];
 
 // أرشيف الرسائل التي فشل تحليلها — تُحفظ تلقائياً لمعالجتها لاحقاً دفعة واحدة
 var failedMsgs = JSON.parse(localStorage.getItem('failed_parses_v2') || '[]');
+
+// معرّفات عمليات حُذفت محلياً لكن فشل حذفها من Sheets (انقطاع شبكة/مفتاح خاطئ...) —
+// تبقى صفوفها في الشيت حتى تُعاد محاولة الحذف؛ تُعرض في الإعدادات مع زر "أعد محاولة الحذف".
+var pendingDeletes = JSON.parse(localStorage.getItem('pendingDeletes_v2') || '[]');
 
 // تصنيفات متعلَّمة من تصحيحات المستخدم: { "اسم التاجر": "التصنيف" }
 // تُستشار قبل القاموس في classifyMerchant، فتقلّ "غير محدد" مع الاستخدام.

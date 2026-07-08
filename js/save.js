@@ -139,6 +139,75 @@ async function removeDuplicates() {
 }
 
 // ============================================================
+// تنبيهات الميزانية — إشعار متصفح عند الاقتراب/التجاوز (opt-in)
+// ============================================================
+// مجاميع الشهر الحالي للتصنيفات ذات السقف (نيابة/وارد مستثناة — مطابق للوحة)
+function curMonthCapped() {
+  var m = today().substring(0, 7);
+  var t = { 'أساسيات': 0, 'كماليات': 0 };
+  expenses.forEach(function (e) {
+    if (!e.date || e.date.indexOf(m) !== 0 || e.behalf || e.direction === 'credit') return;
+    if (t.hasOwnProperty(e.type)) t[e.type] += (e.amount || 0);
+  });
+  return t;
+}
+
+// يُطلق إشعاراً عند عبور تصنيف عتبة 80% أو 100% لأول مرة هذا الشهر (بلا تكرار)
+function maybeNotify() {
+  if (!settings.notify) return;
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  var m = today().substring(0, 7);
+  if (!firedAlerts[m]) firedAlerts[m] = {};
+  var bt = curMonthCapped();
+  var free = settings.salary - settings.payment - settings.basic;
+  [{ name: 'أساسيات', spent: bt['أساسيات'], cap: settings.basic },
+   { name: 'كماليات', spent: bt['كماليات'], cap: free }].forEach(function (c) {
+    if (!(c.cap > 0)) return;
+    var pct = (c.spent / c.cap) * 100;
+    var lvl = pct >= 100 ? 100 : (pct >= 80 ? 80 : 0);
+    if (!lvl) return;
+    var key = c.name + ':' + lvl;
+    if (firedAlerts[m][key]) return;
+    firedAlerts[m][key] = true;
+    localStorage.setItem('alerts_v2', JSON.stringify(firedAlerts));
+    try {
+      new Notification('مصروفاتي 💳', {
+        body: lvl >= 100
+          ? 'تجاوزت سقف ' + c.name + ' (' + fmt(c.spent) + ' من ' + fmtInt(c.cap) + ' ر.س)'
+          : 'اقتربت من سقف ' + c.name + ' — صُرف ' + fmt(c.spent) + ' من ' + fmtInt(c.cap) + ' ر.س',
+        icon: 'icons/icon-192.png',
+        tag: 'masroufati-' + key
+      });
+    } catch (e) {}
+  });
+}
+
+// تفعيل/تعطيل إشعارات المتصفح من الإعدادات
+function requestNotifyPermission() {
+  var s = document.getElementById('s-notify-status');
+  function setStatus(h) { if (s) s.innerHTML = h; }
+  if (typeof Notification === 'undefined') {
+    setStatus('<div class="alert alert-yellow">⚠️ متصفحك لا يدعم الإشعارات</div>');
+    return;
+  }
+  if (settings.notify) {   // مفعّل → عطّله
+    settings.notify = false;
+    localStorage.setItem('settings_v2', JSON.stringify(settings));
+    if (typeof renderSettings === 'function') renderSettings();
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    setStatus('<div class="alert alert-yellow">⚠️ الإشعارات محظورة من إعدادات المتصفح — فعّلها يدوياً ثم أعد المحاولة</div>');
+    return;
+  }
+  Notification.requestPermission().then(function (perm) {
+    settings.notify = (perm === 'granted');
+    localStorage.setItem('settings_v2', JSON.stringify(settings));
+    if (typeof renderSettings === 'function') renderSettings();
+  });
+}
+
+// ============================================================
 // النسخ الاحتياطي والتصدير
 // ============================================================
 function downloadFile(name, content, mime) {
@@ -294,6 +363,8 @@ async function doSave(p, statusId) {
     direction: p.direction || 'debit',
     behalf: (p.behalf || '').toString().trim()
   };
+  // رسوم دولية (محلي فقط، لا تُرسل لـ Sheets) — تُستخدم لتفسير فرق مطابقة الرصيد لاحقاً
+  if (p.intlFee != null) entry.intlFee = p.intlFee;
 
   // كشف التكرار قبل الحفظ — نفس التاريخ/المبلغ/التاجر/الاتجاه
   if (typeof isDuplicate === 'function' && isDuplicate(entry)) {
@@ -310,6 +381,7 @@ async function doSave(p, statusId) {
   if (entry.behalf && typeof registerPerson === 'function') registerPerson(entry.behalf);
   if (typeof learnMerchant === 'function') learnMerchant(entry.merchant, entry.type, entry.direction);
   if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof maybeNotify === 'function') maybeNotify();   // إشعار ميزانية إن عبرنا عتبة
 
   var statusEl = document.getElementById(statusId);
   function setStatus(h) { if (statusEl) statusEl.innerHTML = h; }
@@ -320,37 +392,110 @@ async function doSave(p, statusId) {
   }
 
   try {
-    var params = new URLSearchParams({
-      date: entry.date,
-      time: entry.time,
-      merchant: encodeURIComponent(entry.merchant),
-      amount: entry.amount,
-      type: encodeURIComponent(entry.type),
-      method: encodeURIComponent(entry.method),
-      balance: entry.balance,
-      card: entry.card,
-      bank: encodeURIComponent(entry.bank),
-      intl: encodeURIComponent(entry.intl),
-      txType: encodeURIComponent(entry.txType),
-      id: entry.id,
-      note: encodeURIComponent(entry.note),
-      origAmount: entry.origAmount,
-      direction: entry.direction,
-      behalf: encodeURIComponent(entry.behalf)
-    });
+    var params = appendEntryParams(entry);
     var resp = await fetch(appendKey(settings.webapp + '?' + params.toString()));
     var json = await resp.json();
     if (btn) btn.innerHTML = origText;
     if (json.status === 'ok') {
+      entry.synced = true;
+      localStorage.setItem('expenses_v2', JSON.stringify(expenses));
       setStatus('<div class="alert alert-green">✅ حُفظ محلياً وفي Sheets (صف ' + json.row + ')</div>');
       sortSheetsInBackground();   // إعادة ترتيب الصفوف تلقائياً (تاريخ ثم وقت)
     } else {
+      entry.synced = false;
+      localStorage.setItem('expenses_v2', JSON.stringify(expenses));
       setStatus('<div class="alert alert-yellow">⚠️ حُفظ محلياً. خطأ في Sheets: ' + (json.message||'') + '</div>');
     }
   } catch(e) {
     if (btn) btn.innerHTML = origText;
+    entry.synced = false;
+    localStorage.setItem('expenses_v2', JSON.stringify(expenses));
     setStatus('<div class="alert alert-yellow">⚠️ حُفظ محلياً. فشل الرفع: ' + e.message + '</div>');
   }
+}
+
+// معاملات رفع عملية جديدة إلى Sheets — مستخرجة لإعادة استخدامها في إعادة الرفع (retryUpload)
+function appendEntryParams(entry) {
+  return new URLSearchParams({
+    date: entry.date,
+    time: entry.time,
+    merchant: encodeURIComponent(entry.merchant),
+    amount: entry.amount,
+    type: encodeURIComponent(entry.type),
+    method: encodeURIComponent(entry.method),
+    balance: entry.balance,
+    card: entry.card,
+    bank: encodeURIComponent(entry.bank),
+    intl: encodeURIComponent(entry.intl),
+    txType: encodeURIComponent(entry.txType),
+    id: entry.id,
+    note: encodeURIComponent(entry.note),
+    origAmount: entry.origAmount,
+    direction: entry.direction,
+    behalf: encodeURIComponent(entry.behalf)
+  });
+}
+
+// إعادة رفع عملية حُفظت محلياً بس فشل رفعها لـ Sheets (entry.synced === false).
+// يتحقق أولاً هل الصف وصل فعلاً (عبر update) قبل الإضافة من جديد، لتفادي تكرار الصف
+// في حال كان الفشل مجرد انقطاع بالرد بعد ما نجحت الكتابة فعلياً في الشيت.
+async function retryUpload(id) {
+  var entry = expenses.find(function(e) { return String(e.id) === String(id); });
+  if (!entry) return;
+  var eid = String(id).replace(/'/g, "\\'");
+  var statusEl = document.getElementById('retry-status-' + eid);
+  function setStatus(h) { if (statusEl) statusEl.innerHTML = h; }
+  if (!settings.webapp) return;
+  setStatus('<div class="alert alert-blue">⏳ جاري إعادة الرفع...</div>');
+  try {
+    var upd = new URLSearchParams({ action: 'update', id: entry.id, amount: entry.amount, date: entry.date });
+    var respUpd = await fetch(appendKey(settings.webapp + '?' + upd.toString()));
+    var jsonUpd = await respUpd.json();
+    var json;
+    if (jsonUpd.status === 'ok') {
+      json = jsonUpd;   // الصف كان موجوداً بالفعل — التحديث كفى
+    } else {
+      var resp = await fetch(appendKey(settings.webapp + '?' + appendEntryParams(entry).toString()));
+      json = await resp.json();
+    }
+    if (json.status === 'ok') {
+      entry.synced = true;
+      localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+      setStatus('<div class="alert alert-green">✅ تم الرفع لـ Sheets</div>');
+      sortSheetsInBackground();
+      if (typeof renderHistory === 'function') renderHistory();
+      if (typeof renderDashboard === 'function') renderDashboard();
+    } else {
+      setStatus('<div class="alert alert-yellow">⚠️ فشل مرة أخرى: ' + (json.message || '') + '</div>');
+    }
+  } catch (e) {
+    setStatus('<div class="alert alert-yellow">⚠️ فشل الرفع: ' + e.message + '</div>');
+  }
+}
+
+// تسجيل رسوم دولية معلَّقة كعملية مصروف واحدة، وربطها بالعملية/العمليات المسبِّبة لها
+// (تُعلَّم مصادرها intlFeeSettled حتى لا تظهر كفجوة مرة ثانية ولا تُحسب مرتين).
+function recordFeeSettlement(ids, total, date, card, bank, rerender) {
+  total = Math.round(Math.abs(total) * 100) / 100;
+  if (!total) return;
+  var sources = (ids || []).map(function (id) {
+    return expenses.find(function (e) { return String(e.id) === String(id); });
+  }).filter(Boolean);
+  var label = sources.length === 1 ? (sources[0].merchant || '—') : (sources.length + ' عمليات');
+  doSave({
+    date: date || today(),
+    merchant: 'رسوم دولية — ' + label,
+    amount: total,
+    type: 'غير محدد',
+    direction: 'debit',
+    card: card || '',
+    bank: bank || '',
+    note: 'رسوم دولية مؤجَّلة لعملية/عمليات: ' + sources.map(function (e) { return (e.merchant || '—') + ' (' + e.date + ')'; }).join('، '),
+    txType: 'رسوم دولية'
+  });
+  sources.forEach(function (e) { e.intlFeeSettled = true; });
+  localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (rerender === 'history' && typeof renderHistory === 'function') renderHistory();
 }
 
 // فرز تلقائي لصفوف Sheets بعد الحفظ/التعديل — في الخلفية، بدون انتظار أو واجهة.
@@ -427,10 +572,45 @@ async function deleteEntry(id) {
   try {
     var resp = await fetch(appendKey(settings.webapp + '?action=delete&id=' + encodeURIComponent(id)));
     var json = await resp.json();
-    if (json.status !== 'ok') console.warn('Sheet delete failed:', json.message);
+    if (json.status !== 'ok') { console.warn('Sheet delete failed:', json.message); markDeletePending(id); }
   } catch (e) {
     console.warn('Sheet delete error:', e.message);
+    markDeletePending(id);
   }
+}
+
+// يسجّل عملية حُذفت محلياً بس فشل حذفها من الشيت — تبقى صفها موجود هناك حتى تُعاد المحاولة
+// (لا داعي لإعادة رسم فورية — تظهر في الإعدادات عند فتحها لاحقاً)
+function markDeletePending(id) {
+  id = String(id);
+  if (pendingDeletes.indexOf(id) === -1) pendingDeletes.push(id);
+  localStorage.setItem('pendingDeletes_v2', JSON.stringify(pendingDeletes));
+}
+
+// إعادة محاولة حذف كل العمليات المعلَّقة من الشيت (بعد استرجاع الاتصال/تصحيح المفتاح)
+async function retryPendingDeletes() {
+  var s = document.getElementById('s-pending-del-status');
+  function setStatus(h) { if (s) s.innerHTML = h; }
+  if (!settings.webapp || !pendingDeletes.length) return;
+  setStatus('<div class="alert alert-blue">⏳ جاري إعادة محاولة الحذف...</div>');
+  var stillPending = [];
+  for (var i = 0; i < pendingDeletes.length; i++) {
+    var id = pendingDeletes[i];
+    try {
+      var resp = await fetch(appendKey(settings.webapp + '?action=delete&id=' + encodeURIComponent(id)));
+      var json = await resp.json();
+      // "id not found" يعني الصف محذوف فعلاً (أو غير موجود أصلاً) — لا داعي لإعادة محاولته
+      if (json.status !== 'ok' && json.message !== 'id not found') stillPending.push(id);
+    } catch (e) {
+      stillPending.push(id);
+    }
+  }
+  pendingDeletes = stillPending;
+  localStorage.setItem('pendingDeletes_v2', JSON.stringify(pendingDeletes));
+  setStatus(stillPending.length
+    ? '<div class="alert alert-yellow">⚠️ لا يزال ' + stillPending.length + ' حذف معلّقاً</div>'
+    : '<div class="alert alert-green">✅ اكتمل حذف كل العمليات المعلَّقة من Sheets</div>');
+  setTimeout(function () { if (typeof renderSettings === 'function') renderSettings(); }, 1500);
 }
 
 function editEntry(id) {
@@ -503,13 +683,21 @@ async function saveEdit() {
     var resp = await fetch(appendKey(settings.webapp + '?' + params.toString()));
     var json = await resp.json();
     if (json.status === 'ok') {
+      entry.synced = true;
+      localStorage.setItem('expenses_v2', JSON.stringify(expenses));
       document.getElementById('edit-status').innerHTML = '<div class="alert alert-green">✅ تم التحديث في Sheets</div>';
       sortSheetsInBackground();   // قد يتغيّر التاريخ → أعِد الترتيب
       setTimeout(closeEdit, 800);
     } else {
+      entry.synced = false;
+      localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+      if (typeof renderHistory === 'function') renderHistory();
       document.getElementById('edit-status').innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. Sheets: ' + (json.message || 'فشل') + '</div>';
     }
   } catch (e) {
+    entry.synced = false;
+    localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+    if (typeof renderHistory === 'function') renderHistory();
     document.getElementById('edit-status').innerHTML = '<div class="alert alert-yellow">⚠️ حُفظ محلياً. فشل الرفع: ' + e.message + '</div>';
   }
 }

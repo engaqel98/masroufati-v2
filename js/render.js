@@ -56,6 +56,7 @@ function analyze() {
 
   // === مطابقة الرصيد: قارن الرصيد المتوقّع بالفعلي للكشف عن عمليات/استردادات غير مُسجَّلة ===
   window._recon = null;
+  window._pendingFeeGap = null;
   if (parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
     var acctK = accountKey(parsed);
     var prevE = lastBalanceFor(acctK);
@@ -65,9 +66,31 @@ function analyze() {
       // المتوقّع = رصيد آخر مرساة + الحركات المسجّلة بعدها (بلا رصيد) + حركة هذه العملية
       var expected = prevBal + signedSinceAnchor(acctK, prevE) + (isCredit ? parsed.amount : -parsed.amount);
       var diff = newBal - expected;
-      if (Math.abs(diff) > 0.01) {
+      // فرق يطابق رسوم دولية مذكورة بنفس الرسالة: البنك أحياناً ما يحدّث الرصيد المعروض بالرسوم فوراً
+      // (تُخصم لاحقاً) — هذا مُفسَّر، مو عملية غير مسجَّلة، فلا نعرضه كفجوة
+      var feeExplained = parsed.intlFee && Math.abs(Math.abs(diff) - parsed.intlFee) < 0.01;
+      // فرق يطابق رسوم دولية سابقة لسه ما انسجّلت (البنك لحّق الرصيد بيها الحين، متأخرة) —
+      // نعرضها بوضوح ونسأل المستخدم إذا يبغى يسجّلها، بدل ما نتجاهلها أو نعتبرها فجوة مجهولة
+      var pendingFees = (!feeExplained && Math.abs(diff) > 0.01)
+        ? unsettledIntlFees(acctK).filter(function (pe) { return (pe.date || '') <= (parsed.date || ''); })
+        : [];
+      var pendingSum = pendingFees.reduce(function (s, pe) { return s + (pe.intlFee || 0); }, 0);
+      var pendingMatch = pendingFees.length && Math.abs(Math.abs(diff) - pendingSum) < 0.01;
+
+      if (Math.abs(diff) > 0.01 && feeExplained) {
+        html += '<div class="alert alert-blue" style="margin-bottom:8px;font-size:12px">ℹ️ فرق ' + fmt(Math.abs(diff)) + ' ر.س يطابق الرسوم الدولية لهذه العملية — البنك غالباً ما يحدّث الرصيد المعروض بالرسوم فوراً (تُخصم لاحقاً). مو فجوة حقيقية.</div>';
+      } else if (Math.abs(diff) > 0.01 && pendingMatch) {
+        window._pendingFeeGap = { ids: pendingFees.map(function (pe) { return pe.id; }), total: pendingSum, date: parsed.date, card: parsed.card || '', bank: parsed.bank || '' };
+        html += '<div class="alert alert-blue" id="pending-fee-alert" style="margin-bottom:8px">'
+          + 'ℹ️ <b>الفرق يطابق رسوم دولية معلّقة</b><br>'
+          + 'الفرق ' + fmt(Math.abs(diff)) + ' ر.س يطابق رسوم دولية سابقة لسه ما انسجّلت (البنك غالباً حدّث الرصيد بيها الحين):<br>'
+          + pendingFees.map(function (pe) { return '• ' + htmlEsc(pe.merchant || '—') + ' — ' + fmt(pe.intlFee) + ' ر.س (' + pe.date + ')'; }).join('<br>')
+          + '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="confirmPendingFeeGap()">💵 تسجيل كرسوم دولية</button></div>'
+          + '<span style="font-size:11px;color:var(--muted)">يمكنك الحفظ عادي — هذا تنبيه فقط.</span>'
+          + '</div>';
+      } else if (Math.abs(diff) > 0.01) {
         var up = diff > 0;
-        window._recon = { diff: diff, up: up, date: parsed.date, card: parsed.card || '', bank: parsed.bank || '' };
+        window._recon = { diff: diff, up: up, date: parsed.date, card: parsed.card || '', bank: parsed.bank || '', prevMerchant: prevE.merchant || '', prevDate: prevE.date || '' };
         html += '<div class="alert ' + (up ? 'alert-green' : 'alert-yellow') + '" id="recon-alert" style="margin-bottom:8px;display:block">'
           + (up ? '💡' : '⚠️') + ' <b>تنبيه مطابقة الرصيد</b><br>'
           + 'الرصيد السابق لهذه البطاقة: ' + fmt(prevBal) + ' ر.س<br>'
@@ -262,6 +285,20 @@ function accountKey(e) {
   return e.bank || '';
 }
 
+// هل العملية e ضمن نطاق مطابقة الرصيد (بعد settings.balanceCutoff أو يساويه)؟
+// تُستخدم لقطع أثر أي بيانات قديمة عند إعادة ضبط الرصيد يدوياً (مثلاً بعد إيداع بداية شهر).
+function withinBalanceWindow(e) {
+  return !settings.balanceCutoff || (e.date || '') >= settings.balanceCutoff;
+}
+
+// عمليات فيها رسوم دولية لسه ما انسجّلت (البنك ما حدّث الرصيد المعروض بيها وقت تسجيلها) —
+// تُستخدم لتفسير فجوة تظهر لاحقاً على عملية أخرى لما البنك يلحّق الرصيد بالرسوم المؤجَّلة.
+function unsettledIntlFees(acctKey) {
+  return expenses.filter(function (e) {
+    return accountKey(e) === acctKey && withinBalanceWindow(e) && e.intlFee && !e.intlFeeSettled;
+  });
+}
+
 // أحدث عملية مسجَّلة لنفس البطاقة/الحساب فيها رصيد رقمي — لمطابقة الرصيد
 function lastBalanceFor(acctKey) {
   if (!acctKey) return null;
@@ -269,6 +306,7 @@ function lastBalanceFor(acctKey) {
   expenses.forEach(function(e) {
     if (e.balance === '' || e.balance == null || isNaN(parseFloat(e.balance))) return;
     if (accountKey(e) !== acctKey) return;
+    if (!withinBalanceWindow(e)) return;
     var newer = !best
       || (e.date || '') > (best.date || '')
       || ((e.date || '') === (best.date || '') && fmtTime(e.time) > fmtTime(best.time))
@@ -293,6 +331,7 @@ function signedSinceAnchor(acctKey, anchor) {
   var sum = 0;
   expenses.forEach(function(e) {
     if (accountKey(e) !== acctKey) return;
+    if (!withinBalanceWindow(e)) return;
     if (!isAfter(e, anchor)) return;
     sum += (e.direction === 'credit' ? (e.amount || 0) : -(e.amount || 0));
   });
@@ -306,6 +345,7 @@ function detectBalanceGaps(limit) {
   expenses.forEach(function(e) {
     var k = accountKey(e);
     if (!k) return;
+    if (!withinBalanceWindow(e)) return;
     (byAcct[k] = byAcct[k] || []).push(e);
   });
   var gaps = [];
@@ -325,9 +365,17 @@ function detectBalanceGaps(limit) {
         if (anchor) {
           var expected = parseFloat(anchor.balance) + acc + signed;
           var diff = parseFloat(e.balance) - expected;
-          if (Math.abs(diff) > 0.01) {
+          // فرق يطابق رسوم دولية هذه العملية بالذات — مُفسَّر، مش فجوة حقيقية (نفس منطق تنبيه التحليل)
+          var feeExplained = e.intlFee && Math.abs(Math.abs(diff) - e.intlFee) < 0.01;
+          if (Math.abs(diff) > 0.01 && !feeExplained) {
+            // فرق يطابق رسوم دولية سابقة على نفس الحساب لسه ما انسجّلت — سبب معروف، نعرضه بوضوح
+            var pending = unsettledIntlFees(k).filter(function (pe) { return (pe.date || '') <= (e.date || ''); });
+            var pendingSum = pending.reduce(function (s, pe) { return s + (pe.intlFee || 0); }, 0);
+            var feeMatch = pending.length && Math.abs(Math.abs(diff) - pendingSum) < 0.01;
             gaps.push({ acct: k, diff: diff, up: diff > 0, date: e.date, merchant: e.merchant,
-              card: e.card || '', bank: e.bank || '', expected: expected, curBal: parseFloat(e.balance) });
+              card: e.card || '', bank: e.bank || '', expected: expected, curBal: parseFloat(e.balance),
+              anchorMerchant: anchor.merchant || '', anchorDate: anchor.date || '',
+              cause: feeMatch ? 'fee' : 'unknown', feeItems: feeMatch ? pending : [] });
           }
         }
         anchor = e; acc = 0;
@@ -341,7 +389,8 @@ function detectBalanceGaps(limit) {
 }
 
 // تسجيل عملية "تسوية فرق رصيد" لإغلاق فجوة (بلا رصيد حتى تُحتسب في السلسلة)
-function recordGapEntry(up, amt, date, card, bank, rerender) {
+// context (اختياري): وصف العمليات المحيطة بالفجوة، يُضاف للملاحظة عشان يبين وقت المراجعة لاحقاً وين صارت
+function recordGapEntry(up, amt, date, card, bank, rerender, context) {
   amt = Math.round(Math.abs(amt) * 100) / 100;
   if (!amt) return;
   doSave({
@@ -352,7 +401,7 @@ function recordGapEntry(up, amt, date, card, bank, rerender) {
     direction: up ? 'credit' : 'debit',
     card: card || '',
     bank: bank || '',
-    note: 'تسوية فرق رصيد',
+    note: 'تسوية فرق رصيد' + (context ? ' — ' + context : ''),
     txType: 'تسوية رصيد'
   });
   if (rerender === 'history' && typeof renderHistory === 'function') renderHistory();
@@ -364,9 +413,20 @@ function confirmReconGap() {
   if (!r) return;
   var amt = Math.round(Math.abs(r.diff) * 100) / 100;
   if (!confirm('تسجيل عملية ' + (r.up ? 'استرداد/إيداع' : 'خصم') + ' بقيمة ' + fmt(amt) + ' ر.س لتوثيق فرق الرصيد؟')) return;
-  recordGapEntry(r.up, r.diff, r.date, r.card, r.bank);
+  var context = r.prevMerchant ? ('بعد عملية ' + r.prevMerchant + ' (' + r.prevDate + ')') : '';
+  recordGapEntry(r.up, r.diff, r.date, r.card, r.bank, undefined, context);
   var b = document.getElementById('recon-alert');
   if (b) b.innerHTML = '✅ سُجّلت تسوية الفرق (' + fmt(amt) + ' ر.س). أكمل حفظ العملية الحالية لإغلاق السلسلة.';
+}
+
+// زر تسجيل الرسوم الدولية المعلَّقة داخل تنبيه التحليل (لما الفرق يطابق رسوم سابقة لسه ما انسجّلت)
+function confirmPendingFeeGap() {
+  var r = window._pendingFeeGap;
+  if (!r) return;
+  if (!confirm('تسجيل رسوم دولية معلّقة بقيمة ' + fmt(r.total) + ' ر.س؟')) return;
+  recordFeeSettlement(r.ids, r.total, r.date, r.card, r.bank);
+  var b = document.getElementById('pending-fee-alert');
+  if (b) b.innerHTML = '✅ سُجّلت الرسوم الدولية (' + fmt(r.total) + ' ر.س). أكمل حفظ العملية الحالية لإغلاق السلسلة.';
 }
 
 // يملأ datalist الحسابات من كل البطاقات/البنوك الظاهرة في العمليات
@@ -536,8 +596,106 @@ function catBudgetRow(name, dotCls, colorVar, spent, budget) {
   html += '<span class="cat-left' + (over ? ' neg' : '') + '">باقي ' + fmtInt(left) + ' ر.س</span></div>';
   html += '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;background:' + (over ? 'var(--red-text)' : colorVar) + '"></div></div>';
   html += '<div class="cat-sub">صُرف ' + fmt(spent) + ' من ' + fmtInt(budget) + ' ر.س' + (over ? ' · تجاوزت بـ ' + fmt(-left) : '') + '</div>';
+  // تنبيه استباقي: اقتربت من السقف (≥80%) قبل التجاوز
+  if (!over && budget > 0 && (spent / budget) >= 0.8) {
+    html += '<div class="cat-warn">⚠️ اقتربت من السقف — باقي ' + fmtInt(left) + ' ر.س فقط</div>';
+  }
   html += '</div>';
   return html;
+}
+
+// حالة الميزانية لتصنيف: ok (<80%) / warn (≥80%) / over (≥100%) — للتنبيهات والإشعارات
+function budgetLevel(spent, cap) {
+  if (!(cap > 0)) return 'ok';   // بلا سقف → لا تنبيه
+  var pct = (spent / cap) * 100;
+  if (pct >= 100) return 'over';
+  if (pct >= 80) return 'warn';
+  return 'ok';
+}
+
+// ============================================================
+// ملخّص الشهر + ترحيب بداية شهر جديد
+// ============================================================
+// ملخّص شهر معيّن (YYYY-MM) — يلتزم بنفس قواعد renderDashboard:
+// النيابة دفتر ذمم (مستثناة)، والوارد لا يُحتسب في الصرف.
+function monthSummary(ym) {
+  var byType = { 'أساسيات': 0, 'كماليات': 0, 'سداد التمويل': 0, 'غير محدد': 0 };
+  var incoming = 0, count = 0, days = {}, merchants = {};
+  expenses.forEach(function (e) {
+    if (!e.date || e.date.indexOf(ym) !== 0 || e.behalf) return;
+    if (e.direction === 'credit') { incoming += (e.amount || 0); return; }
+    var t = byType.hasOwnProperty(e.type) ? e.type : 'غير محدد';
+    byType[t] += (e.amount || 0);
+    count++; days[e.date] = true;
+    if (e.type !== 'سداد التمويل') {   // أعلى تاجر صرفاً بلا القسط
+      var k = (typeof merchantKey === 'function') ? merchantKey(e.merchant) : (e.merchant || '');
+      if (k) { if (!merchants[k]) merchants[k] = { name: e.merchant || k, sum: 0 }; merchants[k].sum += (e.amount || 0); }
+    }
+  });
+  var loan = byType['سداد التمويل'];
+  var spend = byType['أساسيات'] + byType['كماليات'] + byType['غير محدد'];
+  var top = null;
+  Object.keys(merchants).forEach(function (k) { if (!top || merchants[k].sum > top.sum) top = merchants[k]; });
+  var pm = prevMonthKey(ym), prevSpend = 0;
+  expenses.forEach(function (e) {
+    if (!e.date || e.date.indexOf(pm) !== 0 || e.behalf || e.direction === 'credit' || e.type === 'سداد التمويل') return;
+    prevSpend += (e.amount || 0);
+  });
+  return {
+    ym: ym, byType: byType, spend: spend, loan: loan, incoming: incoming,
+    saved: (settings.salary || 0) - spend - loan, topMerchant: top,
+    count: count, daysWithData: Object.keys(days).length, prevSpend: prevSpend,
+    committed: loan >= settings.payment,
+    budgetOK: (byType['أساسيات'] + byType['كماليات']) <= (settings.salary - settings.payment)
+  };
+}
+
+// بطاقة ملخّص الشهر — تُستخدم كبانر ترحيب (closing) أو كقسم دائم
+function monthSummaryCardHtml(ym, opts) {
+  opts = opts || {};
+  var s = monthSummary(ym);
+  if (!s.count && !s.incoming && !s.loan) {
+    return '<div class="card"><div class="card-body"><div class="card-title">📋 ملخّص ' + ymLabel(ym) + '</div>'
+      + '<div style="font-size:13px;color:var(--muted)">لا توجد عمليات في هذا الشهر.</div></div></div>';
+  }
+  var deltaHtml = '';
+  if (s.prevSpend > 0) {
+    var dp = Math.round(((s.spend - s.prevSpend) / s.prevSpend) * 100);
+    var down = dp <= 0;
+    deltaHtml = '<div class="spend-delta ' + (down ? 'down' : 'up') + '">' + (down ? '▼ ' : '▲ ') + Math.abs(dp) + '٪ عن الشهر السابق</div>';
+  }
+  var donut = '';
+  if (typeof donutChart === 'function') {
+    donut = donutChart([
+      { label: 'أساسيات', value: s.byType['أساسيات'], colorVar: 'var(--c-ess)' },
+      { label: 'كماليات', value: s.byType['كماليات'], colorVar: 'var(--c-lux)' },
+      { label: 'غير محدد', value: s.byType['غير محدد'], colorVar: 'var(--c-unk)' }
+    ], fmtInt(s.spend), 'صرف الشهر');
+  }
+  var title = opts.closing ? '🎉 بدأ شهر جديد — ملخّص ' + ymLabel(ym) : '📋 ملخّص ' + ymLabel(ym);
+  var h = '<div class="card month-summary' + (opts.closing ? ' month-close' : '') + '"><div class="card-body">';
+  h += '<div class="card-title">' + title + '</div>';
+  h += '<div class="spend2">' + donut
+    + '<div class="spend2-info"><div class="spend2-lbl">إجمالي الصرف</div>'
+    + '<div class="spend2-amt">' + fmt(s.spend) + ' <span class="cur">ر.س</span></div>' + deltaHtml + '</div></div>';
+  h += '<div class="cat-divider"></div>';
+  h += '<div class="acct-line"><span>🏦 سداد التمويل</span><b>' + fmt(s.loan) + ' ر.س</b></div>';
+  if (s.incoming > 0) h += '<div class="acct-line"><span>⬇️ الوارد</span><b class="acct-in">+ ' + fmt(s.incoming) + ' ر.س</b></div>';
+  h += '<div class="acct-line"><span>💰 الفائض (راتب − صرف − قسط)</span><b style="color:' + (s.saved >= 0 ? 'var(--c-ess)' : 'var(--red-text)') + '">' + fmt(s.saved) + ' ر.س</b></div>';
+  if (s.topMerchant) h += '<div class="acct-line"><span>🏷️ أعلى تاجر</span><b>' + htmlEsc(s.topMerchant.name) + ' · ' + fmt(s.topMerchant.sum) + ' ر.س</b></div>';
+  h += '<div class="acct-line"><span>🧾 عدد العمليات</span><b>' + s.count + '</b></div>';
+  var ok = s.committed && s.budgetOK;
+  h += '<div class="commit-row"><span class="commit-icon">' + (ok ? '✅' : '❌') + '</span><span>' + (ok ? 'التزمت بالخطة هذا الشهر' : 'لم تلتزم بالخطة بالكامل') + '</span></div>';
+  if (opts.closing) h += '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" onclick="dismissMonthClose()">✓ ابدأ الشهر الجديد</button></div>';
+  h += '</div></div>';
+  return h;
+}
+
+// إغلاق بانر الشهر الجديد: نسجّل أن المستخدم رأى الشهر الحالي فلا يظهر مجدداً
+function dismissMonthClose() {
+  settings.lastSeenMonth = today().substring(0, 7);
+  localStorage.setItem('settings_v2', JSON.stringify(settings));
+  if (typeof renderDashboard === 'function') renderDashboard();
 }
 
 // بطاقة الأرصدة والوارد للوحة (قابلة للطي) — تُعرض أول الصفحة
@@ -610,6 +768,16 @@ function renderDashboard() {
 
   var html = '';
 
+  // بانر بداية شهر جديد (مرة واحدة): إذا دخلنا شهراً لم يره المستخدم وفيه عمليات بالشهر الماضي
+  (function () {
+    var nowM = today().substring(0, 7);
+    if (settings.lastSeenMonth === nowM) return;
+    var prevM = prevMonthKey(nowM);
+    var hasPrev = expenses.some(function (e) { return e.date && e.date.indexOf(prevM) === 0; });
+    if (!hasPrev) return;
+    html += monthSummaryCardHtml(prevM, { closing: true });
+  })();
+
   html += dashBalancesHtml(curM);   // الأرصدة والوارد (مطوي) — أول شيء
 
   // ١) آخر العمليات
@@ -643,6 +811,10 @@ function renderDashboard() {
     html += '<button class="month-nav-btn" ' + (canNewer ? 'onclick="navDash(-1)"' : 'disabled') + ' aria-label="شهر أحدث">›</button>';
     html += '</div>';
   }
+
+  // ملخّص الشهر المختار (قابل للطي) — متاح في أي وقت، يتبع التنقّل بين الأشهر
+  html += '<details class="hist-extra" style="margin-bottom:14px"><summary>📋 ملخّص ' + monthLabel + '</summary>'
+    + monthSummaryCardHtml(curM) + '</details>';
 
   // ٤) بطاقة مدموجة: دائرة صرف الشهر + المتبقي حسب التصنيف + الالتزام
   (function () {
@@ -793,15 +965,24 @@ function txRowHtml(e) {
   if (e.balance !== '' && e.balance != null) s += '<div class="tx-meta">الرصيد: ' + fmt(e.balance) + ' ر.س</div>';
   if (edited) s += '<div class="tx-meta">عُدّل من ' + fmt(e.origAmount) + ' ر.س</div>';
   if (e.note) s += '<div class="tx-meta">📝 ' + htmlEsc(e.note) + '</div>';
+  if (e.synced === false) s += '<div class="tx-meta" style="color:var(--red-text)">⚠️ لم يُرفع إلى Sheets</div>';
+  if (e.intlFee) {
+    s += e.intlFeeSettled
+      ? '<div class="tx-meta" style="color:var(--muted)">🔗 رسوم دولية ' + fmt(e.intlFee) + ' ر.س — سُجِّلت لاحقاً</div>'
+      : '<div class="tx-meta" style="color:var(--muted)">⏳ رسوم دولية ' + fmt(e.intlFee) + ' ر.س لسه ما انسجّلت</div>';
+  }
   s += '</div>';
   s += '<div class="tx-end"><div class="tx-amt' + (isCredit ? ' plus' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ر.س</div>'
     + '<div class="tx-date">' + dateLine + '</div></div>';
   s += '<span class="tx-chev">⌄</span>';
   s += '</div>';
   s += '<div class="tx-exp"><div class="tx-detail"><div class="tx-acts">';
+  if (e.synced === false) s += '<button onclick="event.stopPropagation();retryUpload(\'' + eid + '\')">🔄 إعادة رفع</button>';
   s += '<button onclick="event.stopPropagation();editEntry(\'' + eid + '\')">✎ تعديل</button>';
   s += '<button class="act-del" onclick="event.stopPropagation();deleteEntry(\'' + eid + '\')">🗑 حذف</button>';
-  s += '</div></div></div>';
+  s += '</div>';
+  if (e.synced === false) s += '<div id="retry-status-' + eid + '"></div>';
+  s += '</div></div>';
   s += '</div>';
   return s;
 }
@@ -817,6 +998,7 @@ function filterHist(type, el) {
 // تبويب فجوات الرصيد — قائمة الفروقات بين الرصيد الفعلي والمتوقّع لكل بطاقة
 function renderGapsTab(el) {
   var gaps = detectBalanceGaps();
+  window._gaps = gaps;   // مرجع بالفهرس لأزرار التسجيل (تفادي تمرير بيانات معقّدة داخل onclick)
   if (!gaps.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">لا توجد فجوات — كل الأرصدة مطابقة للمتوقّع.</div></div>';
     return;
@@ -828,15 +1010,42 @@ function renderGapsTab(el) {
   html += '</div></div>';
 
   html += '<div class="card"><div class="card-body">';
-  gaps.forEach(function(g) {
+  gaps.forEach(function(g, i) {
     html += '<div class="settings-row" style="flex-wrap:wrap;gap:6px;align-items:center">';
-    html += '<span style="flex:1;min-width:140px">' + htmlEsc(g.acct) + ' · ' + g.date + '<br><span style="font-size:11px;color:var(--muted)">المتوقّع ' + fmt(g.expected) + ' · الفعلي ' + fmt(g.curBal) + '</span></span>';
+    html += '<span style="flex:1;min-width:140px">' + htmlEsc(g.acct) + ' · ' + g.date + '<br><span style="font-size:11px;color:var(--muted)">المتوقّع ' + fmt(g.expected) + ' · الفعلي ' + fmt(g.curBal) + '</span>';
+    if (g.cause === 'fee') {
+      html += '<br><span style="font-size:11.5px;color:var(--muted)">🧾 السبب: رسوم دولية معلّقة — '
+        + g.feeItems.map(function (fe) { return htmlEsc(fe.merchant || '—') + ' (' + fe.date + ')'; }).join('، ') + '</span>';
+    } else {
+      html += '<br><span style="font-size:11.5px;color:var(--muted)">بين عملية ' + htmlEsc(g.anchorMerchant || '—') + ' (' + g.anchorDate + ') وعملية ' + htmlEsc(g.merchant || '—') + ' (' + g.date + ')</span>';
+    }
+    html += '</span>';
     html += '<span style="font-weight:700;color:' + (g.up ? 'var(--green)' : '#d9822b') + '">' + (g.up ? '+ ' : '− ') + fmt(Math.abs(g.diff)) + ' ر.س</span>';
-    html += '<button class="btn btn-outline btn-sm" onclick="recordGapEntry(' + (g.up ? 'true' : 'false') + ',' + Math.abs(g.diff) + ',\'' + g.date + '\',\'' + jsStr(g.card) + '\',\'' + jsStr(g.bank) + '\',\'history\')">💵 سجّل</button>';
+    if (g.cause === 'fee') {
+      html += '<button class="btn btn-outline btn-sm" onclick="recordFeeGapAt(' + i + ')">💵 تسجيل كرسوم دولية</button>';
+    } else {
+      html += '<button class="btn btn-outline btn-sm" onclick="recordUnknownGapAt(' + i + ')">💵 سجّل</button>';
+    }
     html += '</div>';
   });
   html += '</div></div>';
   el.innerHTML = html;
+}
+
+// أزرار التسجيل بالفجوات (بالفهرس داخل window._gaps من آخر renderGapsTab)
+function recordUnknownGapAt(i) {
+  var g = window._gaps && window._gaps[i];
+  if (!g) return;
+  var context = 'بين عملية ' + (g.anchorMerchant || '—') + ' (' + g.anchorDate + ') وعملية ' + (g.merchant || '—') + ' (' + g.date + ')';
+  recordGapEntry(g.up, g.diff, g.date, g.card, g.bank, 'history', context);
+}
+
+function recordFeeGapAt(i) {
+  var g = window._gaps && window._gaps[i];
+  if (!g || !g.feeItems || !g.feeItems.length) return;
+  if (!confirm('تسجيل رسوم دولية معلّقة بقيمة ' + fmt(Math.abs(g.diff)) + ' ر.س؟')) return;
+  var ids = g.feeItems.map(function (fe) { return fe.id; });
+  recordFeeSettlement(ids, Math.abs(g.diff), g.date, g.card, g.bank, 'history');
 }
 
 function renderHistory() {
@@ -1159,6 +1368,11 @@ function renderSettings() {
   html += '<div class="card-title">المظهر واللغة</div>';
   html += '<div class="settings-row"><span>الوضع الداكن</span><button class="btn btn-outline btn-sm" onclick="toggleTheme();renderSettings()">' + (dark ? '🌙 مفعّل' : '☀️ معطّل') + '</button></div>';
   html += '<div class="settings-row"><span>اللغة · Language</span><button class="btn btn-outline btn-sm" onclick="toggleLang()">' + (en ? 'English' : 'العربية') + '</button></div>';
+  var notifyDenied = (typeof Notification !== 'undefined' && Notification.permission === 'denied');
+  var notifyLbl = settings.notify ? '🔔 مفعّل' : (notifyDenied ? '🔕 محظور' : '🔕 معطّل');
+  html += '<div class="settings-row"><span>تنبيهات الميزانية (المتصفح)</span><button class="btn btn-outline btn-sm" onclick="requestNotifyPermission()">' + notifyLbl + '</button></div>';
+  html += '<div style="font-size:11.5px;color:var(--muted);margin-top:-2px">إشعار عند الاقتراب من سقف الأساسيات/الكماليات (80%) أو تجاوزه — مرة واحدة لكل عتبة شهرياً.</div>';
+  html += '<div id="s-notify-status"></div>';
   html += '</div></div>';
 
   html += '<div class="card"><div class="card-body">';
@@ -1170,6 +1384,14 @@ function renderSettings() {
   html += '<div class="field"><label>تاريخ بداية التمويل (YYYY-MM)</label><input type="text" id="s-start" value="' + settings.start + '" placeholder="2026-05"></div>';
   html += '<button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>';
   html += '<div id="s-status"></div>';
+  html += '</div></div>';
+
+  html += '<div class="card"><div class="card-body">';
+  html += '<div class="card-title">مطابقة الرصيد</div>';
+  html += '<div class="field"><label>تجاهل العمليات قبل تاريخ (YYYY-MM-DD)</label><input type="date" id="s-balcutoff" value="' + (settings.balanceCutoff || '') + '"></div>';
+  html += '<div style="font-size:11.5px;color:var(--muted);margin:-2px 0 8px">مطابقة الرصيد وتبويب «فجوات الرصيد» تتجاهل أي عملية قبل هذا التاريخ تماماً، وتبدأ السلسلة من أول عملية برصيد بعده (مثلاً إيداع بداية شهر جديد). اتركه فارغاً لإلغاء القطع والعودة لاحتساب كل التاريخ.</div>';
+  html += '<button class="btn btn-outline btn-sm" onclick="saveBalanceCutoff()">💾 حفظ</button>';
+  html += '<div id="s-balcutoff-status"></div>';
   html += '</div></div>';
 
   html += '<div class="card"><div class="card-body">';
@@ -1193,6 +1415,13 @@ function renderSettings() {
   html += '<button class="btn btn-danger btn-sm" onclick="clearData()">🗑 مسح البيانات</button>';
   html += '</div>';
   html += '<div id="s-data-status"></div>';
+  if (pendingDeletes.length) {
+    html += '<div class="settings-row" style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:10px">'
+      + '<span style="color:var(--red-text)">⚠️ ' + pendingDeletes.length + ' عملية لم تُحذف من Sheets</span>'
+      + '<button class="btn btn-outline btn-sm" onclick="retryPendingDeletes()">🗑 أعد محاولة الحذف</button></div>';
+    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">حُذفت من التطبيق لكن فشل حذف صفّها من الشيت (انقطاع شبكة/مفتاح خاطئ) — ستبقى ظاهرة هناك حتى تنجح إعادة المحاولة.</div>';
+    html += '<div id="s-pending-del-status"></div>';
+  }
   html += '</div></div>';
 
   // النسخ الاحتياطي والتصدير
@@ -1243,6 +1472,13 @@ function saveSettings() {
   settings.start = document.getElementById('s-start').value || settings.start;
   localStorage.setItem('settings_v2', JSON.stringify(settings));
   document.getElementById('s-status').innerHTML = '<div class="alert alert-green">✅ تم حفظ الإعدادات</div>';
+}
+
+// حفظ تاريخ قطع مطابقة الرصيد — الحقل فارغ يعني إلغاء القطع (احتساب كل التاريخ كالمعتاد)
+function saveBalanceCutoff() {
+  settings.balanceCutoff = document.getElementById('s-balcutoff').value || '';
+  localStorage.setItem('settings_v2', JSON.stringify(settings));
+  document.getElementById('s-balcutoff-status').innerHTML = '<div class="alert alert-green">✅ تم الحفظ' + (settings.balanceCutoff ? ' — سيتم تجاهل ما قبل ' + settings.balanceCutoff : ' — أُلغي القطع') + '</div>';
 }
 
 function saveWebApp() {

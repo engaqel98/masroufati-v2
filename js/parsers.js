@@ -168,6 +168,10 @@ function parseSAB(txt) {
   var rateMatch = txt.match(/سعر الصرف[:\s]*([\d.]+)/);
   if (rateMatch) fxRate = parseFloat(rateMatch[1]);
   var isIntl = /نقاط البيع الدولي|سعر الصرف/.test(txt) || (fxCur !== null) || /USD|EUR|UNITED STATES/i.test(txt);
+  // الرسوم الدولية: تُخصم من الرصيد أحياناً بتأخير، فالرصيد المذكور بالرسالة قد لا يعكسها فوراً
+  // (يُستخدم لاحقاً لتفسير فرق مطابقة الرصيد المساوي لهذه الرسوم بالضبط بدل اعتباره فجوة حقيقية)
+  var feeMatch = txt.match(/الرسوم الدولية(?:\s*بالريال)?[:\s]*([\d,]+\.?\d*)/);
+  var intlFee = feeMatch ? parseFloat(feeMatch[1].replace(/,/g, '')) : null;
 
   var amount = null, m;
 
@@ -215,6 +219,7 @@ function parseSAB(txt) {
     result.fxAmount = fxAmount;
     if (fxRate) result.fxRate = fxRate;
   }
+  if (intlFee != null) result.intlFee = intlFee;
   return result;
 }
 
