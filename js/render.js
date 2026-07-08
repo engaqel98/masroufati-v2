@@ -18,12 +18,17 @@ function analyze() {
   var isCredit = parsed.direction === 'credit';
   if (!isCredit) parsed.type = classifyMerchant(parsed.merchant, parsed.txType);
 
-  // عملية دولية بلا «مبلغ بالريال»: استنتج المبلغ الفعلي بالريال من فرق الرصيد عن آخر عملية
+  // عملية دولية بلا «مبلغ بالريال»: استنتج المبلغ الفعلي بالريال من فرق الرصيد عن آخر عملية.
+  // مهم: المقارنة لازم تكون مقابل الرصيد المتوقّع بعد احتساب أي عمليات مسجَّلة بين آخر مرساة
+  // وهذي العملية (signedSinceAnchor) — مو الفرق الخام بين آخر رصيدين، وإلا أي حركة أخرى بينهما
+  // (حتى لو غير مرتبطة) تنحسب غلط ضمن المبلغ الأجنبي المُستنتَج.
   if (parsed.fxCurrency && parsed.fxAmount && Math.abs((parsed.amount || 0) - parsed.fxAmount) < 0.001
       && parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
-    var _pe = lastBalanceFor(accountKey(parsed));
+    var _acctK = accountKey(parsed);
+    var _pe = lastBalanceFor(_acctK);
     if (_pe && (parsed.date || '') >= (_pe.date || '')) {
-      var _delta = Math.abs(parseFloat(_pe.balance) - parseFloat(parsed.balance));
+      var _expectedBeforeThis = parseFloat(_pe.balance) + signedSinceAnchor(_acctK, _pe);
+      var _delta = isCredit ? (parseFloat(parsed.balance) - _expectedBeforeThis) : (_expectedBeforeThis - parseFloat(parsed.balance));
       if (_delta > 0.009) {
         parsed.fxRate = Math.round((_delta / parsed.fxAmount) * 100000) / 100000;
         parsed.amount = Math.round(_delta * 100) / 100;
