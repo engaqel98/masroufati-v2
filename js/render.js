@@ -25,9 +25,9 @@ function analyze() {
   if (parsed.fxCurrency && parsed.fxAmount && Math.abs((parsed.amount || 0) - parsed.fxAmount) < 0.001
       && parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
     var _acctK = accountKey(parsed);
-    var _pe = lastBalanceFor(_acctK);
-    if (_pe && (parsed.date || '') >= (_pe.date || '')) {
-      var _expectedBeforeThis = parseFloat(_pe.balance) + signedSinceAnchor(_acctK, _pe);
+    var _pe = lastBalanceFor(_acctK, parsed);
+    if (_pe) {
+      var _expectedBeforeThis = parseFloat(_pe.balance) + signedSinceAnchor(_acctK, _pe, parsed);
       var _delta = isCredit ? (parseFloat(parsed.balance) - _expectedBeforeThis) : (_expectedBeforeThis - parseFloat(parsed.balance));
       if (_delta > 0.009) {
         parsed.fxRate = Math.round((_delta / parsed.fxAmount) * 100000) / 100000;
@@ -64,12 +64,12 @@ function analyze() {
   window._pendingFeeGap = null;
   if (parsed.balance !== '' && parsed.balance != null && !isNaN(parseFloat(parsed.balance))) {
     var acctK = accountKey(parsed);
-    var prevE = lastBalanceFor(acctK);
-    if (prevE && (parsed.date || '') >= (prevE.date || '')) {
+    var prevE = lastBalanceFor(acctK, parsed);
+    if (prevE) {
       var prevBal = parseFloat(prevE.balance);
       var newBal = parseFloat(parsed.balance);
       // المتوقّع = رصيد آخر مرساة + الحركات المسجّلة بعدها (بلا رصيد) + حركة هذه العملية
-      var expected = prevBal + signedSinceAnchor(acctK, prevE) + (isCredit ? parsed.amount : -parsed.amount);
+      var expected = prevBal + signedSinceAnchor(acctK, prevE, parsed) + (isCredit ? parsed.amount : -parsed.amount);
       var diff = newBal - expected;
       // فرق يطابق رسوم دولية مذكورة بنفس الرسالة: البنك أحياناً ما يحدّث الرصيد المعروض بالرسوم فوراً
       // (تُخصم لاحقاً) — هذا مُفسَّر، مو عملية غير مسجَّلة، فلا نعرضه كفجوة
@@ -304,14 +304,18 @@ function unsettledIntlFees(acctKey) {
   });
 }
 
-// أحدث عملية مسجَّلة لنفس البطاقة/الحساب فيها رصيد رقمي — لمطابقة الرصيد
-function lastBalanceFor(acctKey) {
+// أحدث عملية مسجَّلة لنفس البطاقة/الحساب فيها رصيد رقمي — لمطابقة الرصيد.
+// beforeRef (اختياري): يقتصر البحث على عمليات سابقة له زمنياً فقط (تاريخ ثم وقت) — ضروري وقت
+// تحليل رسالة جديدة لسه ما انحفظت، حتى لو فيه عمليات محفوظة بتاريخ/وقت لاحق على نفس البطاقة
+// (مثلاً لو حلّلت رسائل بترتيب مو زمني بالكامل) — بدونه ترجع أحدث عملية بإطلاق، حتى لو بعد المرجع.
+function lastBalanceFor(acctKey, beforeRef) {
   if (!acctKey) return null;
   var best = null;
   expenses.forEach(function(e) {
     if (e.balance === '' || e.balance == null || isNaN(parseFloat(e.balance))) return;
     if (accountKey(e) !== acctKey) return;
     if (!withinBalanceWindow(e)) return;
+    if (beforeRef && !isBeforeRef(e, beforeRef)) return;
     var newer = !best
       || (e.date || '') > (best.date || '')
       || ((e.date || '') === (best.date || '') && fmtTime(e.time) > fmtTime(best.time))
@@ -319,6 +323,13 @@ function lastBalanceFor(acctKey) {
     if (newer) best = e;
   });
   return best;
+}
+
+// هل العملية e قبل المرجع ref زمنياً (تاريخ ثم وقت)؟ — يُستخدم مع رسالة لسه ما انحفظت (بلا id)
+function isBeforeRef(e, ref) {
+  var de = e.date || '', dr = ref.date || '';
+  if (de !== dr) return de < dr;
+  return fmtTime(e.time) < fmtTime(ref.time);
 }
 
 // هل العملية e بعد المرساة anchor زمنياً؟
@@ -332,12 +343,15 @@ function isAfter(e, anchor) {
 
 // مجموع المبالغ الموقّعة (إضافة + / خصم −) للعمليات المسجّلة لحساب بعد مرساة معيّنة
 // — لإغلاق سلسلة الرصيد عند وجود حركات مسجّلة بلا رصيد بينها.
-function signedSinceAnchor(acctKey, anchor) {
+// uptoRef (اختياري): يوقف الجمع عند هذا المرجع زمنياً — يمنع احتساب عمليات محفوظة بتاريخ/وقت
+// لاحق على رسالة لسه قيد التحليل (نفس سبب beforeRef في lastBalanceFor).
+function signedSinceAnchor(acctKey, anchor, uptoRef) {
   var sum = 0;
   expenses.forEach(function(e) {
     if (accountKey(e) !== acctKey) return;
     if (!withinBalanceWindow(e)) return;
     if (!isAfter(e, anchor)) return;
+    if (uptoRef && isAfter(e, uptoRef)) return;
     sum += (e.direction === 'credit' ? (e.amount || 0) : -(e.amount || 0));
   });
   return sum;
