@@ -542,8 +542,17 @@ async function syncFromSheets() {
       json.rows.forEach(function(r) {
         if (r && r.id != null) syncedIds[String(r.id)] = true;
         var saved = r && localFieldsById[String(r.id)];
-        if (!saved) return;
-        Object.keys(saved).forEach(function(k) { if (r[k] === undefined || r[k] === '') r[k] = saved[k]; });
+        if (saved) Object.keys(saved).forEach(function(k) { if (r[k] === undefined || r[k] === '') r[k] = saved[k]; });
+        // جهاز/متصفح جديد بلا بيانات محلية سابقة (لا شي بـ localFieldsById) — استرجع علامة "غير
+        // محوَّلة" من حقل intl نفسه (عمود مخزَّن فعلاً بالشيت، بصيغة "عملة مبلغ" بلا "@سعر_صرف"
+        // يعني ما توفّر سعر صرف وقت الحفظ)، بشرط يطابق المبلغ المسجَّل بالضبط (لسه خام بدون تحويل).
+        if (r && !r.fxUnconverted) {
+          var m = String(r.intl || '').match(/^([A-Z]{3})\s+([\d.]+)$/);
+          if (m && Math.abs(parseFloat(r.amount) - parseFloat(m[2])) < 0.01) {
+            r.fxUnconverted = true;
+            r.fxCurrency = m[1];
+          }
+        }
       });
       var stillUnsynced = unsynced.filter(function(e) { return !syncedIds[String(e.id)]; });
       expenses = json.rows.concat(stillUnsynced);
