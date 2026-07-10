@@ -69,14 +69,19 @@ function analyze() {
       // فرق يطابق رسوم دولية مذكورة بنفس الرسالة: البنك أحياناً ما يحدّث الرصيد المعروض بالرسوم فوراً
       // (تُخصم لاحقاً) — هذا مُفسَّر، مو عملية غير مسجَّلة، فلا نعرضه كفجوة
       var feeExplained = parsed.intlFee && Math.abs(Math.abs(diff) - parsed.intlFee) < 0.01;
+      // عملية إضافة (استرداد/عكس/إلخ) لسه ما انعكست على الرصيد المعروض بنفس الرسالة — نفس نمط
+      // "البنك يعلن العملية قبل تحديث الرصيد الفعلي" اللي شفناه مع الرسوم الدولية، بس هنا المبلغ
+      // كامل مو رسوم جزئية فقط. التوقيع: الرصيد الفعلي يتصرّف بالضبط وكأن هذي الإضافة ما صارت
+      // (الفرق = -المبلغ بالضبط) — يتّضح لاحقاً بعملية أخرى تعكس الرصيد الملحوق.
+      var creditNotPostedYet = !feeExplained && isCredit && Math.abs(diff + parsed.amount) < 0.01;
       // فيه عملية/عمليات دولية سابقة على نفس الحساب لسه محفوظة بعملتها الأجنبية بدون تحويل؟
       // هذي الأرجح سبب أي فرق هنا (مبلغها غير موثوق أصلاً) — نوضّح السبب ونسهّل تعديلها
-      var pendingFx = (!feeExplained && Math.abs(diff) > 0.01)
+      var pendingFx = (!feeExplained && !creditNotPostedYet && Math.abs(diff) > 0.01)
         ? expenses.filter(function (pe) { return accountKey(pe) === acctK && withinBalanceWindow(pe) && pe.fxUnconverted && isAfter(pe, prevE) && isBeforeRef(pe, parsed); })
         : [];
       // فرق يطابق رسوم دولية سابقة لسه ما انسجّلت (البنك لحّق الرصيد بيها الحين، متأخرة) —
       // نعرضها بوضوح ونسأل المستخدم إذا يبغى يسجّلها، بدل ما نتجاهلها أو نعتبرها فجوة مجهولة
-      var pendingFees = (!feeExplained && !pendingFx.length && Math.abs(diff) > 0.01)
+      var pendingFees = (!feeExplained && !creditNotPostedYet && !pendingFx.length && Math.abs(diff) > 0.01)
         ? unsettledIntlFees(acctK).filter(function (pe) { return (pe.date || '') <= (parsed.date || ''); })
         : [];
       var pendingSum = pendingFees.reduce(function (s, pe) { return s + (pe.intlFee || 0); }, 0);
@@ -84,6 +89,8 @@ function analyze() {
 
       if (Math.abs(diff) > 0.01 && feeExplained) {
         html += '<div class="alert alert-blue" style="margin-bottom:8px;font-size:12px">ℹ️ فرق ' + fmt(Math.abs(diff)) + ' ر.س يطابق الرسوم الدولية لهذه العملية — البنك غالباً ما يحدّث الرصيد المعروض بالرسوم فوراً (تُخصم لاحقاً). مو فجوة حقيقية.</div>';
+      } else if (Math.abs(diff) > 0.01 && creditNotPostedYet) {
+        html += '<div class="alert alert-blue" style="margin-bottom:8px;font-size:12px">ℹ️ هذي عملية إضافة (' + (parsed.type || 'استرداد') + ') لسه ما انعكست على الرصيد المعروض بالرسالة — البنك أحياناً يعلن العملية قبل تحديث الرصيد الفعلي (يتحدّث لاحقاً بعملية تانية). مو فجوة حقيقية، بس لو تأكدت إن فيه خصم آخر ناقص فعلاً راجع كشف حسابك.</div>';
       } else if (Math.abs(diff) > 0.01 && pendingFx.length) {
         html += '<div class="alert alert-blue" style="margin-bottom:8px">'
           + 'ℹ️ <b>الفرق يطابق عملية/عمليات دولية غير محوَّلة</b><br>'
@@ -412,7 +419,10 @@ function detectBalanceGaps(limit) {
           var diff = parseFloat(e.balance) - expected;
           // فرق يطابق رسوم دولية هذه العملية بالذات — مُفسَّر، مش فجوة حقيقية (نفس منطق تنبيه التحليل)
           var feeExplained = e.intlFee && Math.abs(Math.abs(diff) - e.intlFee) < 0.01;
-          if (Math.abs(diff) > 0.01 && !feeExplained) {
+          // عملية إضافة لسه ما انعكست على الرصيد المعروض بنفس رسالتها — نفس نمط الرسوم الدولية
+          // بس للمبلغ كامل (البنك يعلن العملية قبل تحديث الرصيد الفعلي، يتّضح لاحقاً بعملية تانية)
+          var creditNotPostedYet = !feeExplained && e.direction === 'credit' && Math.abs(diff + (e.amount || 0)) < 0.01;
+          if (Math.abs(diff) > 0.01 && !feeExplained && !creditNotPostedYet) {
             if (pendingFxSinceAnchor.length) {
               gaps.push({ acct: k, diff: diff, up: diff > 0, date: e.date, merchant: e.merchant,
                 card: e.card || '', bank: e.bank || '', expected: expected, curBal: parseFloat(e.balance),
