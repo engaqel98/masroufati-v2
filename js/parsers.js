@@ -205,9 +205,9 @@ function parseSAB(txt) {
     if (m) merchant = m[1].trim();
   } else {
     // التاجر بين "لدى" وأقرب فاصل: "من خلال" / "في" / "بمبلغ" / نهاية السطر
-    m = txt.match(/لدى\s+(.+?)\s+(?:من خلال|بمبلغ|في\s+[A-Z\u0600-\u06FF])/i)
-      || txt.match(/لدى\s+(.+?)(?:\s+تاريخ|\s*\n|\s*$)/im)
-      || txt.match(/لدى\s+([^\n\r،,*#]{3,50})/i);
+    m = txt.match(/لدى\s*:?\s*(.+?)\s+(?:من خلال|بمبلغ|في\s+[A-Z\u0600-\u06FF])/i)
+      || txt.match(/لدى\s*:?\s*(.+?)(?:\s+تاريخ|\s*\n|\s*$)/im)
+      || txt.match(/لدى\s*:?\s*([^\n\r،,*#]{3,50})/i);
     if (m) merchant = m[1].trim();
   }
 
@@ -385,7 +385,7 @@ function classifyMerchant(merchant, txType) {
 // تصنيف نوع الحركة الواردة (credit) من كلمات الرسالة — أنواع مستقلّة بدل "إضافة" العامة
 function classifyCreditType(txt) {
   var t = (txt || '').toLowerCase();
-  if (/استرداد|استرجاع|مرتجع|refund|reversal/.test(t)) return 'استرداد';
+  if (/استرداد|استرجاع|مرتجع|عكس|refund|reversal/.test(t)) return 'استرداد';
   if (/راتب|مرتب|salary|payroll/.test(t)) return 'راتب';
   if (/حوالة واردة|إيداع حوالة|تحويل وارد|عملية واردة|واردة|إيداع|ايداع|أودع|اودع|deposit|received|incoming/.test(t)) return 'حوالة واردة';
   return 'إضافة';
@@ -399,7 +399,7 @@ function detectDirection(txt) {
     return 'debit';
   }
   // ثانياً: إشارات إضافة (وارد)
-  if (/استرداد|استرجاع|مرتجع|اضافة|إضافة|أضيف|اضيف|تمت اضافة|تمت إضافة|إيداع|ايداع|أودع|اودع|حوالة واردة|تحويل وارد|عملية واردة|واردة|استلمت|تم استلام|استلام|مستلم|راتب|refund|reversal|deposit|received|credited|salary|incoming/.test(t)) {
+  if (/استرداد|استرجاع|مرتجع|عكس|اضافة|إضافة|أضيف|اضيف|تمت اضافة|تمت إضافة|إيداع|ايداع|أودع|اودع|حوالة واردة|تحويل وارد|عملية واردة|واردة|استلمت|تم استلام|استلام|مستلم|راتب|refund|reversal|deposit|received|credited|salary|incoming/.test(t)) {
     return 'credit';
   }
   return 'debit';   // الافتراضي = خصم
