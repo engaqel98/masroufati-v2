@@ -221,6 +221,28 @@ function personPendingFx(name) {
   return expenses.filter(function(e) { return e.behalf && String(e.behalf).trim() === nm && e.fxUnconverted; });
 }
 
+// رصيد تراكمي على شخص بعد كل عملية له، بالترتيب الزمني (الأقدم فالأحدث) — يبيّن
+// بالضبط بعد أي عملية تصفّى المتبقي عليه أو صار له عندك (رصيد سالب).
+// map مفتاحه e.id، وقيمته الرصيد التراكمي بعد تلك العملية تحديداً.
+function personRunningBalances(name) {
+  var nm = String(name == null ? '' : name).trim();
+  var list = expenses.filter(function(e) { return e.behalf && String(e.behalf).trim() === nm && !e.fxUnconverted; });
+  list.sort(function(a, b) {
+    var da = a.date || '', db = b.date || '';
+    if (da !== db) return da < db ? -1 : 1;
+    var ta = String(a.time || ''), tb = String(b.time || '');
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    return (Number(a.id) || 0) - (Number(b.id) || 0);
+  });
+  var running = 0, map = {};
+  list.forEach(function(e) {
+    var amt = e.amount || 0;
+    running += (e.direction === 'credit') ? -amt : amt;
+    map[e.id] = running;
+  });
+  return map;
+}
+
 // تسجيل سداد من شخص: يضيف حركة وارد (credit) باسمه فتنقص من المتبقي عليه.
 // الافتراضي = كامل المتبقي (تصفية)، وتقدر تكتب مبلغاً أقل (سداد جزئي).
 function recordSettlement(name) {
@@ -1022,7 +1044,7 @@ function txIcon(e) {
 }
 
 // صف عملية واحد بنمط تصميم ٢ (قابل للتوسّع) — يُستخدم في السجل واللوحة
-function txRowHtml(e) {
+function txRowHtml(e, runningBalance) {
   var isCredit = e.direction === 'credit';
   var edited = !isCredit && e.origAmount !== '' && e.origAmount != null && Number(e.origAmount) !== Number(e.amount);
   var eid = String(e.id || '').replace(/'/g, "\\'");
@@ -1036,6 +1058,12 @@ function txRowHtml(e) {
     + (e.bank ? ' ' + e.bank : '')
     + (e.behalf ? ' <span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span>' : '') + '</div>';
   if (e.balance !== '' && e.balance != null) s += '<div class="tx-meta">الرصيد: ' + fmt(e.balance) + ' ر.س</div>';
+  if (runningBalance != null) {
+    var rbOwed = runningBalance > 0.005, rbSettled = Math.abs(runningBalance) <= 0.005;
+    var rbCls = rbSettled ? 'var(--muted)' : (rbOwed ? 'var(--hero-1)' : 'var(--green)');
+    var rbLabel = rbSettled ? 'تصفّى الحساب بعدها ✅' : (rbOwed ? 'الإجمالي عليه بعدها' : 'صار له عندك بعدها');
+    s += '<div class="tx-meta" style="color:' + rbCls + ';font-weight:600">' + rbLabel + (rbSettled ? '' : ': ' + fmt(Math.abs(runningBalance)) + ' ر.س') + '</div>';
+  }
   if (edited) s += '<div class="tx-meta">عُدّل من ' + fmt(e.origAmount) + ' ر.س</div>';
   if (e.note) s += '<div class="tx-meta">📝 ' + htmlEsc(e.note) + '</div>';
   if (e.synced === false) s += '<div class="tx-meta" style="color:var(--red-text)">⚠️ لم يُرفع إلى Sheets</div>';
@@ -1323,8 +1351,11 @@ function renderHistory() {
     acctCard += '</div></div>';
   }
 
+  // رصيد تراكمي لكل عملية عند عرض دفتر الذمم لشخص محدد — لمعرفة متى تصفّى الحساب
+  var personRunningMap = (histFilter === 'behalf' && histPerson !== 'all') ? personRunningBalances(histPerson) : null;
+
   var rows = '';
-  data.forEach(function(e) { rows += txRowHtml(e); });
+  data.forEach(function(e) { rows += txRowHtml(e, personRunningMap ? personRunningMap[e.id] : null); });
 
   var totalCard = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
   if (histFilter === 'سداد التمويل') {
