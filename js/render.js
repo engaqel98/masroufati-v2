@@ -304,9 +304,11 @@ function registerPerson(name) {
 // البطاقة / الحساب — مفتاح موحّد + اقتراحات + تطبيق اختيار يدوي
 // ============================================================
 // مفتاح الحساب: "•••• 1234" إن وُجد رقم بطاقة، وإلا اسم البنك
+// يمرّ رقم البطاقة على settings.linkedCards أولاً — بطاقات فرعية تشارك رصيد بطاقة أخرى
+// (زي رقم يظهر عبر Apple Pay مختلف عن رقم البطاقة الفعلي) تُحسب كحساب واحد.
 function accountKey(e) {
   if (!e) return '';
-  if (e.card) return '•••• ' + e.card;
+  if (e.card) return '•••• ' + ((settings.linkedCards && settings.linkedCards[e.card]) || e.card);
   return e.bank || '';
 }
 
@@ -762,7 +764,7 @@ function dashBalancesHtml(curM) {
   var balByCard = {};
   expenses.forEach(function (e) {
     if (e.balance === '' || e.balance == null) return;
-    var key = e.card ? ('•••• ' + e.card) : (e.bank || '—');
+    var key = accountKey(e) || '—';
     var cur = balByCard[key];
     var newer = !cur || (e.date || '') > (cur.date || '') || ((e.date || '') === (cur.date || '') && (Number(e.id) || 0) > (Number(cur.id) || 0));
     if (newer) balByCard[key] = e;
@@ -1278,7 +1280,7 @@ function renderHistory() {
   var balByCard = {};
   expenses.forEach(function(e) {
     if (e.balance === '' || e.balance == null) return;
-    var key = e.card ? ('•••• ' + e.card) : (e.bank || '—');
+    var key = accountKey(e) || '—';
     var cur = balByCard[key];
     var newer = !cur || (e.date||'') > (cur.date||'') || ((e.date||'') === (cur.date||'') && (Number(e.id)||0) > (Number(cur.id)||0));
     if (newer) balByCard[key] = e;

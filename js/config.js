@@ -34,6 +34,12 @@ if (typeof settings.notify !== 'boolean') settings.notify = false;
 // مفيد بعد إعادة ضبط/تسوية الرصيد يدوياً (مثل إيداع بداية شهر) لقطع أثر بيانات قديمة غير دقيقة.
 if (typeof settings.balanceCutoff !== 'string') settings.balanceCutoff = '2026-07-01';
 
+// بطاقات فرعية/تابعة تشارك نفس الرصيد الفعلي لبطاقة أخرى (نفس حد الائتمان)، لكن رسائل
+// SMS تعرض لها رقم آخر — مثلاً بطاقة تظهر عبر Apple Pay برقم مختلف عن رقمها الحقيقي.
+// { "الرقم المعروض": "الرقم المرجعي" } — يُستخدم في accountKey() ليُحسبا حساب واحد
+// بدل ما تنكسر سلسلة مطابقة الرصيد بينهما (بطاقة 1740 تابعة لبطاقة 1321 وتشاركها الرصيد).
+if (typeof settings.linkedCards !== 'object' || !settings.linkedCards) settings.linkedCards = { '1740': '1321' };
+
 // خزّان العتبات التي أُطلق عليها إشعار لكل شهر — لمنع تكرار الإشعار:
 // { 'YYYY-MM': { 'أساسيات:80': true, 'كماليات:100': true, ... } }
 var firedAlerts = JSON.parse(localStorage.getItem('alerts_v2') || '{}');
