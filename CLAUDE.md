@@ -55,7 +55,7 @@ These are the defaults in `js/config.js`'s `settings` object and reflect the use
   - `القاموس` — optional dictionary override (read via `?action=dict`).
   - `خطة التمويل` — a user-built finance-plan table that aggregates `المعاملات` per month via `SUMIFS` (criteria: `$B`=month, `$C`=year, `$F`=type; sum `$D`=amount). Its ranges now use **full columns** (`$D:$D`, not `$D$23:$D$152`) so they cover all rows regardless of sort order — `?action=fixplan` converts any bounded `'المعاملات'!$X$n:$X$m` range in this tab to a full column. **When reordering `المعاملات` columns, these formulas reference columns by letter — keep `month`/`year`/`amount`/`type` at B/C/D/F or update the formulas.** Inspect any tab's values+formulas with `?action=peektab&tab=<name>`, and its conditional-format rules with `?action=cfrules&cell=<A1>`.
 - **Conditional formatting on `المعاملات`:** `?action=cleanfmt` resets it to exactly 4 clean rules on the full التصنيف column (`F4:F…`, `TEXT_EQUAL_TO`): أساسيات→green, كماليات→orange, سداد التمويل→blue, غير محدد→gray (app color semantics). It removes legacy/fragmented rules, the "registeredAt non-empty → green" rule, and any manual fill on the registeredAt column. Re-run after a column reorder if the التصنيف column moves (the rule range is rebuilt from the `type` header position). `?action=tidy` extends the same cleanup sheet-wide: deletes the empty legacy `العمليات` tab, re-colors the `القاموس` النوع column and the `خطة التمويل` commitment column (✅/❌) with clean full-range rules.
-- **Column layout** (`المعاملات`, 18 cols — the backend maps by header *name*, not position, so columns may be reordered safely):
+- **Column layout** (`المعاملات`, 23 cols — the backend maps by header *name*, not position, so columns may be reordered safely):
 
   | Col | Header (Arabic) | Key |
   |-----|-----------------|-----|
@@ -66,19 +66,26 @@ These are the defaults in `js/config.js`'s `settings` object and reflect the use
   | E | الملاحظة / الوصف | `merchant` |
   | F | النوع (تلقائي) | `type` |
   | G | الاتجاه | `direction` |
-  | H | طريقة الدفع | `method` |
-  | I | البطاقة | `card` |
-  | J | البنك/ البطاقة | `bank` |
-  | K | الرصيد | `balance` |
-  | L | العملة الدولية | `intl` |
-  | M | نوع العملية | `txType` |
-  | N | ملاحظة | `note` |
-  | O | المبلغ الأصلي | `origAmount` |
-  | P | وقت العملية | `time` |
-  | Q | المعرّف | `id` |
-  | R | وقت التسجيل | `registeredAt` |
+  | H | نيابة | `behalf` — who this expense was paid on behalf of, if any |
+  | I | طريقة الدفع | `method` |
+  | J | البطاقة | `card` |
+  | K | البنك/ البطاقة | `bank` |
+  | L | الرصيد | `balance` |
+  | M | العملة الدولية | `intl` — display string, e.g. `USD 10.5` or `QAR 60 @1.03117` |
+  | N | رمز العملة | `fxCurrency` — ISO code of the foreign currency, e.g. `USD` |
+  | O | بانتظار التحويل | `fxUnconverted` — `TRUE`/blank; SMS had no exchange rate or final SAR total, amount is still the raw foreign number |
+  | P | الرسوم الدولية | `intlFee` — international-transaction fee parsed from a SAB SMS |
+  | Q | الرسوم مسجَّلة؟ | `intlFeeSettled` — `TRUE`/blank; whether a delayed `intlFee` has been registered as its own expense |
+  | R | نوع العملية | `txType` |
+  | S | ملاحظة | `note` |
+  | T | المبلغ الأصلي | `origAmount` |
+  | U | وقت العملية | `time` |
+  | V | المعرّف | `id` |
+  | W | وقت التسجيل | `registeredAt` |
 
-  `month`/`year` are **not sent by the frontend** — the backend (`apps-script.gs`) derives them from the entry date on append/update. A one-time backfill for legacy rows is exposed at `?action=backfillmy`. The above column order is enforced by `?action=reordercols` (constant `COLUMN_ORDER` in `apps-script.gs`); since the backend maps by header *name*, columns can be reordered freely without breaking reads/writes. `time` (col P) is stored as **plain text `HH:mm:ss`** (converted by `?action=normalizetime`/`sortrows`). It used to be a day-fraction serial, and the spreadsheet's timezone was a non-Riyadh zone while the serials encoded the real time directly (frac × 24), so reading them as Date objects mangled the value via timezone conversion (the sheet timezone is now set to `Asia/Riyadh` via `?action=settz`). Storing as text sidesteps all timezone/epoch issues and makes the sheet, the app, and sorting agree. New entries are written as `HH:mm:ss` strings into the text-formatted column. Legacy rows (pre-June 2026) have no captured transaction time and are intentionally left blank (sorted to the bottom of their day).
+  `month`/`year` are **not sent by the frontend** — the backend (`apps-script.gs`) derives them from the entry date on append/update. A one-time backfill for legacy rows is exposed at `?action=backfillmy`. The above column order is enforced by `?action=reordercols` (constant `COLUMN_ORDER` in `apps-script.gs`); since the backend maps by header *name*, columns can be reordered freely without breaking reads/writes. `time` (col U) is stored as **plain text `HH:mm:ss`** (converted by `?action=normalizetime`/`sortrows`). It used to be a day-fraction serial, and the spreadsheet's timezone was a non-Riyadh zone while the serials encoded the real time directly (frac × 24), so reading them as Date objects mangled the value via timezone conversion (the sheet timezone is now set to `Asia/Riyadh` via `?action=settz`). Storing as text sidesteps all timezone/epoch issues and makes the sheet, the app, and sorting agree. New entries are written as `HH:mm:ss` strings into the text-formatted column. Legacy rows (pre-June 2026) have no captured transaction time and are intentionally left blank (sorted to the bottom of their day).
+  - **`behalf`** worked correctly from its introduction (auto-created on first use by `appendRow`) but was missing from `COLUMN_ORDER`/undocumented until 2026-07-10 — `?action=reordercols` treated it as a stray leftover column instead of placing it at H.
+  - **`fxCurrency`/`fxUnconverted`/`intlFee`/`intlFeeSettled`** (cols N–Q) were frontend-only fields (never sent to/stored in the sheet) until 2026-07-10, discovered when a fresh/incognito browser synced from Sheets and lost an entry's "unconverted" status with no local history to recover it from. Migrated to real columns so pulling from the sheet is always lossless. Boolean-style columns store the literal text `TRUE` (Sheets may auto-coerce to a real boolean cell) vs. blank for false — every consumer only ever checks truthiness, never strict equality, so either representation works. **One-time action after any redeploy that adds new `KEY_HEADERS` entries:** `?action=ensurecols` creates all missing columns sheet-wide immediately (safer than relying on the next `appendRow` to create them lazily, since `updateRow` never creates columns and would silently drop a field targeting a column that doesn't exist yet) — run it once, then `?action=reordercols`.
 
 ## Canonical category strings (exact bytes — used as object keys and dict values)
 

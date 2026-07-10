@@ -55,7 +55,13 @@ const KEY_HEADERS = {
   note:         ['ملاحظة', 'note'],
   origAmount:   ['المبلغ الأصلي', 'origAmount', 'orig_amount'],
   direction:    ['الاتجاه', 'direction'],
-  behalf:       ['نيابة', 'behalf']
+  behalf:       ['نيابة', 'behalf'],
+  // الحقول التالية كانت محلية فقط بالواجهة (ما تُرسَل ولا تُخزَّن) — نُقلت لأعمدة حقيقية هنا
+  // حتى لا تُفقد بصمت عند أي مزامنة من جهاز/متصفح جديد (مبدأ: كل شي محلي له مرجع بالشيت).
+  fxCurrency:      ['رمز العملة', 'fxCurrency', 'fx_currency'],
+  fxUnconverted:   ['بانتظار التحويل', 'fxUnconverted', 'fx_unconverted'],
+  intlFee:         ['الرسوم الدولية', 'intlFee', 'intl_fee'],
+  intlFeeSettled:  ['الرسوم مسجَّلة؟', 'intlFeeSettled', 'intl_fee_settled']
 };
 
 // ترجمة قيم direction العربية → الإنجليزية المعتمدة في التطبيق
@@ -83,13 +89,14 @@ const HEADER_TO_KEY = (function () {
 // المفاتيح التي ترسلها الواجهة مرمّزة بـ encodeURIComponent
 const ENCODED_KEYS = { merchant:1, type:1, method:1, bank:1, intl:1, txType:1, note:1, behalf:1 };
 // المفاتيح الرقمية (نخزّنها كـNumber)
-const NUMERIC_KEYS = { amount:1, balance:1, origAmount:1 };
+const NUMERIC_KEYS = { amount:1, balance:1, origAmount:1, intlFee:1 };
 // المفاتيح التي نضمن وجود أعمدتها عند الكتابة (الأساسية للتطبيق)
-const ENSURE_KEYS = ['date','merchant','amount','type','method','balance','card','bank','intl','registeredAt','time','txType','id','note','origAmount','direction','behalf'];
+const ENSURE_KEYS = ['date','merchant','amount','type','method','balance','card','bank','intl','registeredAt','time','txType','id','note','origAmount','direction','behalf','fxCurrency','fxUnconverted','intlFee','intlFeeSettled'];
 
 // الترتيب المنطقي المطلوب لأعمدة "المعاملات" (يُطبَّق عبر action=reordercols).
 // أي عمود معروف غير مذكور هنا، أو عمود مجهول، يُترك في النهاية بترتيبه الحالي.
-const COLUMN_ORDER = ['date','month','year','amount','merchant','type','direction','method','card','bank','balance','intl','txType','note','origAmount','time','id','registeredAt'];
+// "نيابة" كانت تعمل بدون خلل لكن غائبة من هذا الترتيب (تُعامَل كعمود شارد) — أُضيفت هنا أخيراً.
+const COLUMN_ORDER = ['date','month','year','amount','merchant','type','direction','behalf','method','card','bank','balance','intl','fxCurrency','fxUnconverted','intlFee','intlFeeSettled','txType','note','origAmount','time','id','registeredAt'];
 
 function doGet(e) {
   try {
@@ -114,6 +121,7 @@ function doGet(e) {
     if (action === 'cleancolumns') return jsonOut(cleanEmptyColumns());
     if (action === 'backfillmy')   return jsonOut(backfillMonthYear());
     if (action === 'reordercols')  return jsonOut(reorderColumns());
+    if (action === 'ensurecols')   return jsonOut(ensureColumns());
     if (action === 'fixtime')      return jsonOut(fixTimeColumn());
     if (action === 'sortrows')     return jsonOut(sortRows());
     if (action === 'settz')        return jsonOut(setTimeZoneRiyadh());
@@ -493,6 +501,23 @@ function reorderColumns() {
     order.splice(p - 1, 0, item);
   }
   return { status: 'ok', movedCount: moved.length, moved: moved, finalOrder: order };
+}
+
+// إنشاء أعمدة مفاتيح جديدة أُضيفت لـKEY_HEADERS دفعة واحدة، بغضّ النظر عن وجود قيم لها بأي صف
+// (appendRow تنشئها تلقائياً بس فقط أول عملية جديدة فيها قيمة — هذا يضمنها فوراً بعد النشر،
+// قبل أي تعديل على صف قديم، وإلا updateRow يتجاهل الحقل بصمت لعدم وجود عمود له).
+function ensureColumns() {
+  const sh = getTxnSheet();
+  let map = getHeaderMap(sh);
+  const added = [], alreadyPresent = [];
+  Object.keys(KEY_HEADERS).forEach(function (k) {
+    if (map.keyToCol[k]) { alreadyPresent.push(k); return; }
+    const newCol = sh.getLastColumn() + 1;
+    sh.getRange(map.headerRow, newCol).setValue(KEY_HEADERS[k][0]);
+    added.push(k);
+    map = getHeaderMap(sh);
+  });
+  return { status: 'ok', added: added, alreadyPresent: alreadyPresent };
 }
 
 // يغيّر المنطقة الزمنية للشيت إلى توقيت الرياض (GMT+03:00). آمن: عمود الوقت نص لا يتأثر،

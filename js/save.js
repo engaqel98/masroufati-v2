@@ -440,7 +440,13 @@ function appendEntryParams(entry) {
     note: encodeURIComponent(entry.note),
     origAmount: entry.origAmount,
     direction: entry.direction,
-    behalf: encodeURIComponent(entry.behalf)
+    behalf: encodeURIComponent(entry.behalf),
+    // أعمدة حقيقية بالشيت (بعد ترحيل الحقول المحلية-فقط) — ترسل دايماً (حتى فارغة) عشان
+    // "لا شي" تكون قيمة صريحة، مو غياب مفتاح يخليها تُتجاهل عند التحديث لاحقاً
+    fxCurrency: entry.fxCurrency || '',
+    fxUnconverted: entry.fxUnconverted ? 'TRUE' : '',
+    intlFee: entry.intlFee != null ? entry.intlFee : '',
+    intlFeeSettled: entry.intlFeeSettled ? 'TRUE' : ''
   });
 }
 
@@ -503,6 +509,12 @@ function recordFeeSettlement(ids, total, date, card, bank, rerender) {
   });
   sources.forEach(function (e) { e.intlFeeSettled = true; });
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  // بلّغ الشيت بتسوية كل عملية مصدر (بلا انتظار) — وإلا العلامة تبقى محلية فقط
+  if (settings.webapp) {
+    sources.forEach(function (e) {
+      try { fetch(appendKey(settings.webapp + '?' + new URLSearchParams({ action: 'update', id: e.id, intlFeeSettled: 'TRUE' }).toString())); } catch (er) {}
+    });
+  }
   if (rerender === 'history' && typeof renderHistory === 'function') renderHistory();
 }
 
@@ -523,11 +535,14 @@ async function syncFromSheets() {
     var resp = await fetch(appendKey(settings.webapp + '?action=read'));
     var json = await resp.json();
     if (json.status === 'ok' && json.rows && json.rows.length > 0) {
-      // احفظ الحقول المحلية-فقط قبل الاستبدال — الـbackend/الشيت ما يخزّنها (لا عمود لها)، فلو ما
-      // أعدنا تطبيقها بعد كل استبدال (يصير تلقائياً عند كل فتح للتطبيق — js/app.js) تنمسح بصمت:
-      // "نيابة عن"، رسوم/عملات دولية معلَّقة التحويل. "synced" مستثناة عمداً — وجود الصف بالقراءة
-      // دليل مباشر إنه فعلاً وصل للشيت، فأي علامة "false" قديمة عليه تصير غير صحيحة وتُتجاهل.
-      var LOCAL_ONLY_FIELDS = ['behalf', 'intlFee', 'intlFeeSettled', 'fxUnconverted', 'fxCurrency'];
+      // شبكة أمان انتقالية فقط (مو تصميم دائم بعد الآن): fxUnconverted/fxCurrency/intlFee/
+      // intlFeeSettled صارت أعمدة حقيقية بالشيت (apps-script.gs). هذا يحمي فقط العمليات القديمة
+      // اللي انحفظت محلياً قبل الترحيل ولسه ما "لمست" عمودها الجديد ولو مرة (عدّل/سجّل من جديد
+      // عشان تُكتب فعلياً) — بعدها يصير الاسترجاع من localStorage عديم الفايدة ويُحذف لاحقاً.
+      // "behalf" أزيلت من هذي القائمة: عمودها كان يعمل فعلياً من قبل، الاسترجاع المحلي لها غير
+      // ضروري وقد يخفي عطل حقيقي بالـbackend. "synced" مستثناة دايماً — وجود الصف بالقراءة دليل
+      // مباشر إنه فعلاً وصل للشيت، فأي علامة "false" قديمة عليه تصير غير صحيحة وتُتجاهل.
+      var LOCAL_ONLY_FIELDS = ['intlFee', 'intlFeeSettled', 'fxUnconverted', 'fxCurrency'];
       var localFieldsById = {}, unsynced = [];
       expenses.forEach(function(e) {
         if (!e) return;
@@ -543,9 +558,9 @@ async function syncFromSheets() {
         if (r && r.id != null) syncedIds[String(r.id)] = true;
         var saved = r && localFieldsById[String(r.id)];
         if (saved) Object.keys(saved).forEach(function(k) { if (r[k] === undefined || r[k] === '') r[k] = saved[k]; });
-        // جهاز/متصفح جديد بلا بيانات محلية سابقة (لا شي بـ localFieldsById) — استرجع علامة "غير
-        // محوَّلة" من حقل intl نفسه (عمود مخزَّن فعلاً بالشيت، بصيغة "عملة مبلغ" بلا "@سعر_صرف"
-        // يعني ما توفّر سعر صرف وقت الحفظ)، بشرط يطابق المبلغ المسجَّل بالضبط (لسه خام بدون تحويل).
+        // ملاذ أخير فقط: صف قديم جداً (سابق حتى لوجود العلامة محلياً، وعموده الجديد لسه فاضي) —
+        // استرجع "غير محوَّلة" من حقل intl نفسه (بصيغة "عملة مبلغ" بلا "@سعر_صرف" يعني ما توفّر
+        // سعر صرف وقت الحفظ)، بشرط يطابق المبلغ المسجَّل بالضبط (لسه خام بدون تحويل).
         if (r && !r.fxUnconverted) {
           var m = String(r.intl || '').match(/^([A-Z]{3})\s+([\d.]+)$/);
           if (m && Math.abs(parseFloat(r.amount) - parseFloat(m[2])) < 0.01) {
@@ -719,7 +734,9 @@ async function saveEdit() {
       type: encodeURIComponent(fields.type),
       direction: fields.direction,
       note: encodeURIComponent(fields.note),
-      behalf: encodeURIComponent(fields.behalf)
+      behalf: encodeURIComponent(fields.behalf),
+      // ينعكس هنا تأكيد/إلغاء تصحيح المبلغ الدولي أعلاه، حتى يوصل التصحيح الفعلي للشيت
+      fxUnconverted: entry.fxUnconverted ? 'TRUE' : ''
     });
     var resp = await fetch(appendKey(settings.webapp + '?' + params.toString()));
     var json = await resp.json();
