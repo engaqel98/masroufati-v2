@@ -336,27 +336,30 @@ function lastBalanceFor(acctKey, beforeRef) {
     if (accountKey(e) !== acctKey) return;
     if (!withinBalanceWindow(e)) return;
     if (beforeRef && !isBeforeRef(e, beforeRef)) return;
+    // ملاحظة: المقارنة بالوقت الخام HH:MM:SS، مو fmtTime() (تُقصّ للدقيقة فقط للعرض) — عمليتان
+    // بنفس الدقيقة (زي مشتريين Apple Pay بفارق ثوانٍ) كانتا تُحسبان "متعادلتين" وتكسر الترتيب.
     var newer = !best
       || (e.date || '') > (best.date || '')
-      || ((e.date || '') === (best.date || '') && fmtTime(e.time) > fmtTime(best.time))
-      || ((e.date || '') === (best.date || '') && fmtTime(e.time) === fmtTime(best.time) && (Number(e.id) || 0) > (Number(best.id) || 0));
+      || ((e.date || '') === (best.date || '') && String(e.time || '') > String(best.time || ''))
+      || ((e.date || '') === (best.date || '') && String(e.time || '') === String(best.time || '') && (Number(e.id) || 0) > (Number(best.id) || 0));
     if (newer) best = e;
   });
   return best;
 }
 
-// هل العملية e قبل المرجع ref زمنياً (تاريخ ثم وقت)؟ — يُستخدم مع رسالة لسه ما انحفظت (بلا id)
+// هل العملية e قبل المرجع ref زمنياً (تاريخ ثم وقت الخام HH:MM:SS)؟ — يُستخدم مع رسالة لسه ما
+// انحفظت (بلا id)، فما نقدر نحسم تعادل الدقيقة بمعرّف زي isAfter — لازم دقة الثواني الخام.
 function isBeforeRef(e, ref) {
   var de = e.date || '', dr = ref.date || '';
   if (de !== dr) return de < dr;
-  return fmtTime(e.time) < fmtTime(ref.time);
+  return String(e.time || '') < String(ref.time || '');
 }
 
-// هل العملية e بعد المرساة anchor زمنياً؟
+// هل العملية e بعد المرساة anchor زمنياً؟ (وقت خام HH:MM:SS، مو fmtTime المقصوص للعرض)
 function isAfter(e, anchor) {
   var de = e.date || '', da = anchor.date || '';
   if (de !== da) return de > da;
-  var te = fmtTime(e.time), ta = fmtTime(anchor.time);
+  var te = String(e.time || ''), ta = String(anchor.time || '');
   if (te !== ta) return te > ta;
   return (Number(e.id) || 0) > (Number(anchor.id) || 0);
 }
@@ -392,7 +395,7 @@ function detectBalanceGaps(limit) {
     var arr = byAcct[k].slice().sort(function(a, b) {
       var da = a.date || '', db = b.date || '';
       if (da !== db) return da < db ? -1 : 1;
-      var ta = fmtTime(a.time), tb = fmtTime(b.time);
+      var ta = String(a.time || ''), tb = String(b.time || '');
       if (ta !== tb) return ta < tb ? -1 : 1;
       return (Number(a.id) || 0) - (Number(b.id) || 0);
     });
@@ -844,7 +847,7 @@ function renderDashboard() {
     var recent = expenses.filter(function (e) { return !isSettlement(e); }).slice().sort(function (a, b) {
       var da = a.date || '', db = b.date || '';
       if (da !== db) return da < db ? 1 : -1;
-      var ta = fmtTime(a.time), tb = fmtTime(b.time);
+      var ta = String(a.time || ''), tb = String(b.time || '');
       if (ta !== tb) return ta < tb ? 1 : -1;
       return (Number(b.id) || 0) - (Number(a.id) || 0);
     }).slice(0, 5);
@@ -1136,7 +1139,7 @@ function renderFxPendingTab(el) {
   items.sort(function (a, b) {
     var da = a.date || '', db = b.date || '';
     if (da !== db) return da < db ? 1 : -1;
-    var ta = fmtTime(a.time), tb = fmtTime(b.time);
+    var ta = String(a.time || ''), tb = String(b.time || '');
     return ta < tb ? 1 : -1;
   });
   var html = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
@@ -1197,7 +1200,7 @@ function renderHistory() {
   data.sort(function(a,b) {
     var da = a.date || '', db = b.date || '';
     if (da !== db) return da < db ? 1 : -1;   // أحدث تاريخ أولاً
-    var ta = fmtTime(a.time), tb = fmtTime(b.time);
+    var ta = String(a.time || ''), tb = String(b.time || '');
     if (ta !== tb) return ta < tb ? 1 : -1;   // ثم أحدث وقت للعملية (مو وقت التسجيل)
     return 0;
   });
