@@ -664,15 +664,15 @@ function finHeroHtml() {
   var comb = '';
   for (var i = 1; i <= 24; i++) {
     var cls = i <= fPaidMonths ? 'paid' : (i === fMonthNum ? 'now' : '');
-    comb += '<span class="' + cls + '"></span>';
+    comb += '<span class="' + cls + '" style="animation-delay:' + Math.min(i * 12, 300) + 'ms"></span>';
   }
   var h = '<div class="fin-hero stagger">';
   h += '<div class="fh-eyebrow"><span class="fh-dot"></span> خطة التمويل · يتبقّى ' + fMonthsLeft + ' شهر</div>';
-  h += '<div class="fh-big">' + fmtInt(fRemaining) + ' <span class="cur">ر.س</span></div>';
-  h += '<div class="fh-sub">المتبقّي من إجمالي <b>' + fmtInt(fTotal) + ' ر.س</b></div>';
+  h += '<div class="fh-big"><b data-count="' + fRemaining + '">' + fmtInt(fRemaining) + '</b> <span class="cur">ر.س</span></div>';
+  h += '<div class="fh-sub">المتبقّي من إجمالي <b data-count="' + fTotal + '">' + fmtInt(fTotal) + '</b> ر.س</div>';
   h += '<div class="comb">' + comb + '</div>';
   h += '<div class="fh-foot"><div>التقدّم<b>شهر ' + fMonthNum + ' / 24</b></div>'
-    + '<div>القسط الشهري<b>' + fmtInt(fPay) + ' ر.س</b></div>'
+    + '<div>القسط الشهري<b><span data-count="' + fPay + '">' + fmtInt(fPay) + '</span> ر.س</b></div>'
     + '<div>الانتهاء<b>' + fEnd + '</b></div></div>';
   h += '</div>';
   return h;
@@ -685,7 +685,7 @@ function catBudgetRow(name, dotCls, colorVar, spent, budget) {
   var html = '<div class="cat-row">';
   html += '<div class="cat-head"><span class="cat-name"><span class="' + dotCls + '">●</span> ' + name + '</span>';
   html += '<span class="cat-left' + (over ? ' neg' : '') + '">باقي ' + fmtInt(left) + ' ر.س</span></div>';
-  html += '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;background:' + (over ? 'var(--red-text)' : colorVar) + '"></div></div>';
+  html += '<div class="progress-track"><div class="progress-fill" style="--w:' + pct + '%;background:' + (over ? 'var(--red-text)' : colorVar) + '"></div></div>';
   html += '<div class="cat-sub">صُرف ' + fmt(spent) + ' من ' + fmtInt(budget) + ' ر.س' + (over ? ' · تجاوزت بـ ' + fmt(-left) : '') + '</div>';
   // تنبيه استباقي: اقتربت من السقف (≥80%) قبل التجاوز
   if (!over && budget > 0 && (spent / budget) >= 0.8) {
@@ -896,10 +896,10 @@ function renderDashboard() {
     html += '<div class="spend2">';
     html += '<div class="donut2"><svg width="104" height="104" viewBox="0 0 104 104">'
       + '<circle cx="52" cy="52" r="42" fill="none" stroke="var(--bg-soft)" stroke-width="10"/>'
-      + '<circle cx="52" cy="52" r="42" fill="none" stroke="var(--hero-1)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + C + '" stroke-dashoffset="' + off + '" transform="rotate(-90 52 52)"/></svg>'
-      + '<div class="donut2-mid"><b>' + pct + '٪</b><span>من الدخل</span></div></div>';
+      + '<circle cx="52" cy="52" r="42" fill="none" stroke="var(--hero-1)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + C + '" stroke-dashoffset="' + off + '" style="--dash:' + C + ';--off:' + off + '" class="ring-anim" transform="rotate(-90 52 52)"/></svg>'
+      + '<div class="donut2-mid"><b data-count="' + pct + '">' + pct + '</b><span>٪ من الدخل</span></div></div>';
     html += '<div class="spend2-info"><div class="spend2-lbl">صرف ' + monthLabel + '</div>'
-      + '<div class="spend2-amt">' + fmt(spent) + ' <span class="cur">ر.س</span></div>' + deltaHtml + '</div>';
+      + '<div class="spend2-amt"><b data-count="' + spent + '" data-decimals="2">' + fmt(spent) + '</b> <span class="cur">ر.س</span></div>' + deltaHtml + '</div>';
     html += '</div>';
     html += '<div class="cat-divider"></div>';
     html += catBudgetRow('أساسيات', 'dot-ess', 'var(--c-ess)', byType['أساسيات'], settings.basic);
@@ -926,10 +926,10 @@ function renderDashboard() {
     var days = isThisMonth ? d.getDate() : 30;
     var avg = days > 0 ? spent / days : spent;
     var incLeft = (settings.salary || 0) - spent - loan;
-    html += '<div class="stat-row">';
-    html += '<div class="stat2"><div class="stat2-v">' + monthCount + '</div><div class="stat2-k">عملية الشهر</div></div>';
-    html += '<div class="stat2"><div class="stat2-v">' + fmtInt(avg) + '</div><div class="stat2-k">متوسط يومي</div></div>';
-    html += '<div class="stat2"><div class="stat2-v">' + fmtInt(incLeft) + '</div><div class="stat2-k">متبقّي الدخل</div></div>';
+    html += '<div class="stat-row stagger">';
+    html += '<div class="stat2"><div class="stat2-v" data-count="' + monthCount + '">' + monthCount + '</div><div class="stat2-k">عملية الشهر</div></div>';
+    html += '<div class="stat2"><div class="stat2-v" data-count="' + avg + '">' + fmtInt(avg) + '</div><div class="stat2-k">متوسط يومي</div></div>';
+    html += '<div class="stat2"><div class="stat2-v" data-count="' + incLeft + '">' + fmtInt(incLeft) + '</div><div class="stat2-k">متبقّي الدخل</div></div>';
     html += '</div>';
   })();
 
