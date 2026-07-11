@@ -79,21 +79,27 @@ function financeChart(points, markerIndex) {
 }
 
 // Animate every [data-count] element inside `root` from 0 → its numeric target.
+// العنصر يجب أن يحمل مسبقاً الرقم الحقيقي المُنسَّق كنص ابتدائي (وليس صفراً) حتى تعمل آلية
+// إخفاء/إظهار الأرقام (i18n.js: applyText) بشكل صحيح — هي تخزّن أول نص تراه كـ"الأصل" لإعادته لاحقاً.
 function animateCounts(root) {
   var els = (root || document).querySelectorAll('[data-count]');
+  // وضع الخصوصية مفعّل — لا نحرّك رقماً حقيقياً على الشاشة؛ نترك النص الأصلي كما هو لتتولى
+  // آلية الإخفاء العامة (applyText) إخفاءه فوراً بعد هذه الدالة، بنفس أسلوب بقية الأرقام.
+  if ((typeof privOn === 'function') && privOn()) return;
   els.forEach(function(el) {
     var target = parseFloat(el.getAttribute('data-count'));
     if (isNaN(target)) return;
     var decimals = parseInt(el.getAttribute('data-decimals') || '0', 10);
     var dur = 650, start = null;
+    var loc = (typeof _loc === 'function') ? _loc() : 'ar-SA';
     function step(ts) {
       if (start === null) start = ts;
       var t = Math.min(1, (ts - start) / dur);
       var eased = 1 - Math.pow(1 - t, 3);
       var cur = target * eased;
-      el.textContent = Number(cur).toLocaleString('ar-SA', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      el.textContent = Number(cur).toLocaleString(loc, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
       if (t < 1) requestAnimationFrame(step);
-      else el.textContent = Number(target).toLocaleString('ar-SA', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      else el.textContent = Number(target).toLocaleString(loc, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     }
     requestAnimationFrame(step);
   });

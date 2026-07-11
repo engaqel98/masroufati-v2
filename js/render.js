@@ -541,6 +541,8 @@ var histDay = '';         // فلتر يوم محدد YYYY-MM-DD
 var histAccount = 'all';  // فلتر حساب/بطاقة محدد (accountKey) داخل السجل
 var acctMonth = today().substring(0, 7);   // نطاق الوارد/الصادر المعروض في تبويب الحسابات
 var acctPerson = 'all';   // الشخص المفتوح تفصيلياً داخل دفتر الذمم بتبويب الحسابات
+var histSearchOpen = false;      // إظهار/إخفاء مربع البحث بالسجل (أيقونة 🔍 فقط بشكل افتراضي)
+var histFilterPanelOpen = false; // إظهار/إخفاء لوحة الفلاتر بالسجل (أيقونة 🎚️ فقط بشكل افتراضي)
 
 function ymLabel(ym) {
   if (ym === 'all') return 'كل الأشهر';
@@ -1020,10 +1022,31 @@ function txRowHtml(e, runningBalance) {
   return s;
 }
 
-function filterHist(type, el) {
+function filterHist(type) {
   histFilter = type;
-  document.querySelectorAll('.filt-btn').forEach(function(b) { b.classList.remove('active'); });
-  el.classList.add('active');
+  renderHistory();
+}
+
+// إظهار مربع البحث (أيقونة 🔍) والتركيز عليه بعد إعادة الرسم
+function toggleHistSearch() {
+  histSearchOpen = !histSearchOpen;
+  renderHistory();
+  if (histSearchOpen) {
+    var inp = document.getElementById('hist-search');
+    if (inp) inp.focus();
+  }
+}
+
+// إغلاق مربع البحث ومسح نص البحث معه
+function closeHistSearch() {
+  histSearchOpen = false;
+  histSearch = '';
+  renderHistory();
+}
+
+// إظهار/إخفاء لوحة الفلاتر (تصنيف + يوم + شهر + حساب) خلف أيقونة 🎚️
+function toggleHistFilterPanel() {
+  histFilterPanelOpen = !histFilterPanelOpen;
   renderHistory();
 }
 
@@ -1161,53 +1184,87 @@ function renderHistory() {
     acctBar += '</select></div>';
   }
 
-  // البحث الحر — سطر مستقل
-  var searchBar = '<div class="hist-search-bar">'
-    + '<input id="hist-search" type="search" inputmode="search" placeholder="🔍 ابحث: تاجر، مبلغ، ملاحظة…" value="' + htmlEsc(histSearch) + '" oninput="setHistSearch(this.value)">'
-    + '</div>';
-  // فلتر اليوم — سطر مستقل
+  // فلتر اليوم
   var dayBar = '<div class="hist-day-bar"><label for="hist-day">📅 يوم</label>'
     + '<input id="hist-day" type="date" value="' + htmlEsc(histDay) + '" onchange="setHistDay(this.value)" title="يوم محدد">'
     + (histDay ? '<button class="hist-day-clear" onclick="setHistDay(\'\')" title="مسح اليوم">✕</button>' : '')
     + '</div>';
 
-  // البحث ظاهر دائماً؛ بقية الفلاتر (يوم/شهر/حساب) داخل قسم قابل للطي — لواجهة نظيفة كالمعاينة
-  var extraFilters = dayBar + monthBar + acctBar;
-  var filterBars = searchBar
-    + '<details class="hist-extra"><summary>🎚️ فلاتر متقدّمة</summary>' + extraFilters + '</details>';
+  // شارات التصنيف (الكل/أساسيات/كماليات/سداد التمويل) — تُبنى هنا بدل HTML ثابت لتدخل ضمن لوحة الفلاتر القابلة للطي
+  var CATS = [['all', 'الكل'], ['أساسيات', 'أساسيات'], ['كماليات', 'كماليات'], ['سداد التمويل', 'سداد التمويل']];
+  var pillsBar = '<div class="hist-filters">' + CATS.map(function(c) {
+    return '<button class="filt-btn' + (histFilter === c[0] ? ' active' : '') + '" onclick="filterHist(\'' + c[0] + '\')">' + c[1] + '</button>';
+  }).join('') + '</div>';
+
+  // شريط الأدوات: أيقونة بحث (تفتح مربع النص) + أيقونة فلاتر (تفتح لوحة التصنيف/اليوم/الشهر/الحساب) — بدل شغل مساحة دائم
+  var searchIsOpen = histSearchOpen || !!histSearch;
+  var toolbar = '<div class="hist-toolbar">';
+  if (searchIsOpen) {
+    toolbar += '<div class="hist-search-bar" style="flex:1">'
+      + '<input id="hist-search" type="search" inputmode="search" placeholder="ابحث: تاجر، مبلغ، ملاحظة…" value="' + htmlEsc(histSearch) + '" oninput="setHistSearch(this.value)">'
+      + '<button class="hist-icon-btn" onclick="closeHistSearch()" title="إغلاق البحث" aria-label="إغلاق البحث">✕</button>'
+      + '</div>';
+  } else {
+    toolbar += '<button class="hist-icon-btn" onclick="toggleHistSearch()" title="بحث" aria-label="بحث">🔍</button>';
+  }
+  var activeFilterCount = (histFilter !== 'all' ? 1 : 0) + (histDay ? 1 : 0) + (histMonth !== 'all' ? 1 : 0) + (histAccount !== 'all' ? 1 : 0);
+  if (!searchIsOpen) {
+    toolbar += '<button class="hist-icon-btn' + (histFilterPanelOpen ? ' active' : '') + '" onclick="toggleHistFilterPanel()" title="فلاتر" aria-label="فلاتر">🎚️'
+      + (activeFilterCount ? '<span class="hist-badge">' + activeFilterCount + '</span>' : '') + '</button>';
+  }
+  toolbar += '</div>';
+
+  var filterPanel = histFilterPanelOpen && !searchIsOpen
+    ? '<div class="hist-filter-panel">' + pillsBar + dayBar + monthBar + acctBar + '</div>'
+    : '';
+
+  var filterBars = toolbar + filterPanel;
 
   if (!data.length) {
     el.innerHTML = filterBars + '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا توجد سجلات' + (histFilter !== 'all' ? ' لهذا التصنيف' : '') + (histAccount !== 'all' ? ' لحساب ' + htmlEsc(histAccount) : '') + (histDay ? ' بتاريخ ' + htmlEsc(histDay) : (histMonth !== 'all' ? ' في ' + ymLabel(histMonth) : '')) + (histSearch ? ' مطابقة لـ «' + htmlEsc(histSearch) + '»' : '') + '</div></div>';
     return;
   }
 
-  // الصرف = مدين بدون القسط وبدون نيابة (تماشياً مع لوحة الملخّص)
-  var spendTotal = 0, loanTotal = 0, histPendingFx = [], behalfExcluded = 0;
+  // تصنيف العمليات المعروضة إلى أساسيات/كماليات/سداد التمويل/غير محدد — نفس منطق لوحة الملخّص،
+  // ليعكس ملخّص السجل بالضبط ما يظهر بالفلتر الحالي مهما كان (تصنيف واحد أو الكل)
+  var byType = { 'أساسيات': 0, 'كماليات': 0, 'سداد التمويل': 0, 'غير محدد': 0 };
+  var histPendingFx = [], behalfExcluded = 0;
   data.forEach(function(e) {
-    if (e.behalf) { if (!e.fxUnconverted) behalfExcluded += (e.direction === 'credit' ? -(e.amount||0) : (e.amount||0)); return; }   // النيابة مستثناة من الصرف/القسط
+    if (e.behalf) { if (!e.fxUnconverted) behalfExcluded += (e.direction === 'credit' ? -(e.amount||0) : (e.amount||0)); return; }   // النيابة مستثناة — لها تبويبها الخاص
     if (e.direction === 'credit') return;
-    if (e.fxUnconverted) { histPendingFx.push(e); return; }   // مبلغ أجنبي غير محوَّل — مستبعد من الصرف حتى يُصحَّح
-    var amt = e.amount || 0;
-    if (e.type === 'سداد التمويل') loanTotal += amt;
-    else spendTotal += amt;
+    if (e.fxUnconverted) { histPendingFx.push(e); return; }   // مبلغ أجنبي غير محوَّل — مستبعد حتى يُصحَّح
+    var t = byType.hasOwnProperty(e.type) ? e.type : 'غير محدد';
+    byType[t] += (e.amount || 0);
   });
+  var totalShown = byType['أساسيات'] + byType['كماليات'] + byType['سداد التمويل'] + byType['غير محدد'];
 
   var rows = '';
   data.forEach(function(e) { rows += txRowHtml(e); });
 
-  var totalCard = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
-  if (histFilter === 'سداد التمويل') {
-    totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · سداد التمويل</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
-  } else {
-    totalCard += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + data.length + ' عملية · الصرف</span><span style="font-weight:700">' + fmt(spendTotal) + ' ر.س</span></div>';
-    if (loanTotal > 0) totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">سداد التمويل (منفصل)</span><span style="font-weight:700;color:var(--blue-text)">' + fmt(loanTotal) + ' ر.س</span></div>';
-    if (behalfExcluded) totalCard += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-soft)"><span style="color:var(--muted)">نيابة عن آخرين (مستثناة — راجع تبويب الحسابات)</span><span style="font-weight:700;color:var(--hero-1)">' + fmt(behalfExcluded) + ' ر.س</span></div>';
-    if (histPendingFx.length) totalCard += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:6px">🌍 + ' + histPendingFx.length + ' عملية دولية غير محوَّلة (' + histPendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة أعلاه — عدّلها من تبويب الحسابات</div>';
-  }
-  totalCard += '</div></div>';
+  var donut = (typeof donutChart === 'function') ? donutChart([
+    { label: 'أساسيات', value: byType['أساسيات'], colorVar: 'var(--c-ess)' },
+    { label: 'كماليات', value: byType['كماليات'], colorVar: 'var(--c-lux)' },
+    { label: 'سداد التمويل', value: byType['سداد التمويل'], colorVar: 'var(--c-loan)' },
+    { label: 'غير محدد', value: byType['غير محدد'], colorVar: 'var(--c-unk)' }
+  ], fmtInt(totalShown), 'ر.س') : '';
+
+  var LEGEND = [['أساسيات', 'dot-ess'], ['كماليات', 'dot-lux'], ['سداد التمويل', 'dot-loan'], ['غير محدد', 'dot-unk']];
+  var legend = LEGEND.filter(function(l) { return byType[l[0]] > 0; }).map(function(l) {
+    return '<div class="hist-legend-row"><span class="' + l[1] + '">●</span>' + l[0] + ' <b data-count="' + byType[l[0]] + '" data-decimals="2">' + fmt(byType[l[0]]) + '</b></div>';
+  }).join('');
+
+  var summaryCard = '<div class="card hist-summary-card"><div class="card-body">';
+  summaryCard += '<div class="spend2">' + donut
+    + '<div class="spend2-info"><div class="spend2-lbl"><b data-count="' + data.length + '" data-decimals="0">' + data.length + '</b> عملية · الإجمالي</div>'
+    + '<div class="spend2-amt"><b data-count="' + totalShown + '" data-decimals="2">' + fmt(totalShown) + '</b> <span class="cur">ر.س</span></div></div></div>';
+  if (legend) summaryCard += '<div class="cat-divider"></div><div class="hist-legend">' + legend + '</div>';
+  if (behalfExcluded) summaryCard += '<div class="acct-line" style="margin-top:10px"><span>👥 نيابة عن آخرين (مستثناة — راجع تبويب الحسابات)</span><b style="color:var(--hero-1)" data-count="' + behalfExcluded + '" data-decimals="2">' + fmt(behalfExcluded) + '</b></div>';
+  if (histPendingFx.length) summaryCard += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:8px">🌍 + ' + histPendingFx.length + ' عملية دولية غير محوَّلة (' + histPendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة أعلاه — عدّلها من تبويب الحسابات</div>';
+  summaryCard += '</div></div>';
 
   var sheetBtn = settings.sheetUrl ? '<a href="' + settings.sheetUrl + '" target="_blank" class="sheet-link">📊 فتح Google Sheets ↗</a>' : '';
-  el.innerHTML = filterBars + totalCard + rows + sheetBtn;
+  el.innerHTML = filterBars + summaryCard + rows + sheetBtn;
+  if (typeof animateCounts === 'function') animateCounts(el);
 }
 
 // ============================================================
