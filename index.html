@@ -36,7 +36,6 @@
     </div>
     <div class="header-actions">
       <button class="icon-btn" id="eye-btn" onclick="togglePrivacy()" title="إظهار/إخفاء الأرقام" aria-label="إظهار أو إخفاء الأرقام">👁️</button>
-      <button class="icon-btn" id="settings-btn" onclick="switchTab('settings')" title="الإعدادات" aria-label="الإعدادات">⚙️</button>
     </div>
   </div>
 
@@ -53,12 +52,14 @@
       <button class="filt-btn" id="filt-ess" onclick="filterHist('أساسيات',this)">أساسيات</button>
       <button class="filt-btn" id="filt-lux" onclick="filterHist('كماليات',this)">كماليات</button>
       <button class="filt-btn" id="filt-loan" onclick="filterHist('سداد التمويل',this)">سداد التمويل</button>
-      <button class="filt-btn" id="filt-incoming" onclick="filterHist('incoming',this)">⬇️ وارد</button>
-      <button class="filt-btn" id="filt-behalf" onclick="filterHist('behalf',this)">👥 نيابة</button>
-      <button class="filt-btn" id="filt-gaps" onclick="filterHist('gaps',this)">🔎 فجوات الرصيد</button>
-      <button class="filt-btn" id="filt-fxpending" onclick="filterHist('fxpending',this)">🌍 عمليات دولية</button>
     </div>
     <div id="history-content"></div>
+  </div>
+
+  <!-- TAB: ACCOUNTS -->
+  <div id="sec-accounts">
+    <div class="page-title">الحسابات</div>
+    <div id="accounts-content"></div>
   </div>
 
   <!-- TAB: SETTINGS -->
@@ -114,10 +115,14 @@
 <nav class="bottomnav"><div class="bottomnav-inner">
   <button class="navbtn active" data-tab="parse" onclick="switchTab('parse',this)" aria-label="الرئيسية">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>
-  <button class="navbtn fab" onclick="openAddSheet()" aria-label="تحليل رسالة">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="navbtn" data-tab="history" onclick="switchTab('history',this)" aria-label="السجل">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 9h6M9 13h4"/></svg></button>
+  <button class="navbtn fab" onclick="openAddSheet()" aria-label="تحليل رسالة">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="navbtn" data-tab="accounts" onclick="switchTab('accounts',this)" aria-label="الحسابات">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></button>
+  <button class="navbtn" data-tab="settings" onclick="switchTab('settings',this)" aria-label="الإعدادات">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 </div></nav>
 
 <!-- قائمة اقتراحات الأسماء المشتركة لكل حقول "نيابة عن" — تُملأ من js/render.js -->

@@ -316,7 +316,7 @@ function applyPrivacyDOM() {
   applyText(document.getElementById('add-sheet'));
 }
 
-var I18N_CONTAINERS = { analyze: 'result-area', renderDashboard: 'dashboard', renderHistory: 'history-content', renderFinance: 'finance-content', renderSettings: 'settings-content' };
+var I18N_CONTAINERS = { analyze: 'result-area', renderDashboard: 'dashboard', renderHistory: 'history-content', renderAccounts: 'accounts-content', renderSettings: 'settings-content' };
 
 // يلفّ دوال العرض ليُترجَم ناتجها بعد كل رسم
 function wrapRenderers() {
@@ -344,11 +344,12 @@ function applyLang() {
   h.setAttribute('dir', isEN() ? 'ltr' : 'rtl');
   updateLangButton();
   // أعد رسم التبويب الظاهر (لتحديث الأرقام للّغة) ثم ترجم كامل الواجهة الثابتة + المودال
-  var visible = ['parse', 'history', 'settings'].filter(function (id) {
+  var visible = ['parse', 'history', 'accounts', 'settings'].filter(function (id) {
     var s = document.getElementById('sec-' + id); return s && s.style.display !== 'none';
   })[0] || 'parse';
   if (visible === 'parse' && typeof renderDashboard === 'function') renderDashboard();
   if (visible === 'history' && typeof renderHistory === 'function') renderHistory();
+  if (visible === 'accounts' && typeof renderAccounts === 'function') renderAccounts();
   if (visible === 'settings' && typeof renderSettings === 'function') renderSettings();
   translateTree(document.querySelector('.container'));
   translateTree(document.getElementById('edit-modal'));

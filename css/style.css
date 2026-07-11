@@ -315,7 +315,7 @@ select { cursor: pointer; }
 .spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; }
 @keyframes sp { to { transform: rotate(360deg); } }
 
-#sec-history, #sec-finance, #sec-settings { display: none; }
+#sec-history, #sec-finance, #sec-accounts, #sec-settings { display: none; }
 .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border-soft); font-size: 13px; }
 .settings-row:last-child { border-bottom: none; }
 .settings-val { font-weight: 700; color: var(--blue-text); font-size: 12px; direction: ltr; text-align: left; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

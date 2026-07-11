@@ -515,7 +515,7 @@ function recordFeeSettlement(ids, total, date, card, bank, rerender) {
       try { fetch(appendKey(settings.webapp + '?' + new URLSearchParams({ action: 'update', id: e.id, intlFeeSettled: 'TRUE' }).toString())); } catch (er) {}
     });
   }
-  if (rerender === 'history' && typeof renderHistory === 'function') renderHistory();
+  if (rerender === 'accounts' && typeof renderAccounts === 'function') renderAccounts();
 }
 
 // فرز تلقائي لصفوف Sheets بعد الحفظ/التعديل — في الخلفية، بدون انتظار أو واجهة.

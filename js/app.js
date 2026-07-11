@@ -25,11 +25,12 @@ function switchTab(t, el) {
   document.querySelectorAll('.navbtn[data-tab]').forEach(function(b) {
     b.classList.toggle('active', b.getAttribute('data-tab') === t);
   });
-  ['parse','history','settings'].forEach(function(id) {
+  ['parse','history','accounts','settings'].forEach(function(id) {
     document.getElementById('sec-' + id).style.display = id === t ? 'block' : 'none';
   });
   if (t === 'parse') renderDashboard();
   if (t === 'history') renderHistory();
+  if (t === 'accounts') renderAccounts();
   if (t === 'settings') renderSettings();
 
   // replay entrance animation
