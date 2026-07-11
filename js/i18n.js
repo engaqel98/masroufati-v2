@@ -5,7 +5,9 @@
 // ============================================================
 var LANG = (function () { try { return localStorage.getItem('lang_v2') || 'ar'; } catch (e) { return 'ar'; } })();
 function isEN() { return LANG === 'en'; }
-function localeCode() { return LANG === 'en' ? 'en-US' : 'ar-SA'; }
+// أرقام إنجليزية دائماً (حتى بالعربي) — الفاصلة العشرية وفاصلة الآلاف بالأرقام العربية
+// متشابهتان بصرياً وتلبّس، فنستخدم en-US لعرض الأرقام فقط بغض النظر عن لغة الواجهة.
+function localeCode() { return 'en-US'; }
 
 // أشهر السنة
 var MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -258,6 +260,9 @@ var REPL_RAW = [
 // رتّب من الأطول للأقصر لتفادي الاستبدال الجزئي
 var REPL = REPL_RAW.slice().sort(function (a, b) { return b[0].length - a[0].length; });
 
+// أي حرف/رمز عربي (حروف، تشكيل، علامات ترقيم عربية كـ ٪ ، ؛) — وجوده يعني ترجمة ناقصة
+var ARABIC_RE = /[؀-ۿ]/;
+
 function translateStr(s) {
   if (!isEN() || !s) return s;
   var out = s;
@@ -266,6 +271,10 @@ function translateStr(s) {
   for (var i = 0; i < REPL.length; i++) {
     if (out.indexOf(REPL[i][0]) !== -1) out = out.split(REPL[i][0]).join(REPL[i][1]);
   }
+  // لو بقي أي حرف عربي بعد كل الاستبدالات (كلمة ما بالقاموس، اسم شخص/تاجر حر، إلخ) فالترجمة
+  // جزئية/مختلطة وغير واضحة — نرجّع النص الأصلي كاملاً بدل خلط عربي/إنجليزي مربك، لحين ربط
+  // قاموس أو مترجم فعلي يغطّي كل الحالات.
+  if (ARABIC_RE.test(out)) return s;
   return out;
 }
 
