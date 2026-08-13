@@ -83,12 +83,25 @@
     <summary>➕ إدخال يدوي</summary>
     <div class="field-row">
       <div class="field"><label>التاريخ</label><input type="date" id="m-date"></div>
-      <div class="field"><label>المبلغ (ر.س)</label><input type="number" id="m-amount" placeholder="0.00" step="0.01"></div>
+      <div class="field"><label id="m-amount-label">المبلغ (ر.س)</label><input type="number" id="m-amount" placeholder="0.00" step="0.01" oninput="updateManualConvertedHint()"></div>
     </div>
-    <div class="field"><label>التاجر / الجهة</label><input type="text" id="m-merchant" placeholder="مثال: كارفور"></div>
+    <div class="field-row">
+      <div class="field"><label>العملة</label>
+        <div class="chip-group">
+          <button type="button" class="chip active" id="m-cur-sar" onclick="setManualCurrency('SAR')">ر.س</button>
+          <button type="button" class="chip" id="m-cur-ils" onclick="setManualCurrency('ILS')">₪ شيكل</button>
+        </div>
+      </div>
+      <div class="field" id="m-rate-field" style="display:none">
+        <label id="m-rate-label">سعر الصرف (₪ ← ر.س)</label>
+        <input type="number" id="m-rate" step="0.0001" placeholder="مثال 0.98" oninput="updateManualConvertedHint()">
+      </div>
+    </div>
+    <div id="m-converted-hint" style="display:none;margin:-8px 0 12px;font-size:12px;color:var(--muted)"></div>
+    <div class="field"><label>التاجر / الجهة</label><input type="text" id="m-merchant" placeholder="مثال: كارفور" oninput="onManualMerchantInput()"></div>
     <div class="field-row">
       <div class="field"><label>التصنيف</label>
-        <select id="m-type">
+        <select id="m-type" onchange="this.dataset.userSet='1'">
           <option value="" disabled selected>— اختر التصنيف —</option>
           <option value="أساسيات">أساسيات</option>
           <option value="كماليات">كماليات</option>
@@ -96,7 +109,14 @@
           <option value="غير محدد">غير محدد</option>
         </select>
       </div>
-      <div class="field"><label>طريقة الدفع</label><input type="text" id="m-method" placeholder="مدى / Apple Pay"></div>
+      <div class="field"><label>طريقة الدفع</label>
+        <div class="chip-group" style="margin-bottom:7px">
+          <button type="button" class="chip" onclick="setManualMethod('نقد')">💵 نقد</button>
+          <button type="button" class="chip" onclick="setManualMethod('تحويل')">🔁 تحويل</button>
+          <button type="button" class="chip" onclick="setManualMethod('بطاقة')">💳 بطاقة</button>
+        </div>
+        <input type="text" id="m-method" placeholder="أو اكتب طريقة أخرى" oninput="syncManualMethodChips()">
+      </div>
     </div>
     <div class="field"><label>ملاحظة (اختياري)</label><input type="text" id="m-note" placeholder="مثال: قسمتها مع فلان"></div>
     <div class="field"><label>👥 نيابة عن (اختياري)</label><input type="text" id="m-behalf" list="people-list" placeholder="اكتب اسم الشخص أو اختر من القائمة"></div>
@@ -134,7 +154,7 @@
     <div class="modal-title">✎ تعديل العملية</div>
     <div class="field"><label>التاجر</label><input type="text" id="e-merchant"></div>
     <div class="field-row">
-      <div class="field"><label>المبلغ (ر.س)</label><input type="number" id="e-amount" step="0.01"></div>
+      <div class="field"><label id="e-amount-label">المبلغ (ر.س)</label><input type="number" id="e-amount" step="0.01"></div>
       <div class="field"><label>التاريخ</label><input type="date" id="e-date"></div>
     </div>
     <div class="field-row">

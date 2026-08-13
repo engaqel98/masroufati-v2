@@ -173,8 +173,8 @@ function maybeNotify() {
     try {
       new Notification('مصروفاتي 💳', {
         body: lvl >= 100
-          ? 'تجاوزت سقف ' + c.name + ' (' + fmt(c.spent) + ' من ' + fmtInt(c.cap) + ' ر.س)'
-          : 'اقتربت من سقف ' + c.name + ' — صُرف ' + fmt(c.spent) + ' من ' + fmtInt(c.cap) + ' ر.س',
+          ? 'تجاوزت سقف ' + c.name + ' (' + fmt(c.spent) + ' من ' + curFmt(fmtInt(c.cap)) + ')'
+          : 'اقتربت من سقف ' + c.name + ' — صُرف ' + fmt(c.spent) + ' من ' + curFmt(fmtInt(c.cap)),
         icon: 'icons/icon-192.png',
         tag: 'masroufati-' + key
       });
@@ -312,8 +312,8 @@ async function saveEntry() {
 }
 
 async function saveManual() {
-  var amount = parseFloat(document.getElementById('m-amount').value);
-  if (!amount || amount <= 0) {
+  var rawAmount = parseFloat(document.getElementById('m-amount').value);
+  if (!rawAmount || rawAmount <= 0) {
     document.getElementById('manual-status').innerHTML = '<div class="alert alert-red">⚠️ أدخل مبلغاً صحيحاً</div>';
     return;
   }
@@ -325,7 +325,6 @@ async function saveManual() {
   var p = {
     date: document.getElementById('m-date').value || today(),
     merchant: document.getElementById('m-merchant').value || 'غير محدد',
-    amount: amount,
     type: mType,
     method: document.getElementById('m-method').value,
     balance: '', card: '', bank: 'يدوي',
@@ -333,14 +332,36 @@ async function saveManual() {
     note: (document.getElementById('m-note') ? document.getElementById('m-note').value : ''),
     behalf: (document.getElementById('m-behalf') ? document.getElementById('m-behalf').value.trim() : '')
   };
+
+  // إدخال بالشيكل: نحوّل للريال فوراً (هو المبلغ اللي يدخل الميزانية والسقف الشهري)
+  // ونحتفظ بالأصل عبر fxCurrency/fxAmount/fxRate — نفس آلية عمليات SAB الدولية.
+  if (typeof manualCurrency !== 'undefined' && manualCurrency === 'ILS') {
+    var rate = parseFloat((document.getElementById('m-rate') || {}).value);
+    if (!rate || rate <= 0) {
+      document.getElementById('manual-status').innerHTML = '<div class="alert alert-red">⚠️ أدخل سعر الصرف</div>';
+      return;
+    }
+    p.amount = Math.round(rawAmount * rate * 100) / 100;
+    p.fxCurrency = 'ILS';
+    p.fxAmount = rawAmount;
+    p.fxRate = rate;
+    settings.ilsRate = rate;
+    localStorage.setItem('settings_v2', JSON.stringify(settings));
+  } else {
+    p.amount = rawAmount;
+  }
+
   await doSave(p, 'manual-status');
   if (document.getElementById('manual-status').innerHTML.includes('alert-green')) {
     document.getElementById('m-amount').value = '';
     document.getElementById('m-merchant').value = '';
     document.getElementById('m-method').value = '';
     document.getElementById('m-type').value = '';
+    document.getElementById('m-type').dataset.userSet = '';
     if (document.getElementById('m-note')) document.getElementById('m-note').value = '';
-    if (document.getElementById('m-behalf')) document.getElementById('m-behalf').value = '';
+    // نُبقي "نيابة عن" كما هي (لا نمسحها) — مفيد وقت السفر لتكرار نفس الشخص بعمليات كاش متتالية
+    if (typeof updateManualConvertedHint === 'function') updateManualConvertedHint();
+    if (typeof syncManualMethodChips === 'function') syncManualMethodChips();
   }
 }
 
@@ -370,13 +391,17 @@ async function doSave(p, statusId) {
   };
   // رسوم دولية (محلي فقط، لا تُرسل لـ Sheets) — تُستخدم لتفسير فرق مطابقة الرصيد لاحقاً
   if (p.intlFee != null) entry.intlFee = p.intlFee;
-  // عملية دولية بعملتها الأجنبية بدون تحويل (محلي فقط) — تُستخدم لتفسير فجوات لاحقة ولإظهار
-  // تنبيه بالسجل حتى تُصحَّح يدوياً؛ تُمسح عند تعديل العملية (saveEdit)
-  if (p.fxUnconverted) { entry.fxUnconverted = true; entry.fxCurrency = p.fxCurrency; }
+  // عملية بعملة أجنبية — نحتفظ بالأصل (fxAmount/fxRate) محلياً بغض النظر عن كونها محوَّلة
+  // أو لا، فيُعرض لاحقاً بالسجل (نفس البيانات المُرسَلة بعمود "العملة الدولية" عبر
+  // entry.intl أعلاه). fxUnconverted تحديداً تعني إنها لسه بعملتها الخام بدون سعر صرف
+  // موثوق — تُستخدم لتفسير فجوات لاحقة ولإظهار تنبيه بالسجل حتى تُصحَّح يدوياً؛ تُمسح
+  // عند تعديل العملية (saveEdit)
+  if (p.fxCurrency) { entry.fxCurrency = p.fxCurrency; entry.fxAmount = p.fxAmount; if (p.fxRate) entry.fxRate = p.fxRate; }
+  if (p.fxUnconverted) entry.fxUnconverted = true;
 
   // كشف التكرار قبل الحفظ — نفس التاريخ/المبلغ/التاجر/الاتجاه
   if (typeof isDuplicate === 'function' && isDuplicate(entry)) {
-    if (!confirm('⚠️ توجد عملية مطابقة (' + fmt(entry.amount) + ' ر.س · ' + (entry.merchant || '—') + ' · ' + entry.date + ').\nحفظها مرة أخرى؟')) {
+    if (!confirm('⚠️ توجد عملية مطابقة (' + curFmt(fmt(entry.amount)) + ' · ' + (entry.merchant || '—') + ' · ' + entry.date + ').\nحفظها مرة أخرى؟')) {
       if (btn) btn.innerHTML = origText;
       var se0 = document.getElementById(statusId);
       if (se0) se0.innerHTML = '<div class="alert alert-yellow">تم الإلغاء — عملية مكررة</div>';
@@ -609,7 +634,7 @@ async function deleteEntry(id) {
   if (!id) return;
   var entry = expenses.find(function(e) { return String(e.id) === String(id); });
   if (!entry) return;
-  if (!confirm('حذف العملية «' + (entry.merchant || '—') + '» بمبلغ ' + fmt(entry.amount) + ' ر.س؟')) return;
+  if (!confirm('حذف العملية «' + (entry.merchant || '—') + '» بمبلغ ' + curFmt(fmt(entry.amount)) + '؟')) return;
 
   // احذف محلياً أولاً (response سريع)
   expenses = expenses.filter(function(e) { return String(e.id) !== String(id); });
@@ -708,7 +733,7 @@ async function saveEdit() {
   // تعديل عملية "غير محوَّلة" مو بالضرورة يعني تصحيح المبلغ — ممكن التعديل لسبب ثاني (تصنيف/ملاحظة)
   // قبل ما يوصل كشف الحساب. نسأل صراحة بدل ما نفترض ونمسح العلامة بصمت.
   if (entry.fxUnconverted) {
-    if (confirm('هذي العملية معلَّمة «عملية دولية غير محوَّلة» — المبلغ الحالي بعد التعديل: ' + fmt(entry.amount) + ' ر.س.\nهل هذا هو المبلغ الصحيح النهائي بالريال (من كشف الحساب)؟\n\nموافق = نعم، صحّحته بالكامل.\nإلغاء = لا، التعديل كان لسبب ثاني — خلّها بانتظار المبلغ الصحيح.')) {
+    if (confirm('هذي العملية معلَّمة «عملية دولية غير محوَّلة» — المبلغ الحالي بعد التعديل: ' + curFmt(fmt(entry.amount)) + '.\nهل هذا هو المبلغ الصحيح النهائي بالريال (من كشف الحساب)؟\n\nموافق = نعم، صحّحته بالكامل.\nإلغاء = لا، التعديل كان لسبب ثاني — خلّها بانتظار المبلغ الصحيح.')) {
       entry.fxUnconverted = false;
     }
   }

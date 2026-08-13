@@ -45,11 +45,27 @@ function switchTab(t, el) {
 function openAddSheet() {
   document.getElementById('add-backdrop').classList.add('on');
   document.getElementById('add-sheet').classList.add('on');
+  // وضع السفر: افتح الإدخال اليدوي مباشرة وركّز حقل المبلغ — هنا نتعمّد كسر عادة
+  // "لا تركيز تلقائي" لأن هذا اختيار المستخدم الصريح (تفعيل وضع السفر من الإعدادات)
+  if (settings.travelMode) {
+    var det = document.querySelector('#add-sheet .manual-details');
+    if (det) det.open = true;
+    var amt = document.getElementById('m-amount');
+    if (amt) setTimeout(function () { amt.focus(); }, 280);
+    return;
+  }
   // لا نركّز على الحقل تلقائياً — يتفادى ظهور الكيبورد/الزوم عند الفتح
 }
 function closeAddSheet() {
   document.getElementById('add-backdrop').classList.remove('on');
   document.getElementById('add-sheet').classList.remove('on');
+}
+
+// وضع السفر: زر (+) يفتح الإدخال اليدوي مباشرة بدل صندوق لصق SMS
+function toggleTravelMode() {
+  settings.travelMode = !settings.travelMode;
+  localStorage.setItem('settings_v2', JSON.stringify(settings));
+  renderSettings();
 }
 
 // يبدّل الزر العلوي بين «لصق» (وضع التحرير) و«حفظ» (بعد التحليل)
@@ -83,6 +99,15 @@ function togglePrivacy() {
 applyThemeIcon();
 applyPrivacyIcon();
 document.getElementById('m-date').value = today();
+
+// يعكس نص التسميات الثابتة برمز الريال المكتشَف فعلياً (الرمز الجديد أو احتياطي "ر.س")
+// — الاعتماد على CUR.SAR بدل النص الثابت بالـ HTML لأن الفحص يحصل وقت التشغيل فقط.
+(function () {
+  var mCur = document.getElementById('m-cur-sar'); if (mCur) mCur.textContent = CUR.SAR;
+  var mAmt = document.getElementById('m-amount-label'); if (mAmt) mAmt.textContent = 'المبلغ (' + CUR.SAR + ')';
+  var mRate = document.getElementById('m-rate-label'); if (mRate) mRate.textContent = 'سعر الصرف (₪ ← ' + CUR.SAR + ')';
+  var eAmt = document.getElementById('e-amount-label'); if (eAmt) eAmt.textContent = 'المبلغ (' + CUR.SAR + ')';
+})();
 if (typeof refreshPeopleList === 'function') refreshPeopleList();
 if (typeof refreshAccountsList === 'function') refreshAccountsList();
 renderDashboard();

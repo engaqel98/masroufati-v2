@@ -230,6 +230,16 @@ select { cursor: pointer; }
 .btn-row { display: flex; gap: 9px; margin-top: 10px; }
 .btn-row .btn { flex: 1; }
 
+/* ============================================================ Chips (عملة / طريقة دفع سريعة) */
+.chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 8px 12px; font-size: 12.5px; font-weight: 600; font-family: inherit;
+  border-radius: 999px; border: 1.5px solid var(--border); background: var(--card-2); color: var(--text);
+  cursor: pointer; transition: background-color .15s, color .15s, border-color .15s, transform .12s;
+}
+.chip:active { transform: scale(.96); }
+.chip.active { background: linear-gradient(135deg, var(--hero-1), var(--hero-3)); color: #fff; border-color: transparent; }
+
 /* ============================================================ Alerts */
 .alert { padding: 11px 14px; border-radius: var(--rs); font-size: 13px; font-weight: 600; margin-top: 11px; display: flex; align-items: flex-start; gap: 8px; line-height: 1.6; border: 1px solid transparent; animation: pop .25s ease; }
 .alert-green { background: var(--green-bg); color: var(--green-text); border-color: var(--green-border); }
@@ -618,7 +628,7 @@ body.priv input[type="number"]:focus { filter: none; }
 .fin-hero .fh-eyebrow { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; color: rgba(255,255,255,.8); position: relative; }
 .fin-hero .fh-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-lux); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-lux) 30%, transparent); }
 .fin-hero .fh-big { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.05; margin: 9px 0 2px; position: relative; }
-.fin-hero .fh-big .cur { font-size: 16px; font-weight: 600; opacity: .85; margin-inline-start: 5px; }
+.fin-hero .fh-big .cur { font-size: 16px; font-weight: 600; opacity: .85; margin-inline-end: 5px; }
 .fin-hero .fh-sub { font-size: 12px; color: rgba(255,255,255,.72); position: relative; }
 .fin-hero .fh-sub b { color: #fff; font-weight: 600; }
 .comb { display: flex; gap: 3px; margin: 16px 0 13px; height: 30px; align-items: flex-end; position: relative; }
@@ -639,7 +649,7 @@ body.priv input[type="number"]:focus { filter: none; }
 .res2 .res-head.credit { background: radial-gradient(120% 120% at 85% 0%, color-mix(in srgb, var(--green) 18%, transparent), transparent 60%), var(--card); }
 .res2 .res-big { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
 .res2 .res-head.credit .res-big { color: var(--green); }
-.res2 .res-big .cur { font-size: 16px; font-weight: 600; color: var(--muted); margin-inline-start: 5px; }
+.res2 .res-big .cur { font-size: 16px; font-weight: 600; color: var(--muted); margin-inline-end: 5px; }
 .res2 .res-mer { font-size: 14px; font-weight: 700; margin-top: 7px; }
 .res2 .res-mer span { color: var(--muted); font-weight: 400; }
 .res2 .res-tag { display: inline-flex; align-items: center; gap: 6px; margin-top: 11px; font-size: 12px; font-weight: 700;
@@ -661,7 +671,7 @@ body.priv input[type="number"]:focus { filter: none; }
 .spend2-info { flex: 1; min-width: 0; }
 .spend2-lbl { font-size: 12px; color: var(--muted); }
 .spend2-amt { font-size: 30px; font-weight: 800; letter-spacing: -1px; margin-top: 2px; }
-.spend2-amt .cur { font-size: 14px; font-weight: 600; color: var(--muted); margin-inline-start: 4px; }
+.spend2-amt .cur { font-size: 14px; font-weight: 600; color: var(--muted); margin-inline-end: 4px; }
 .spend-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 3px 9px;
   border-radius: 999px; margin-top: 7px; }
 .spend-delta.down { color: var(--c-ess); background: color-mix(in srgb, var(--c-ess) 14%, transparent); }

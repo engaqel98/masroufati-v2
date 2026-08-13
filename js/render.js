@@ -21,7 +21,7 @@ function analyze() {
   window._parsed = parsed;
 
   var hasAuto = !isCredit && parsed.type && parsed.type !== 'غير محدد';
-  var balStr = (parsed.balance !== '' && parsed.balance != null) ? fmt(parsed.balance) + ' ر.س' : '';
+  var balStr = (parsed.balance !== '' && parsed.balance != null) ? curFmt(fmt(parsed.balance)) : '';
   var cardStr = parsed.card ? '•••• ' + parsed.card : '';
   var fxStr = '';
   if (parsed.fxCurrency && parsed.fxAmount) {
@@ -34,7 +34,7 @@ function analyze() {
 
   // رأس: المبلغ + التاجر + الشارة (تصميم ٢)
   html += '<div class="res-head' + (isCredit ? ' credit' : '') + '">';
-  html += '<div class="res-big">' + (isCredit ? '+ ' : '') + fmt(parsed.amount) + ' <span class="cur">ر.س</span></div>';
+  html += '<div class="res-big">' + (isCredit ? '+ ' : '') + curFmtHtml(fmt(parsed.amount)) + '</div>';
   html += '<div class="res-mer">' + (parsed.merchant || '—') + (parsed.txType ? ' <span>· ' + parsed.txType + '</span>' : '') + '</div>';
   html += '<span class="res-tag badge ' + (isCredit ? 'badge-blue' : typeBadge(parsed.type)) + '">' + (isCredit ? '➕ ' + (parsed.type || 'إضافة') : parsed.type) + '</span>';
   html += '</div>';
@@ -83,11 +83,11 @@ function analyze() {
       var pendingMatch = pendingFees.length && Math.abs(Math.abs(diff) - pendingSum) < 0.01;
 
       if (Math.abs(diff) > 0.01 && feeExplained) {
-        html += '<div class="alert alert-blue" style="margin-bottom:8px;font-size:12px">ℹ️ فرق ' + fmt(Math.abs(diff)) + ' ر.س يطابق الرسوم الدولية لهذه العملية — البنك غالباً ما يحدّث الرصيد المعروض بالرسوم فوراً (تُخصم لاحقاً). مو فجوة حقيقية.</div>';
+        html += '<div class="alert alert-blue" style="margin-bottom:8px;font-size:12px">ℹ️ فرق ' + curFmt(fmt(Math.abs(diff))) + ' يطابق الرسوم الدولية لهذه العملية — البنك غالباً ما يحدّث الرصيد المعروض بالرسوم فوراً (تُخصم لاحقاً). مو فجوة حقيقية.</div>';
       } else if (Math.abs(diff) > 0.01 && pendingFx.length) {
         html += '<div class="alert alert-blue" style="margin-bottom:8px">'
           + 'ℹ️ <b>الفرق يطابق عملية/عمليات دولية غير محوَّلة</b><br>'
-          + 'الأرجح سبب الفرق (' + fmt(Math.abs(diff)) + ' ر.س) عملية دولية سابقة لسه محفوظة بعملتها الأجنبية بدون تحويل:<br>'
+          + 'الأرجح سبب الفرق (' + curFmt(fmt(Math.abs(diff))) + ') عملية دولية سابقة لسه محفوظة بعملتها الأجنبية بدون تحويل:<br>'
           + pendingFx.map(function (pe) { return '• ' + htmlEsc(pe.merchant || '—') + ' — ' + fmt(pe.amount) + ' ' + (pe.fxCurrency || '') + ' (' + pe.date + ') <button class="btn btn-outline btn-sm" style="margin-right:6px" onclick="editEntry(\'' + String(pe.id) + '\')">✏️ عدّل</button>'; }).join('<br>')
           + '<span style="font-size:11px;color:var(--muted);display:block;margin-top:6px">يمكنك الحفظ عادي — عدّل العملية القديمة لما توصلك القيمة الصحيحة.</span>'
           + '</div>';
@@ -95,8 +95,8 @@ function analyze() {
         window._pendingFeeGap = { ids: pendingFees.map(function (pe) { return pe.id; }), total: pendingSum, date: parsed.date, card: parsed.card || '', bank: parsed.bank || '' };
         html += '<div class="alert alert-blue" id="pending-fee-alert" style="margin-bottom:8px">'
           + 'ℹ️ <b>الفرق يطابق رسوم دولية معلّقة</b><br>'
-          + 'الفرق ' + fmt(Math.abs(diff)) + ' ر.س يطابق رسوم دولية سابقة لسه ما انسجّلت (البنك غالباً حدّث الرصيد بيها الحين):<br>'
-          + pendingFees.map(function (pe) { return '• ' + htmlEsc(pe.merchant || '—') + ' — ' + fmt(pe.intlFee) + ' ر.س (' + pe.date + ')'; }).join('<br>')
+          + 'الفرق ' + curFmt(fmt(Math.abs(diff))) + ' يطابق رسوم دولية سابقة لسه ما انسجّلت (البنك غالباً حدّث الرصيد بيها الحين):<br>'
+          + pendingFees.map(function (pe) { return '• ' + htmlEsc(pe.merchant || '—') + ' — ' + curFmt(fmt(pe.intlFee)) + ' (' + pe.date + ')'; }).join('<br>')
           + '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="confirmPendingFeeGap()">💵 تسجيل كرسوم دولية</button></div>'
           + '<span style="font-size:11px;color:var(--muted)">يمكنك الحفظ عادي — هذا تنبيه فقط.</span>'
           + '</div>';
@@ -105,9 +105,9 @@ function analyze() {
         window._recon = { diff: diff, up: up, date: parsed.date, card: parsed.card || '', bank: parsed.bank || '', prevMerchant: prevE.merchant || '', prevDate: prevE.date || '' };
         html += '<div class="alert ' + (up ? 'alert-green' : 'alert-yellow') + '" id="recon-alert" style="margin-bottom:8px;display:block">'
           + (up ? '💡' : '⚠️') + ' <b>تنبيه مطابقة الرصيد</b><br>'
-          + 'الرصيد السابق لهذه البطاقة: ' + fmt(prevBal) + ' ر.س<br>'
-          + 'المتوقّع بعد هذه العملية: ' + fmt(expected) + ' ر.س · الفعلي: ' + fmt(newBal) + ' ر.س<br>'
-          + '<b>فرق ' + fmt(Math.abs(diff)) + ' ر.س ' + (up ? 'زيادة' : 'نقص') + ' غير مُسجَّل</b> — '
+          + 'الرصيد السابق لهذه البطاقة: ' + curFmt(fmt(prevBal)) + '<br>'
+          + 'المتوقّع بعد هذه العملية: ' + curFmt(fmt(expected)) + ' · الفعلي: ' + curFmt(fmt(newBal)) + '<br>'
+          + '<b>فرق ' + curFmt(fmt(Math.abs(diff))) + ' ' + (up ? 'زيادة' : 'نقص') + ' غير مُسجَّل</b> — '
           + (up ? 'غالباً صار استرداد/إيداع لم تُسجَّله.' : 'غالباً صار خصم/عملية لم تُسجَّلها.')
           + '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="confirmReconGap()">💵 سجّل الفرق المفقود</button></div>'
           + '<span style="font-size:11px;color:var(--muted)">يمكنك الحفظ عادي — هذا تنبيه فقط لمراجعة عملياتك.</span>'
@@ -144,9 +144,9 @@ function analyze() {
 
   // === التفاصيل / التعديل (سكرول للأسفل عند الحاجة) ===
   html += '<div class="divider"></div>';
-  html += '<div class="field"><label>المبلغ المُسجَّل (ر.س)</label>';
+  html += '<div class="field"><label>المبلغ المُسجَّل (' + CUR.SAR + ')</label>';
   html += '<input type="number" id="amount-edit" value="' + parsed.amount + '" step="0.01">';
-  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (isCredit ? 'مبلغ السداد: ' : 'المخصوم: ') + fmt(parsed.amount) + ' ر.س' + (isCredit ? '' : ' — عدّله لو الخصم مشترك') + '</div></div>';
+  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (isCredit ? 'مبلغ السداد: ' : 'المخصوم: ') + curFmt(fmt(parsed.amount)) + (isCredit ? '' : ' — عدّله لو الخصم مشترك') + '</div></div>';
   html += '<div class="field"><label>ملاحظة (اختياري)</label><input type="text" id="note-edit" placeholder="مثال: قسمتها مع فلان"></div>';
   html += '<div class="field"><label>💳 البطاقة / الحساب</label>';
   html += '<input type="text" id="acct-edit" list="accounts-list" value="' + htmlEsc(accountKey(parsed)) + '" placeholder="مثال: •••• 1234 أو اسم البنك">';
@@ -254,7 +254,7 @@ function recordSettlement(name) {
   var pendingNote = pendingFx.length
     ? '\n(+ ' + pendingFx.length + ' عملية دولية غير محوَّلة غير محسوبة: ' + pendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ' — صحّحها من السجل أولاً)'
     : '';
-  var v = prompt('كم سدّد «' + nm + '»؟\nالمتبقي عليه: ' + fmt(owed) + ' ر.س' + pendingNote, def);
+  var v = prompt('كم سدّد «' + nm + '»؟\nالمتبقي عليه: ' + curFmt(fmt(owed)) + pendingNote, def);
   if (v == null) return;
   var amt = parseFloat(v);
   if (!amt || amt <= 0) return;
@@ -267,6 +267,105 @@ function recordSettlement(name) {
     behalf: nm,
     bank: 'تسوية',
     txType: 'سداد شخص'
+  });
+}
+
+// تسجيل سلفة نقدية استلمها المستخدم من شخص (مثلاً وقت السفر) — تُضاف كحركة وارد
+// (credit) باسمه، فيصير "المتبقي عليه" سالباً (أنت المدين له بمبلغ السلفة)، وكل
+// مصروف كاش لاحق نيابة عنه (نفس الاسم بحقل "نيابة عن") يقرّب الرصيد من الصفر تلقائياً.
+function receiveAdvance(name) {
+  var nm = String(name == null ? '' : name).trim();
+  if (!nm) {
+    var typed = prompt('اسم الشخص اللي أعطاك السلفة؟');
+    if (!typed) return;
+    nm = typed.trim();
+    if (!nm) return;
+  }
+  var v = prompt('كم استلمت من «' + nm + '» كسلفة؟');
+  if (v == null) return;
+  var amt = parseFloat(v);
+  if (!amt || amt <= 0) return;
+  doSave({
+    date: today(),
+    merchant: 'سلفة من ' + nm,
+    amount: amt,
+    type: 'غير محدد',
+    direction: 'credit',
+    behalf: nm,
+    bank: 'سلفة',
+    txType: 'سلفة مستلمة'
+  });
+}
+
+// ============================================================
+// MANUAL ENTRY — عملة الإدخال اليدوي (ريال/شيكل)، اقتراح التصنيف، أزرار طريقة الدفع
+// ============================================================
+var manualCurrency = 'SAR';
+
+// يبدّل عملة الإدخال اليدوي بين الريال والشيكل — يظهر/يخفي حقل سعر الصرف ويعبّيه من
+// آخر سعر محفوظ بالإعدادات (settings.ilsRate) لتفادي إعادة كتابته كل عملية.
+function setManualCurrency(cur) {
+  manualCurrency = cur;
+  var sarBtn = document.getElementById('m-cur-sar'), ilsBtn = document.getElementById('m-cur-ils');
+  if (sarBtn) sarBtn.classList.toggle('active', cur === 'SAR');
+  if (ilsBtn) ilsBtn.classList.toggle('active', cur === 'ILS');
+  var rf = document.getElementById('m-rate-field');
+  var lbl = document.getElementById('m-amount-label');
+  if (cur === 'ILS') {
+    if (rf) rf.style.display = '';
+    if (lbl) lbl.textContent = 'المبلغ (₪)';
+    var rateEl = document.getElementById('m-rate');
+    if (rateEl && !rateEl.value && settings.ilsRate) rateEl.value = settings.ilsRate;
+  } else {
+    if (rf) rf.style.display = 'none';
+    if (lbl) lbl.textContent = 'المبلغ (' + CUR.SAR + ')';
+  }
+  updateManualConvertedHint();
+}
+
+// يعرض تحت حقل المبلغ كم يعادل بالريال (بسعر الصرف المُدخَل) قبل الحفظ — معاينة فقط،
+// التحويل الفعلي يحصل داخل saveManual().
+function updateManualConvertedHint() {
+  var hint = document.getElementById('m-converted-hint');
+  if (!hint) return;
+  if (manualCurrency !== 'ILS') { hint.style.display = 'none'; hint.innerHTML = ''; return; }
+  var amt = parseFloat(document.getElementById('m-amount').value);
+  var rate = parseFloat((document.getElementById('m-rate') || {}).value);
+  if (amt > 0 && rate > 0) {
+    hint.style.display = '';
+    hint.innerHTML = '≈ ' + curFmt(fmt(Math.round(amt * rate * 100) / 100));
+  } else {
+    hint.style.display = 'none'; hint.innerHTML = '';
+  }
+}
+
+// اقتراح تصنيف تلقائي أثناء كتابة اسم التاجر (نفس classifyMerchant المستخدمة لتحليل
+// SMS) — لا يتجاوز اختياراً صريحاً سبق أن ضبطه المستخدم يدوياً بالقائمة (m-type.dataset.userSet).
+function onManualMerchantInput() {
+  var mer = document.getElementById('m-merchant').value;
+  var typeSel = document.getElementById('m-type');
+  if (!typeSel || typeSel.dataset.userSet === '1') return;
+  if (!mer || typeof classifyMerchant !== 'function') return;
+  var guess = classifyMerchant(mer, '');
+  if (guess && guess !== 'غير محدد') typeSel.value = guess;
+}
+
+// أزرار طريقة الدفع السريعة (نقد/تحويل/بطاقة) — تعبّي حقل النص وتفعّل الشريحة المطابقة
+function setManualMethod(v) {
+  var input = document.getElementById('m-method');
+  if (input) input.value = v;
+  syncManualMethodChips();
+}
+
+// يبقي حالة "active" على شريحة طريقة الدفع متزامنة مع محتوى حقل النص (سواء غيّره
+// المستخدم بالكتابة المباشرة أو بالضغط على شريحة)
+function syncManualMethodChips() {
+  var input = document.getElementById('m-method');
+  var val = input ? input.value : '';
+  var chips = document.querySelectorAll('.manual-details .chip-group .chip');
+  chips.forEach(function(c) {
+    if (c.id === 'm-cur-sar' || c.id === 'm-cur-ils') return;   // شريحة العملة تُدار من setManualCurrency
+    c.classList.toggle('active', c.textContent.trim().indexOf(val) !== -1 && val !== '');
   });
 }
 
@@ -488,21 +587,21 @@ function confirmReconGap() {
   var r = window._recon;
   if (!r) return;
   var amt = Math.round(Math.abs(r.diff) * 100) / 100;
-  if (!confirm('تسجيل عملية ' + (r.up ? 'استرداد/إيداع' : 'خصم') + ' بقيمة ' + fmt(amt) + ' ر.س لتوثيق فرق الرصيد؟')) return;
+  if (!confirm('تسجيل عملية ' + (r.up ? 'استرداد/إيداع' : 'خصم') + ' بقيمة ' + curFmt(fmt(amt)) + ' لتوثيق فرق الرصيد؟')) return;
   var context = r.prevMerchant ? ('بعد عملية ' + r.prevMerchant + ' (' + r.prevDate + ')') : '';
   recordGapEntry(r.up, r.diff, r.date, r.card, r.bank, undefined, context);
   var b = document.getElementById('recon-alert');
-  if (b) b.innerHTML = '✅ سُجّلت تسوية الفرق (' + fmt(amt) + ' ر.س). أكمل حفظ العملية الحالية لإغلاق السلسلة.';
+  if (b) b.innerHTML = '✅ سُجّلت تسوية الفرق (' + curFmt(fmt(amt)) + '). أكمل حفظ العملية الحالية لإغلاق السلسلة.';
 }
 
 // زر تسجيل الرسوم الدولية المعلَّقة داخل تنبيه التحليل (لما الفرق يطابق رسوم سابقة لسه ما انسجّلت)
 function confirmPendingFeeGap() {
   var r = window._pendingFeeGap;
   if (!r) return;
-  if (!confirm('تسجيل رسوم دولية معلّقة بقيمة ' + fmt(r.total) + ' ر.س؟')) return;
+  if (!confirm('تسجيل رسوم دولية معلّقة بقيمة ' + curFmt(fmt(r.total)) + '؟')) return;
   recordFeeSettlement(r.ids, r.total, r.date, r.card, r.bank);
   var b = document.getElementById('pending-fee-alert');
-  if (b) b.innerHTML = '✅ سُجّلت الرسوم الدولية (' + fmt(r.total) + ' ر.س). أكمل حفظ العملية الحالية لإغلاق السلسلة.';
+  if (b) b.innerHTML = '✅ سُجّلت الرسوم الدولية (' + curFmt(fmt(r.total)) + '). أكمل حفظ العملية الحالية لإغلاق السلسلة.';
 }
 
 // يملأ datalist الحسابات من كل البطاقات/البنوك الظاهرة في العمليات
@@ -516,10 +615,11 @@ function refreshAccountsList() {
   }).join('');
 }
 
-// قيد تسوية يدوي (سداد شخص أُدخل من زر «سجّل سداد») — يخص دفتر الذمم فقط،
-// يُخفى من العمليات العامة لكنه يبقى في فلتر «نيابة» ويُنقص المتبقي على الشخص.
+// قيد تسوية أو سلفة يدوية (زرّي «سجّل سداد» و«سلفة جديدة») — يخص دفتر الذمم فقط،
+// يُخفى من العمليات العامة لكنه يبقى في فلتر «نيابة» ويؤثّر على المتبقي على الشخص.
 function isSettlement(e) {
-  return !!(e && e.behalf && e.direction === 'credit' && (e.txType === 'سداد شخص' || e.bank === 'تسوية'));
+  return !!(e && e.behalf && e.direction === 'credit'
+    && (e.txType === 'سداد شخص' || e.bank === 'تسوية' || e.txType === 'سلفة مستلمة' || e.bank === 'سلفة'));
 }
 
 // يطبّق اختيار البطاقة/الحساب اليدوي على كائن العملية قبل الحفظ
@@ -668,11 +768,11 @@ function finHeroHtml() {
   }
   var h = '<div class="fin-hero stagger">';
   h += '<div class="fh-eyebrow"><span class="fh-dot"></span> خطة التمويل · يتبقّى ' + fMonthsLeft + ' شهر</div>';
-  h += '<div class="fh-big"><b data-count="' + fRemaining + '">' + fmtInt(fRemaining) + '</b> <span class="cur">ر.س</span></div>';
-  h += '<div class="fh-sub">المتبقّي من إجمالي <b data-count="' + fTotal + '">' + fmtInt(fTotal) + '</b> ر.س</div>';
+  h += '<div class="fh-big">' + curFmtHtml('<b data-count="' + fRemaining + '">' + fmtInt(fRemaining) + '</b>') + '</div>';
+  h += '<div class="fh-sub">المتبقّي من إجمالي ' + curFmt('<b data-count="' + fTotal + '">' + fmtInt(fTotal) + '</b>') + '</div>';
   h += '<div class="comb">' + comb + '</div>';
   h += '<div class="fh-foot"><div>التقدّم<b>شهر ' + fMonthNum + ' / 24</b></div>'
-    + '<div>القسط الشهري<b><span data-count="' + fPay + '">' + fmtInt(fPay) + '</span> ر.س</b></div>'
+    + '<div>القسط الشهري<b>' + curFmt('<span data-count="' + fPay + '">' + fmtInt(fPay) + '</span>') + '</b></div>'
     + '<div>الانتهاء<b>' + fEnd + '</b></div></div>';
   h += '</div>';
   return h;
@@ -684,12 +784,12 @@ function catBudgetRow(name, dotCls, colorVar, spent, budget) {
   var pct = budget > 0 ? Math.min(100, Math.max(0, (spent / budget) * 100)) : (spent > 0 ? 100 : 0);
   var html = '<div class="cat-row">';
   html += '<div class="cat-head"><span class="cat-name"><span class="' + dotCls + '">●</span> ' + name + '</span>';
-  html += '<span class="cat-left' + (over ? ' neg' : '') + '">باقي ' + fmtInt(left) + ' ر.س</span></div>';
+  html += '<span class="cat-left' + (over ? ' neg' : '') + '">باقي ' + curFmt(fmtInt(left)) + '</span></div>';
   html += '<div class="progress-track"><div class="progress-fill" style="--w:' + pct + '%;background:' + (over ? 'var(--red-text)' : colorVar) + '"></div></div>';
-  html += '<div class="cat-sub">صُرف ' + fmt(spent) + ' من ' + fmtInt(budget) + ' ر.س' + (over ? ' · تجاوزت بـ ' + fmt(-left) : '') + '</div>';
+  html += '<div class="cat-sub">صُرف ' + fmt(spent) + ' من ' + curFmt(fmtInt(budget)) + (over ? ' · تجاوزت بـ ' + fmt(-left) : '') + '</div>';
   // تنبيه استباقي: اقتربت من السقف (≥80%) قبل التجاوز
   if (!over && budget > 0 && (spent / budget) >= 0.8) {
-    html += '<div class="cat-warn">⚠️ اقتربت من السقف — باقي ' + fmtInt(left) + ' ر.س فقط</div>';
+    html += '<div class="cat-warn">⚠️ اقتربت من السقف — باقي ' + curFmt(fmtInt(left)) + ' فقط</div>';
   }
   html += '</div>';
   return html;
@@ -772,12 +872,12 @@ function monthSummaryCardHtml(ym, opts) {
   h += '<div class="card-title">' + title + '</div>';
   h += '<div class="spend2">' + donut
     + '<div class="spend2-info"><div class="spend2-lbl">إجمالي الصرف</div>'
-    + '<div class="spend2-amt">' + fmt(s.spend) + ' <span class="cur">ر.س</span></div>' + deltaHtml + '</div></div>';
+    + '<div class="spend2-amt">' + curFmtHtml(fmt(s.spend)) + '</div>' + deltaHtml + '</div></div>';
   h += '<div class="cat-divider"></div>';
-  h += '<div class="acct-line"><span>🏦 سداد التمويل</span><b>' + fmt(s.loan) + ' ر.س</b></div>';
-  if (s.incoming > 0) h += '<div class="acct-line"><span>⬇️ الوارد</span><b class="acct-in">+ ' + fmt(s.incoming) + ' ر.س</b></div>';
-  h += '<div class="acct-line"><span>💰 الفائض (راتب − صرف − قسط)</span><b style="color:' + (s.saved >= 0 ? 'var(--c-ess)' : 'var(--red-text)') + '">' + fmt(s.saved) + ' ر.س</b></div>';
-  if (s.topMerchant) h += '<div class="acct-line"><span>🏷️ أعلى تاجر</span><b>' + htmlEsc(s.topMerchant.name) + ' · ' + fmt(s.topMerchant.sum) + ' ر.س</b></div>';
+  h += '<div class="acct-line"><span>🏦 سداد التمويل</span><b>' + curFmt(fmt(s.loan)) + '</b></div>';
+  if (s.incoming > 0) h += '<div class="acct-line"><span>⬇️ الوارد</span><b class="acct-in">+ ' + curFmt(fmt(s.incoming)) + '</b></div>';
+  h += '<div class="acct-line"><span>💰 الفائض (راتب − صرف − قسط)</span><b style="color:' + (s.saved >= 0 ? 'var(--c-ess)' : 'var(--red-text)') + '">' + curFmt(fmt(s.saved)) + '</b></div>';
+  if (s.topMerchant) h += '<div class="acct-line"><span>🏷️ أعلى تاجر</span><b>' + htmlEsc(s.topMerchant.name) + ' · ' + curFmt(fmt(s.topMerchant.sum)) + '</b></div>';
   h += '<div class="acct-line"><span>🧾 عدد العمليات</span><b>' + s.count + '</b></div>';
   var ok = s.committed && s.budgetOK;
   h += '<div class="commit-row"><span class="commit-icon">' + (ok ? '✅' : '❌') + '</span><span>' + (ok ? 'التزمت بالخطة هذا الشهر' : 'لم تلتزم بالخطة بالكامل') + '</span></div>';
@@ -899,18 +999,18 @@ function renderDashboard() {
       + '<circle cx="52" cy="52" r="42" fill="none" stroke="var(--hero-1)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + C + '" stroke-dashoffset="' + off + '" style="--dash:' + C + ';--off:' + off + '" class="ring-anim" transform="rotate(-90 52 52)"/></svg>'
       + '<div class="donut2-mid"><b data-count="' + pct + '">' + pct + '</b><span>٪ من الدخل</span></div></div>';
     html += '<div class="spend2-info"><div class="spend2-lbl">صرف ' + monthLabel + '</div>'
-      + '<div class="spend2-amt"><b data-count="' + spent + '" data-decimals="2">' + fmt(spent) + '</b> <span class="cur">ر.س</span></div>' + deltaHtml + '</div>';
+      + '<div class="spend2-amt">' + curFmtHtml('<b data-count="' + spent + '" data-decimals="2">' + fmt(spent) + '</b>') + '</div>' + deltaHtml + '</div>';
     html += '</div>';
     html += '<div class="cat-divider"></div>';
     html += catBudgetRow('أساسيات', 'dot-ess', 'var(--c-ess)', byType['أساسيات'], settings.basic);
     html += catBudgetRow('كماليات', 'dot-lux', 'var(--c-lux)', byType['كماليات'], freeBudget);
     html += catBudgetRow('سداد التمويل', 'dot-loan', 'var(--c-loan)', byType['سداد التمويل'], settings.payment);
-    html += '<div class="cat-row"><div class="cat-head"><span class="cat-name"><span class="dot-unk">●</span> غير محدد</span><span class="cat-left">صُرف ' + fmtInt(byType['غير محدد']) + ' ر.س</span></div><div class="cat-sub">بدون سقف — صنّفها لتدخل أحد المظاريف</div></div>';
+    html += '<div class="cat-row"><div class="cat-head"><span class="cat-name"><span class="dot-unk">●</span> غير محدد</span><span class="cat-left">صُرف ' + curFmt(fmtInt(byType['غير محدد'])) + '</span></div><div class="cat-sub">بدون سقف — صنّفها لتدخل أحد المظاريف</div></div>';
     var _committed = byType['سداد التمويل'] >= settings.payment;
     var _budgetOK = (byType['أساسيات'] + byType['كماليات']) <= (settings.salary - settings.payment);
     var _ok = _committed && _budgetOK;
     html += '<div class="commit-row"><span class="commit-icon">' + (_ok ? '✅' : '❌') + '</span><span>' + (_ok ? 'ملتزم بالخطة هذا الشهر' : 'غير ملتزم بعد') + '</span></div>';
-    if (!_committed) html += '<div class="alert alert-red" style="margin-top:8px">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + fmtInt(settings.payment) + ' ر.س)</div>';
+    if (!_committed) html += '<div class="alert alert-red" style="margin-top:8px">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + curFmt(fmtInt(settings.payment)) + ')</div>';
     if (byType['أساسيات'] > settings.basic) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الأساسيات تجاوزت الهدف</div>';
     if (byType['كماليات'] > freeBudget) html += '<div class="alert alert-yellow" style="margin-top:8px">⚠️ الكماليات تجاوزت الفائض الحر</div>';
     if (monthPendingFx.length) {
@@ -989,25 +1089,26 @@ function txRowHtml(e, runningBalance) {
   s += '<div class="tx-m"><span class="pill ' + pillClass(e.type, isCredit) + '">' + (e.type || '') + '</span>'
     + (e.bank ? ' ' + e.bank : '')
     + (e.behalf ? ' <span class="behalf-tag">👥 ' + htmlEsc(e.behalf) + '</span>' : '') + '</div>';
-  if (e.balance !== '' && e.balance != null) s += '<div class="tx-meta">الرصيد: ' + fmt(e.balance) + ' ر.س</div>';
+  if (e.balance !== '' && e.balance != null) s += '<div class="tx-meta">الرصيد: ' + curFmt(fmt(e.balance)) + '</div>';
   if (runningBalance != null) {
     var rbOwed = runningBalance > 0.005, rbSettled = Math.abs(runningBalance) <= 0.005;
     var rbCls = rbSettled ? 'var(--muted)' : (rbOwed ? 'var(--hero-1)' : 'var(--green)');
     var rbLabel = rbSettled ? 'تصفّى الحساب بعدها ✅' : (rbOwed ? 'الإجمالي عليه بعدها' : 'صار له عندك بعدها');
-    s += '<div class="tx-meta" style="color:' + rbCls + ';font-weight:600">' + rbLabel + (rbSettled ? '' : ': ' + fmt(Math.abs(runningBalance)) + ' ر.س') + '</div>';
+    s += '<div class="tx-meta" style="color:' + rbCls + ';font-weight:600">' + rbLabel + (rbSettled ? '' : ': ' + curFmt(fmt(Math.abs(runningBalance)))) + '</div>';
   }
-  if (edited) s += '<div class="tx-meta">عُدّل من ' + fmt(e.origAmount) + ' ر.س</div>';
+  if (edited) s += '<div class="tx-meta">عُدّل من ' + curFmt(fmt(e.origAmount)) + '</div>';
+  if (!e.fxUnconverted && e.fxCurrency && e.fxAmount) s += '<div class="tx-meta"><bdi>' + fmt(e.fxAmount) + ' ' + e.fxCurrency + (e.fxRate ? ' @' + e.fxRate : '') + '</bdi></div>';
   if (e.note) s += '<div class="tx-meta">📝 ' + htmlEsc(e.note) + '</div>';
   if (e.synced === false) s += '<div class="tx-meta" style="color:var(--red-text)">⚠️ لم يُرفع إلى Sheets</div>';
   if (e.intlFee) {
     s += e.intlFeeSettled
-      ? '<div class="tx-meta" style="color:var(--muted)">🔗 رسوم دولية ' + fmt(e.intlFee) + ' ر.س — سُجِّلت لاحقاً</div>'
-      : '<div class="tx-meta" style="color:var(--muted)">⏳ رسوم دولية ' + fmt(e.intlFee) + ' ر.س لسه ما انسجّلت</div>';
+      ? '<div class="tx-meta" style="color:var(--muted)">🔗 رسوم دولية ' + curFmt(fmt(e.intlFee)) + ' — سُجِّلت لاحقاً</div>'
+      : '<div class="tx-meta" style="color:var(--muted)">⏳ رسوم دولية ' + curFmt(fmt(e.intlFee)) + ' لسه ما انسجّلت</div>';
   }
   if (e.fxUnconverted) s += '<div class="tx-meta" style="color:var(--c-lux)">🌍 عملية دولية بدون تحويل — عدّلها بالمبلغ الصحيح بالريال</div>';
   s += '</div>';
-  var amtUnit = e.fxUnconverted ? (e.fxCurrency || '') : 'ر.س';
-  s += '<div class="tx-end"><div class="tx-amt' + (isCredit ? ' plus' : '') + (e.fxUnconverted ? ' fx-pending' : '') + '">' + (isCredit ? '+ ' : '') + fmt(e.amount) + ' ' + amtUnit + '</div>'
+  var amtStr = e.fxUnconverted ? (fmt(e.amount) + ' ' + (e.fxCurrency || '')) : curFmt(fmt(e.amount));
+  s += '<div class="tx-end"><div class="tx-amt' + (isCredit ? ' plus' : '') + (e.fxUnconverted ? ' fx-pending' : '') + '">' + (isCredit ? '+ ' : '') + amtStr + '</div>'
     + '<div class="tx-date">' + dateLine + '</div></div>';
   s += '<span class="tx-chev">⌄</span>';
   s += '</div>';
@@ -1060,7 +1161,7 @@ function renderGapsTab(el) {
   }
   var net = gaps.reduce(function(s, g) { return s + g.diff; }, 0);
   var html = '<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:10px 15px">';
-  html += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + gaps.length + ' فجوة مكتشفة</span><span style="font-weight:700;color:' + (net >= 0 ? 'var(--green)' : '#d9822b') + '">' + (net >= 0 ? '+ ' : '− ') + fmt(Math.abs(net)) + ' ر.س صافي</span></div>';
+  html += '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--muted)">' + gaps.length + ' فجوة مكتشفة</span><span style="font-weight:700;color:' + (net >= 0 ? 'var(--green)' : '#d9822b') + '">' + (net >= 0 ? '+ ' : '− ') + curFmt(fmt(Math.abs(net))) + ' صافي</span></div>';
   html += '<div style="font-size:11.5px;color:var(--muted);margin-top:6px">فرق بين الرصيد الفعلي والمتوقّع — غالباً عمليات/استردادات لم تُسجَّل. سجّلها لإغلاق الفجوة.</div>';
   html += '</div></div>';
 
@@ -1078,7 +1179,7 @@ function renderGapsTab(el) {
       html += '<br><span style="font-size:11.5px;color:var(--muted)">بين عملية ' + htmlEsc(g.anchorMerchant || '—') + ' (' + g.anchorDate + ') وعملية ' + htmlEsc(g.merchant || '—') + ' (' + g.date + ')</span>';
     }
     html += '</span>';
-    html += '<span style="font-weight:700;color:' + (g.up ? 'var(--green)' : '#d9822b') + '">' + (g.up ? '+ ' : '− ') + fmt(Math.abs(g.diff)) + ' ر.س</span>';
+    html += '<span style="font-weight:700;color:' + (g.up ? 'var(--green)' : '#d9822b') + '">' + (g.up ? '+ ' : '− ') + curFmt(fmt(Math.abs(g.diff))) + '</span>';
     if (g.cause === 'fee') {
       html += '<button class="btn btn-outline btn-sm" onclick="recordFeeGapAt(' + i + ')">💵 تسجيل كرسوم دولية</button>';
     } else if (g.cause === 'fx') {
@@ -1105,7 +1206,7 @@ function recordUnknownGapAt(i) {
 function recordFeeGapAt(i) {
   var g = window._gaps && window._gaps[i];
   if (!g || !g.feeItems || !g.feeItems.length) return;
-  if (!confirm('تسجيل رسوم دولية معلّقة بقيمة ' + fmt(Math.abs(g.diff)) + ' ر.س؟')) return;
+  if (!confirm('تسجيل رسوم دولية معلّقة بقيمة ' + curFmt(fmt(Math.abs(g.diff))) + '؟')) return;
   var ids = g.feeItems.map(function (fe) { return fe.id; });
   recordFeeSettlement(ids, Math.abs(g.diff), g.date, g.card, g.bank, 'accounts');
 }
@@ -1246,7 +1347,7 @@ function renderHistory() {
     { label: 'كماليات', value: byType['كماليات'], colorVar: 'var(--c-lux)' },
     { label: 'سداد التمويل', value: byType['سداد التمويل'], colorVar: 'var(--c-loan)' },
     { label: 'غير محدد', value: byType['غير محدد'], colorVar: 'var(--c-unk)' }
-  ], fmtInt(totalShown), 'ر.س') : '';
+  ], fmtInt(totalShown), CUR.SAR) : '';
 
   var LEGEND = [['أساسيات', 'dot-ess'], ['كماليات', 'dot-lux'], ['سداد التمويل', 'dot-loan'], ['غير محدد', 'dot-unk']];
   var legend = LEGEND.filter(function(l) { return byType[l[0]] > 0; }).map(function(l) {
@@ -1256,7 +1357,7 @@ function renderHistory() {
   var summaryCard = '<div class="card hist-summary-card"><div class="card-body">';
   summaryCard += '<div class="spend2">' + donut
     + '<div class="spend2-info"><div class="spend2-lbl"><b data-count="' + data.length + '" data-decimals="0">' + data.length + '</b> عملية · الإجمالي</div>'
-    + '<div class="spend2-amt"><b data-count="' + totalShown + '" data-decimals="2">' + fmt(totalShown) + '</b> <span class="cur">ر.س</span></div></div></div>';
+    + '<div class="spend2-amt">' + curFmtHtml('<b data-count="' + totalShown + '" data-decimals="2">' + fmt(totalShown) + '</b>') + '</div></div></div>';
   if (legend) summaryCard += '<div class="cat-divider"></div><div class="hist-legend">' + legend + '</div>';
   if (behalfExcluded) summaryCard += '<div class="acct-line" style="margin-top:10px"><span>👥 نيابة عن آخرين (مستثناة — راجع تبويب الحسابات)</span><b style="color:var(--hero-1)" data-count="' + behalfExcluded + '" data-decimals="2">' + fmt(behalfExcluded) + '</b></div>';
   if (histPendingFx.length) summaryCard += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:8px">🌍 + ' + histPendingFx.length + ' عملية دولية غير محوَّلة (' + histPendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة أعلاه — عدّلها من تبويب الحسابات</div>';
@@ -1306,6 +1407,8 @@ function renderAccounts() {
   var html = monthBar;
   var hasContent = false;
 
+  html += '<div class="btn-row" style="margin-bottom:14px"><button class="btn btn-outline btn-sm" onclick="receiveAdvance()">💰 تسجيل سلفة نقدية</button></div>';
+
   // ------- ملخّص الحسابات: الرصيد (آخر قيمة معروفة) + الوارد + الصادر لكل حساب/بطاقة بالشهر المختار -------
   (function () {
     var balByCard = {};
@@ -1346,9 +1449,9 @@ function renderAccounts() {
       html += '<div class="card acct-tile" style="margin-bottom:10px;cursor:pointer" onclick="viewAccountInHistory(\'' + jsStr(k) + '\')">';
       html += '<div class="card-body">';
       html += '<div class="acct-name" style="font-weight:700;margin-bottom:6px">' + htmlEsc(k) + '</div>';
-      if (balByCard[k]) html += '<div class="acct-line"><span>الرصيد المتاح</span><b>' + fmt(balByCard[k].balance) + ' ر.س</b></div>';
-      if (inByAcct[k]) html += '<div class="acct-line"><span>الوارد (' + inByAcct[k].count + ')</span><b class="acct-in">+ ' + fmt(inByAcct[k].sum) + ' ر.س</b></div>';
-      if (outByAcct[k]) html += '<div class="acct-line"><span>الصادر (' + outByAcct[k].count + ')</span><b>− ' + fmt(outByAcct[k].sum) + ' ر.س</b></div>';
+      if (balByCard[k]) html += '<div class="acct-line"><span>الرصيد المتاح</span><b>' + curFmt(fmt(balByCard[k].balance)) + '</b></div>';
+      if (inByAcct[k]) html += '<div class="acct-line"><span>الوارد (' + inByAcct[k].count + ')</span><b class="acct-in">+ ' + curFmt(fmt(inByAcct[k].sum)) + '</b></div>';
+      if (outByAcct[k]) html += '<div class="acct-line"><span>الصادر (' + outByAcct[k].count + ')</span><b>− ' + curFmt(fmt(outByAcct[k].sum)) + '</b></div>';
       html += '</div></div>';
     });
   })();
@@ -1374,7 +1477,7 @@ function renderAccounts() {
     });
     people.sort(function (a, b) { return b.owed - a.owed; });
     var totalOwed = people.reduce(function (s, p) { return s + p.owed; }, 0);
-    html += '<div class="card-title" style="margin:16px 2px 8px">👥 نيابة عن آخرين · المجموع لك: ' + fmt(totalOwed) + ' ر.س</div>';
+    html += '<div class="card-title" style="margin:16px 2px 8px">👥 نيابة عن آخرين · المجموع لك: ' + curFmt(fmt(totalOwed)) + '</div>';
     html += '<div class="card"><div class="card-body">';
     people.forEach(function (p) {
       var cls = p.owed > 0.005 ? ' owe-pos' : ' owe-zero';
@@ -1389,7 +1492,10 @@ function renderAccounts() {
       if (p.pendingFx.length) {
         html += '<div style="font-size:11.5px;color:var(--c-lux);margin-top:6px">🌍 + ' + p.pendingFx.length + ' عملية دولية غير محوَّلة (' + p.pendingFx.map(function (fe) { return fmt(fe.amount) + ' ' + (fe.fxCurrency || ''); }).join('، ') + ') غير محسوبة بعد — صحّحها من السجل</div>';
       }
-      html += '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();recordSettlement(\'' + jsStr(p.name) + '\')">💵 سجّل سداد / تصفية</button></div>';
+      html += '<div class="btn-row" style="margin-top:8px">'
+        + '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();recordSettlement(\'' + jsStr(p.name) + '\')">💵 سجّل سداد / تصفية</button>'
+        + '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();receiveAdvance(\'' + jsStr(p.name) + '\')">💰 سلفة إضافية</button>'
+        + '</div>';
       if (open) {
         var running = personRunningBalances(p.name);
         var list = expenses.filter(function (e) { return e.behalf && String(e.behalf).trim() === p.name; }).slice().sort(function (a, b) {
@@ -1426,7 +1532,7 @@ function renderAccounts() {
 function pBar(label, val, total, color) {
   var pct = Math.min(100, Math.max(0, (val/total)*100));
   return '<div style="margin-bottom:10px">'
-    + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>' + label + '</span><span style="font-weight:600">' + fmtInt(val) + ' ر.س</span></div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>' + label + '</span><span style="font-weight:600">' + curFmt(fmtInt(val)) + '</span></div>'
     + '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;background:' + color + '"></div></div>'
     + '</div>';
 }
@@ -1491,12 +1597,12 @@ function renderFinance() {
   html += '<div class="card"><div class="card-body">';
   html += '<div class="card-title">' + curLabel + '</div>';
   html += '<div class="metrics">';
-  html += '<div class="metric"><div class="metric-label">أساسيات فعلية</div><div class="metric-val" style="color:' + (essAct>basic?'var(--red-text)':'var(--green)') + '">' + fmt(essAct) + '</div><div class="metric-sub">هدف ≤ ' + fmtInt(basic) + ' ر.س</div></div>';
-  html += '<div class="metric"><div class="metric-label">كماليات فعلية</div><div class="metric-val" style="color:' + (luxAct>free?'var(--red-text)':'inherit') + '">' + fmt(luxAct) + '</div><div class="metric-sub">فائض ' + fmtInt(free) + ' ر.س</div></div>';
-  html += '<div class="metric"><div class="metric-label">سداد التمويل</div><div class="metric-val" style="color:' + (committed?'var(--green)':'var(--red-text)') + '">' + fmt(loanAct) + '</div><div class="metric-sub">هدف ' + fmtInt(payment) + ' ر.س</div></div>';
+  html += '<div class="metric"><div class="metric-label">أساسيات فعلية</div><div class="metric-val" style="color:' + (essAct>basic?'var(--red-text)':'var(--green)') + '">' + fmt(essAct) + '</div><div class="metric-sub">هدف ≤ ' + curFmt(fmtInt(basic)) + '</div></div>';
+  html += '<div class="metric"><div class="metric-label">كماليات فعلية</div><div class="metric-val" style="color:' + (luxAct>free?'var(--red-text)':'inherit') + '">' + fmt(luxAct) + '</div><div class="metric-sub">فائض ' + curFmt(fmtInt(free)) + '</div></div>';
+  html += '<div class="metric"><div class="metric-label">سداد التمويل</div><div class="metric-val" style="color:' + (committed?'var(--green)':'var(--red-text)') + '">' + fmt(loanAct) + '</div><div class="metric-sub">هدف ' + curFmt(fmtInt(payment)) + '</div></div>';
   html += '<div class="metric"><div class="metric-label">مؤشر الالتزام</div><div class="metric-val" style="font-size:26px">' + (committed&&budgetOK?'✅':'❌') + '</div><div class="metric-sub">' + (committed&&budgetOK?'ملتزم':'غير ملتزم بعد') + '</div></div>';
   html += '</div>';
-  if (!committed) html += '<div class="alert alert-red">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + fmtInt(payment) + ' ر.س)</div>';
+  if (!committed) html += '<div class="alert alert-red">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + curFmt(fmtInt(payment)) + ')</div>';
   if (essAct > basic) html += '<div class="alert alert-yellow">⚠️ الأساسيات تجاوزت الهدف</div>';
   if (luxAct > free) html += '<div class="alert alert-yellow">⚠️ الكماليات تجاوزت الفائض الحر</div>';
   html += '</div></div>';
@@ -1508,7 +1614,7 @@ function renderFinance() {
   html += pBar('أساسيات (هدف)', basic, salary, '#057a55');
   html += pBar('فائض حر', free, salary, '#d97706');
   html += '<div class="divider"></div>';
-  html += '<div style="font-size:12px;color:var(--muted);text-align:center">الراتب الإجمالي: ' + fmtInt(salary) + ' ر.س/شهر</div>';
+  html += '<div style="font-size:12px;color:var(--muted);text-align:center">الراتب الإجمالي: ' + curFmt(fmtInt(salary)) + '/شهر</div>';
   html += '</div></div>';
 
   // جدول الأشهر
@@ -1541,14 +1647,16 @@ function renderSettings() {
   html += '<div class="settings-row"><span>تنبيهات الميزانية (المتصفح)</span><button class="btn btn-outline btn-sm" onclick="requestNotifyPermission()">' + notifyLbl + '</button></div>';
   html += '<div style="font-size:11.5px;color:var(--muted);margin-top:-2px">إشعار عند الاقتراب من سقف الأساسيات/الكماليات (80%) أو تجاوزه — مرة واحدة لكل عتبة شهرياً.</div>';
   html += '<div id="s-notify-status"></div>';
+  html += '<div class="settings-row"><span>✈️ وضع السفر</span><button class="btn btn-outline btn-sm" onclick="toggleTravelMode()">' + (settings.travelMode ? '✅ مفعّل' : '⭕ معطّل') + '</button></div>';
+  html += '<div style="font-size:11.5px;color:var(--muted);margin-top:-2px">زر (+) يفتح الإدخال اليدوي مباشرة بدل صندوق لصق SMS — مفيد بالخارج بدون رسائل بنكية سعودية.</div>';
   html += '</div></div>';
 
   html += '<div class="card"><div class="card-body">';
   html += '<div class="card-title">إعدادات التمويل</div>';
-  html += '<div class="field-row"><div class="field"><label>الراتب (ر.س)</label><input type="number" id="s-salary" value="' + settings.salary + '"></div>';
-  html += '<div class="field"><label>القسط الشهري (ر.س)</label><input type="number" id="s-payment" value="' + settings.payment + '"></div></div>';
-  html += '<div class="field-row"><div class="field"><label>أساسيات (ر.س)</label><input type="number" id="s-basic" value="' + settings.basic + '"></div>';
-  html += '<div class="field"><label>إجمالي التمويل (ر.س)</label><input type="number" id="s-total" value="' + settings.total + '"></div></div>';
+  html += '<div class="field-row"><div class="field"><label>الراتب (' + CUR.SAR + ')</label><input type="number" id="s-salary" value="' + settings.salary + '"></div>';
+  html += '<div class="field"><label>القسط الشهري (' + CUR.SAR + ')</label><input type="number" id="s-payment" value="' + settings.payment + '"></div></div>';
+  html += '<div class="field-row"><div class="field"><label>أساسيات (' + CUR.SAR + ')</label><input type="number" id="s-basic" value="' + settings.basic + '"></div>';
+  html += '<div class="field"><label>إجمالي التمويل (' + CUR.SAR + ')</label><input type="number" id="s-total" value="' + settings.total + '"></div></div>';
   html += '<div class="field"><label>تاريخ بداية التمويل (YYYY-MM)</label><input type="text" id="s-start" value="' + settings.start + '" placeholder="2026-05"></div>';
   html += '<button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>';
   html += '<div id="s-status"></div>';
