@@ -331,21 +331,31 @@ async function confirmBulkImport() {
   var toSave = _bulkRows.filter(function(r) { return r.include; });
   function setStatus(h) { var el = document.getElementById('s-bulkimport-status'); if (el) el.innerHTML = h; }
   var ok = 0, dup = 0, err = 0;
-  for (var i = 0; i < toSave.length; i++) {
-    setStatus('<div class="alert alert-blue">⏳ جاري الحفظ: ' + (i + 1) + ' من ' + toSave.length + '</div>');
-    var result = await bulkSaveEntry(toSave[i]);
-    if (result === 'duplicate') dup++;
-    else if (result === 'sheet-error') err++;
-    else ok++;
+  // try/finally حول الحلقة كلها — أي استثناء غير متوقّع (بصف وحد أو خارج الحلقة)
+  // كان يقطع التنفيذ قبل ما يوصل لكود التنظيف بالأسفل، فتبقى البطاقات ظاهرة وما
+  // تطلع رسالة نجاح ولا فشل، كأن الضغطة على الزر ما سوّت شيء
+  try {
+    for (var i = 0; i < toSave.length; i++) {
+      setStatus('<div class="alert alert-blue">⏳ جاري الحفظ: ' + (i + 1) + ' من ' + toSave.length + '</div>');
+      try {
+        var result = await bulkSaveEntry(toSave[i]);
+        if (result === 'duplicate') dup++;
+        else if (result === 'sheet-error') err++;
+        else ok++;
+      } catch (e) {
+        err++;
+      }
+    }
+  } finally {
+    if (typeof sortSheetsInBackground === 'function') sortSheetsInBackground();   // مرة وحدة لكل الدفعة، مو لكل صف
+    _bulkRows = [];
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof refreshPeopleList === 'function') refreshPeopleList();
+    if (typeof refreshAccountsList === 'function') refreshAccountsList();
+    renderSettings();
+    var msg = '✅ اكتمل الاستيراد — حُفظت ' + ok + ' عملية';
+    if (dup) msg += '، تجوهلت ' + dup + ' مكررة';
+    if (err) msg += '، وفشل رفع ' + err + ' للشيت (بقيت محلياً — أعد المزامنة لاحقاً)';
+    setStatus('<div class="alert alert-green">' + msg + '</div>');
   }
-  if (typeof sortSheetsInBackground === 'function') sortSheetsInBackground();   // مرة وحدة لكل الدفعة، مو لكل صف
-  _bulkRows = [];
-  if (typeof renderDashboard === 'function') renderDashboard();
-  if (typeof refreshPeopleList === 'function') refreshPeopleList();
-  if (typeof refreshAccountsList === 'function') refreshAccountsList();
-  renderSettings();
-  var msg = '✅ اكتمل الاستيراد — حُفظت ' + ok + ' عملية';
-  if (dup) msg += '، تجوهلت ' + dup + ' مكررة';
-  if (err) msg += '، وفشل رفع ' + err + ' للشيت (بقيت محلياً — أعد المزامنة لاحقاً)';
-  setStatus('<div class="alert alert-green">' + msg + '</div>');
 }
