@@ -226,20 +226,19 @@ function copyBulkRawLines() {
   else done();
 }
 
-// كل عملية تُعرض كبطاقة <details> قابلة للطي — سطر ملخّص واحد وهي مغلقة (تضمين +
-// وصف + مبلغ + تاريخ)، وتتوسّع لحقول التعديل الكاملة عند فتحها. غير كذا صفحة
-// بـ٢٠٠-٣٠٠ عملية توسّع كلها بحقول مكدَّسة تصير طويلة جداً للتصفّح. الصفوف
-// المشبوهة (مبلغ صفري) تُفتح افتراضياً حتى تلفت الانتباه فوراً.
+// كل عملية تُعرض كبطاقة <details> مفتوحة افتراضياً (كل الحقول ظاهرة دفعة وحدة —
+// أسهل لمراجعة التصنيف/التاجر/الاتجاه لعدد كبير من العمليات بدون فتح كل واحدة)،
+// وتقدر تطويها بالنقر على شريط العنوان إذا خلصت مراجعتها وتبي تختصر الصفحة.
 function renderImportPreview() {
   var area = document.getElementById('bulkimport-area');
   if (!area) return;
   var included = _bulkRows.filter(function(r) { return r.include; }).length;
-  var html = '<div style="font-size:12.5px;color:var(--muted);margin:8px 0">راجع كل عملية قبل الحفظ — افتح أي بطاقة لتعديل حقولها أو ألغِ تحديدها لاستبعادها (مثل سطر رصيد افتتاحي/إجمالي انقرأ غلط كعملية). البطاقات بمبلغ 0 مفتوحة تلقائياً ومُعلَّمة بالأحمر — راجعها قبل الحفظ.</div>';
+  var html = '<div style="font-size:12.5px;color:var(--muted);margin:8px 0">راجع كل عملية قبل الحفظ — عدّل الحقول أو ألغِ تحديد أي صف تبي تستبعده (مثل سطر رصيد افتتاحي/إجمالي انقرأ غلط كعملية). اطوِ أي بطاقة بالنقر على شريط عنوانها بعد ما تراجعها. الصفوف بمبلغ 0 مُعلَّمة بالأحمر — راجعها قبل الحفظ.</div>';
   html += '<div class="field"><label>الحساب/البطاقة لهذا الكشف (اختياري)</label><input type="text" list="accounts-list" placeholder="مثال: 1321 أو اسم البنك — يُطبَّق على كل العمليات المحفوظة" oninput="_bulkAccount=this.value"></div>';
   _bulkRows.forEach(function(r, i) {
     var suspect = !r.amount;
     html += '<div class="card" style="margin-bottom:8px' + (suspect ? ';border-color:var(--red-border)' : '') + '">';
-    html += '<details' + (suspect ? ' open' : '') + '>';
+    html += '<details open>';
     html += '<summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;cursor:pointer">';
     html += '<span style="display:flex;align-items:center;gap:8px;overflow:hidden;flex:1">';
     html += '<input type="checkbox" onclick="event.stopPropagation()" ' + (r.include ? 'checked' : '') + ' onchange="_bulkRows[' + i + '].include=this.checked;updateBulkImportCount()">';
