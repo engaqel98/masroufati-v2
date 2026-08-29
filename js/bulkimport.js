@@ -54,7 +54,11 @@ function pageTextToLines(content) {
   });
   return lines.map(function(l) {
     l.sort(function(a, b) { return a.x - b.x; });
-    return l.map(function(it) { return it.str; }).join(' ').replace(/\s+/g, ' ').trim();
+    var s = l.map(function(it) { return it.str; }).join(' ').replace(/\s+/g, ' ').trim();
+    // بعض ملفات PDF (لوحظ بكشف الراجحي) تُضمِّن العربي بأشكال العرض الموضعية
+    // (presentation forms، مثل "ﻛﺸﻒ" بدل "كشف") بدل الحروف المنطقية — لا تطابق
+    // أي نمط عربي عادي بالكود. normalize('NFKC') يحوّلها لحروفها القياسية.
+    return s.normalize ? s.normalize('NFKC') : s;
   }).filter(Boolean);
 }
 
@@ -164,10 +168,92 @@ function parseGenericStatement(lines) {
   return rows;
 }
 
+function pad2(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
+
+// كشف حساب جاري الراجحي (وليس بطاقة ائتمانية): جدول RTL، كل صف عملية فعلياً
+// يمتد على عدة أسطر مستخرَجة بهذا الترتيب (مؤكَّد من نص PDF.js خام فعلي):
+//   1. سطر "نوع العملية" وحده (مثل "عملية تحويل داخلية"/"خصم أقساط متاجرة وتمويل")
+//   2. سطر "٣ مبالغ" متتالية بريال — الرصيد، دائن، مدين بهذا الترتيب — وغالباً
+//      ملتصق فيه أيضاً التاريخ (YYYY/MM/DD) و/أو بداية نص الملاحظة بنفس السطر
+//   3. سطر/أسطر "ملاحظة" خام (مرجع/وقت/اسم أحياناً) حتى سطر نوع العملية التالي
+// المرجع الخام يُحفظ بحقل "ملاحظة" بدل ما يُقحَم بالتاجر ويصعّب قراءته.
+// عمليات هذا النوع من الحساب أغلبها تحويلات (راتب، تحويل بين حسابات العميل،
+// حوالات لأشخاص) وليست شراء مباشر — التصنيف الافتراضي غالباً "غير محدد" وهذا
+// متوقّع ومقصود؛ المستخدم يراجع/يستبعد/يحدّد "نيابة عن" يدوياً حسب الحاجة.
+function parseRajhiStatement(lines) {
+  var dateRe = /(\d{4})\/(\d{1,2})\/(\d{1,2})/;
+  function isAmountsLine(l) { return (l.match(/[\d,]+\.\d{2}\s*SAR/g) || []).length >= 3; }
+
+  var headerIdx = findLineIndex(lines, /دائن/);   // رأس عمود "دائن" — بداية جدول العمليات
+  var sectionEnd = findLineIndex(lines, /^Notes\b|هذه الوثيقة سرية|confidential/i, headerIdx + 1);
+  if (sectionEnd === -1) sectionEnd = lines.length;
+
+  var starts = [];
+  for (var i = headerIdx + 1; i < sectionEnd; i++) if (isAmountsLine(lines[i])) starts.push(i);
+  if (!starts.length) return [];
+
+  var rows = [];
+  for (var s = 0; s < starts.length; s++) {
+    var idx = starts[s];
+    var nums = lines[idx].match(/[\d,]+\.\d{2}(?=\s*SAR)/g) || [];
+    if (nums.length < 3) continue;
+    var credit = parseFloat(nums[1].replace(/,/g, ''));
+    var debit = parseFloat(nums[2].replace(/,/g, ''));
+    var isCredit = credit > 0;
+    var amount = Math.abs(isCredit ? credit : debit);
+    if (!amount) continue;
+
+    // نوع العملية = السطر مباشرة قبل سطر المبالغ
+    var typeIdx = idx - 1;
+    var typeLine = (typeIdx > headerIdx && starts.indexOf(typeIdx) === -1) ? lines[typeIdx].trim() : '';
+
+    // باقي سطر المبالغ (بعد حذف الـ٣ مبالغ) + أسطر الملاحظة حتى سطر نوع العملية التالي
+    var leftover = lines[idx].replace(/[\d,]+\.\d{2}\s*SAR/g, '');
+    var date = '';
+    var dm = leftover.match(dateRe);
+    if (dm) { date = dm[1] + '-' + pad2(dm[2]) + '-' + pad2(dm[3]); leftover = leftover.replace(dateRe, ''); }
+    leftover = leftover.replace(/\s+/g, ' ').trim();
+
+    var blockEnd = (s + 1 < starts.length) ? starts[s + 1] - 2 : sectionEnd - 1;
+    var noteParts = leftover ? [leftover] : [];
+    for (var j = idx + 1; j <= blockEnd; j++) {
+      var line = lines[j];
+      if (!date) {
+        var dm2 = line.match(dateRe);
+        if (dm2) { date = dm2[1] + '-' + pad2(dm2[2]) + '-' + pad2(dm2[3]); line = line.replace(dateRe, '').trim(); }
+      }
+      if (line) noteParts.push(line);
+    }
+    // نص المرجع الخام (وقت/رقم حساب/اسم أحياناً) لا يُعرض بحقل الملاحظة — مبعثَر
+    // وغير مفيد للمستخدم؛ يُستخدم فقط كاحتياط لاسم التاجر لو سطر النوع فاضي
+    var noteBlob = noteParts.join(' ').replace(/\s+/g, ' ').trim();
+    var merchant = typeLine || noteBlob || 'غير محدد';
+    var payment = normalizeCardPaymentRow(merchant, isCredit);
+    var type = payment ? payment.type : (isCredit ? classifyCreditType(merchant) : classifyMerchant(merchant, ''));
+    rows.push({
+      date: date || today(),
+      merchant: payment ? payment.merchant : merchant,
+      amount: amount,
+      // الاتجاه من عمودي دائن/مدين بالكشف مباشرة (مو تخمين من النص) — دائن>0 يعني
+      // تحويل داخل للحساب (credit)، مدين>0 يعني تحويل صادر منه (debit)
+      direction: isCredit ? 'credit' : 'debit',
+      type: type,
+      behalf: '',
+      note: '',
+      include: true
+    });
+  }
+  return rows;
+}
+
 function parseStatementLines(lines) {
   if (findLineIndex(lines, /trans\W{0,3}date|SAB Credit Card Statement|كشف حساب بطاقة الأول/i) !== -1) {
     var sab = parseSABStatement(lines);
     if (sab.length) return sab;
+  }
+  if (findLineIndex(lines, /مصرف الراجحي|alrajhi bank|كشف حساب جاري/i) !== -1) {
+    var rajhi = parseRajhiStatement(lines);
+    if (rajhi.length) return rajhi;
   }
   return parseGenericStatement(lines);
 }
