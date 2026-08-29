@@ -14,6 +14,7 @@
 var _pdfJsPromise = null;
 var _bulkRows = [];
 var _bulkRawLines = [];   // الأسطر الخام المستخرجة من آخر ملف — لتشخيص/معايرة parseStatementLines
+var _bulkAccount = '';    // حساب/بطاقة الكشف كامله (واحد لكل الدفعة) — يُطبَّق وقت الحفظ عبر applyAccount()
 
 function loadPdfJs() {
   if (_pdfJsPromise) return _pdfJsPromise;
@@ -111,7 +112,7 @@ function parseSABStatement(lines) {
       rows.push({
         date: extractDate(m[1]), merchant: merchant, amount: amount,
         direction: isCredit ? 'credit' : 'debit',
-        type: type, include: true
+        type: type, behalf: '', note: '', include: true
       });
       lastMatchedIdx = i;
     } else if (rows.length && lastMatchedIdx === i - 1 && !/\d/.test(line) && line.length < 40
@@ -155,6 +156,8 @@ function parseGenericStatement(lines) {
       amount: amount,
       direction: direction,
       type: type,
+      behalf: '',
+      note: '',
       include: true
     });
   });
@@ -223,22 +226,28 @@ function copyBulkRawLines() {
   else done();
 }
 
-// كل عملية تُعرض كبطاقة مستقلة بحقول مكدَّسة (نفس نمط .field/.field-row
-// المستخدم بنموذج الإدخال اليدوي بـindex.html) — عرض ثابت 100% يناسب الجوال
-// تلقائياً، بعكس الجدول العريض السابق اللي كانت أعمدته تنقص/تتقطّع على شاشة ضيقة.
+// كل عملية تُعرض كبطاقة <details> قابلة للطي — سطر ملخّص واحد وهي مغلقة (تضمين +
+// وصف + مبلغ + تاريخ)، وتتوسّع لحقول التعديل الكاملة عند فتحها. غير كذا صفحة
+// بـ٢٠٠-٣٠٠ عملية توسّع كلها بحقول مكدَّسة تصير طويلة جداً للتصفّح. الصفوف
+// المشبوهة (مبلغ صفري) تُفتح افتراضياً حتى تلفت الانتباه فوراً.
 function renderImportPreview() {
   var area = document.getElementById('bulkimport-area');
   if (!area) return;
   var included = _bulkRows.filter(function(r) { return r.include; }).length;
-  var html = '<div style="font-size:12.5px;color:var(--muted);margin:8px 0">راجع كل عملية قبل الحفظ — عدّل الحقول أو ألغِ تحديد أي صف تبي تستبعده (مثل سطر رصيد افتتاحي/إجمالي انقرأ غلط كعملية). الصفوف بمبلغ 0 مُعلَّمة بالأحمر — راجعها قبل الحفظ.</div>';
+  var html = '<div style="font-size:12.5px;color:var(--muted);margin:8px 0">راجع كل عملية قبل الحفظ — افتح أي بطاقة لتعديل حقولها أو ألغِ تحديدها لاستبعادها (مثل سطر رصيد افتتاحي/إجمالي انقرأ غلط كعملية). البطاقات بمبلغ 0 مفتوحة تلقائياً ومُعلَّمة بالأحمر — راجعها قبل الحفظ.</div>';
+  html += '<div class="field"><label>الحساب/البطاقة لهذا الكشف (اختياري)</label><input type="text" list="accounts-list" placeholder="مثال: 1321 أو اسم البنك — يُطبَّق على كل العمليات المحفوظة" oninput="_bulkAccount=this.value"></div>';
   _bulkRows.forEach(function(r, i) {
     var suspect = !r.amount;
-    html += '<div class="card" style="margin-bottom:10px;padding:12px' + (suspect ? ';border-color:var(--red-border)' : '') + '">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
-    html += '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">'
-      + '<input type="checkbox" ' + (r.include ? 'checked' : '') + ' onchange="_bulkRows[' + i + '].include=this.checked;updateBulkImportCount()">تضمين</label>';
-    html += '<span style="font-size:11px;color:var(--muted)">#' + (i + 1) + (suspect ? ' ⚠️ مبلغ صفري' : '') + '</span>';
-    html += '</div>';
+    html += '<div class="card" style="margin-bottom:8px' + (suspect ? ';border-color:var(--red-border)' : '') + '">';
+    html += '<details' + (suspect ? ' open' : '') + '>';
+    html += '<summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;cursor:pointer">';
+    html += '<span style="display:flex;align-items:center;gap:8px;overflow:hidden;flex:1">';
+    html += '<input type="checkbox" onclick="event.stopPropagation()" ' + (r.include ? 'checked' : '') + ' onchange="_bulkRows[' + i + '].include=this.checked;updateBulkImportCount()">';
+    html += '<span style="direction:ltr;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">' + htmlEsc(r.merchant || '') + '</span>';
+    html += '</span>';
+    html += '<span style="font-size:11.5px;color:var(--muted);white-space:nowrap">' + (suspect ? '⚠️ ' : '') + fmt(r.amount) + ' · ' + (r.date || '') + '</span>';
+    html += '</summary>';
+    html += '<div style="padding:0 12px 12px">';
     html += '<div class="field"><label>الوصف</label><input type="text" value="' + htmlEsc(r.merchant || '') + '" style="direction:ltr;text-align:left" onchange="_bulkRows[' + i + '].merchant=this.value"></div>';
     html += '<div class="field-row">';
     html += '<div class="field"><label>التاريخ</label><input type="date" value="' + (r.date || '') + '" onchange="_bulkRows[' + i + '].date=this.value"></div>';
@@ -256,11 +265,15 @@ function renderImportPreview() {
         }).join('')
       + '</select></div>';
     html += '</div>';
+    html += '<div class="field"><label>👥 نيابة عن (اختياري)</label><input type="text" list="people-list" placeholder="اسم الشخص — يُخصم من المتبقي عليه" value="' + htmlEsc(r.behalf || '') + '" onchange="_bulkRows[' + i + '].behalf=this.value"></div>';
+    html += '<div class="field"><label>ملاحظة (اختياري)</label><input type="text" value="' + htmlEsc(r.note || '') + '" onchange="_bulkRows[' + i + '].note=this.value"></div>';
+    html += '</div>';
+    html += '</details>';
     html += '</div>';
   });
   html += '<div class="btn-row" style="margin-top:10px">';
   html += '<button class="btn btn-green btn-sm" onclick="confirmBulkImport()">💾 حفظ العمليات المحدَّدة (<span id="bulkimport-count">' + included + '</span>)</button>';
-  html += '<button class="btn btn-outline btn-sm" onclick="_bulkRows=[];renderSettings()">إلغاء</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="_bulkRows=[];_bulkAccount=\'\';renderSettings()">إلغاء</button>';
   html += '</div>';
   html += rawLinesDebugHtml();
   area.innerHTML = html;
@@ -281,21 +294,23 @@ async function bulkSaveEntry(p) {
     merchant: p.merchant || '',
     amount: p.amount,
     type: p.type || 'غير محدد',
-    method: '',
+    method: 'بطاقة',
     balance: '',
     card: '',
     bank: 'كشف حساب (استيراد)',
     txType: 'استيراد من كشف حساب',
     intl: '',
-    note: '',
+    note: (p.note || '').trim(),
     origAmount: p.amount,
     direction: p.direction || 'debit',
-    behalf: ''
+    behalf: (p.behalf || '').trim()
   };
+  if (_bulkAccount && typeof applyAccount === 'function') applyAccount(entry, _bulkAccount);
   if (typeof isDuplicate === 'function' && isDuplicate(entry)) return 'duplicate';
 
   expenses.unshift(entry);
   localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (entry.behalf && typeof registerPerson === 'function') registerPerson(entry.behalf);
   if (typeof learnMerchant === 'function') learnMerchant(entry.merchant, entry.type, entry.direction);
 
   if (!settings.webapp) { entry.synced = false; localStorage.setItem('expenses_v2', JSON.stringify(expenses)); return 'local'; }
