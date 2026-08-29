@@ -148,6 +148,9 @@
 <!-- مُدخل ملف مخفي لاستعادة النسخة الاحتياطية -->
 <input type="file" id="import-file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">
 
+<!-- مُدخل ملف مخفي لاستيراد كشف حساب PDF (استيراد بالجملة) -->
+<input type="file" id="bulkimport-file" accept="application/pdf,.pdf" style="display:none" onchange="handleStatementFile(this)">
+
 <!-- Edit modal -->
 <div id="edit-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeEdit()">
   <div class="modal-card">
@@ -194,6 +197,7 @@
 <script src="js/parsers.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/save.js"></script>
+<script src="js/bulkimport.js"></script>
 <script src="js/render.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/app.js"></script>

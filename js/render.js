@@ -1718,6 +1718,17 @@ function renderSettings() {
   html += '<div id="s-backup-status"></div>';
   html += '</div></div>';
 
+  // استيراد بالجملة من كشف حساب PDF — حل لفجوة السفر (رسائل SMS ما انسجّلت أولاً بأول)
+  html += '<div class="card"><div class="card-body">';
+  html += '<div class="card-title">📄 استيراد عمليات من كشف حساب (PDF)</div>';
+  html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">ارفع ملف PDF لكشف حساب البطاقة — يفيد بعد سفرة ما قدرت تسجّل خلالها الرسائل. يستخرج البرنامج العمليات ويعرضها للمراجعة قبل الحفظ النهائي.</div>';
+  html += '<div class="btn-row">';
+  html += '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'bulkimport-file\').click()">⬆️ اختيار ملف PDF</button>';
+  html += '</div>';
+  html += '<div id="s-bulkimport-status"></div>';
+  html += '<div id="bulkimport-area"></div>';
+  html += '</div></div>';
+
   // رسائل لم تُحلَّل — أرشيف للمعالجة لاحقاً
   html += '<div class="card"><div class="card-body">';
   html += '<div class="card-title">📥 رسائل لم تُحلَّل' + (failedMsgs.length ? ' (' + failedMsgs.length + ')' : '') + '</div>';
