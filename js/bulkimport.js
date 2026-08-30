@@ -132,6 +132,11 @@ function parseSABStatement(lines) {
       var amount = Math.abs(amounts[amounts.length - 1]);   // آخر رقم = Amount (Saudi Riyals)
       var firstAmountIdx = restNoCr.search(/-?[\d,]+\.\d{2}/);
       var merchant = (firstAmountIdx === -1 ? restNoCr : restNoCr.slice(0, firstAmountIdx)).trim() || 'غير محدد';
+      // سطر "AQSAT n m of k" = القسط الشهري لمشترى مسجَّل أصلاً وقت الشراء الفعلي (لا وقت
+      // ظهوره بالكشف) — استيراده يكرّر نفس المبلغ كمصروف جديد كل شهر رغم إنه مجرد محاسبة
+      // تقسيط لعملية قديمة. تجاهله بالكامل بدل تصنيفه "سداد التمويل" (طلب المستخدم بعد ما
+      // لاحظ هذا التكرار فعلياً وحذف الصفوف يدوياً).
+      if (/^aqsat\s+\d+\s+\d+\s+of\s+\d+/i.test(merchant)) { lastMatchedIdx = i; continue; }
       var payment = normalizeCardPaymentRow(merchant, isCredit);
       var type = payment ? payment.type : classifyMerchant(merchant, '');
       if (payment) merchant = payment.merchant;

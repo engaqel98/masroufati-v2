@@ -115,5 +115,5 @@ var DICT = {
   // مطاعم/مقاهي/حلويات، سينما، سفر وحجوزات، تسوق/أزياء — نفس دفعة ٢٠٢٦-٠٨-٣٠
   'كماليات': ['مطعم','قهوة','كافيه','كافيهات','ستاربكس','starbucks','coffee','cafe','حلويات','مخبز','ملابس','عطر','سينما','سفر','هدية','نتفلكس','netflix','اشتراك','حلاق','مغسلة','صيانة','ترفيه','ألعاب','games','amazon','امازون','noon','نون','جرير','sold out','jarir',
     'al baik','burger','hungerstation','sweets','shawarmer','bakery','roaster','luqaimat','karak','vox','cinema','trip.com','wingie','flynas','jett','wego','ucuzabilet','tourism','centrepoint','trendyol','temu.com','shein'],
-  'سداد التمويل': ['سداد','قسط','تمويل','تسديد','mortgage','loan','finance','rajhi finance','الراجحي للتمويل','sabb','riyadh finance','aqsat']
+  'سداد التمويل': ['سداد','قسط','تمويل','تسديد','mortgage','loan','finance','rajhi finance','الراجحي للتمويل','sabb','riyadh finance']
 };
