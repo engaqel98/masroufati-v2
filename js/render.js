@@ -1554,7 +1554,9 @@ function renderSettings() {
   var el = document.getElementById('settings-content');
   var html = '';
 
-  // المظهر واللغة
+  // ============================================================
+  // مجموعة "المظهر" — تظهر دايماً بالأعلى (تُستخدم باستمرار)
+  // ============================================================
   var dark = document.documentElement.getAttribute('data-theme') === 'dark';
   var en = (typeof isEN === 'function') && isEN();
   html += '<div class="card"><div class="card-body">';
@@ -1569,6 +1571,67 @@ function renderSettings() {
   html += '<div class="settings-row"><span>✈️ وضع السفر</span><button class="btn btn-outline btn-sm" onclick="toggleTravelMode()">' + (settings.travelMode ? '✅ مفعّل' : '⭕ معطّل') + '</button></div>';
   html += '<div style="font-size:11.5px;color:var(--muted);margin-top:-2px">زر (+) يفتح الإدخال اليدوي مباشرة بدل صندوق لصق SMS — مفيد بالخارج بدون رسائل بنكية سعودية.</div>';
   html += '</div></div>';
+
+  // ============================================================
+  // مجموعة "البيانات والمزامنة" — تظهر دايماً (أكثر شي يُستخدم يومياً)
+  // ============================================================
+  var learnedCount = Object.keys(learned).length;
+  html += '<div class="card"><div class="card-body">';
+  html += '<div class="card-title">البيانات والمزامنة</div>';
+  html += '<div class="settings-row"><span>عدد العمليات المحفوظة</span><span class="settings-val">' + expenses.length + ' عملية</span></div>';
+  html += '<div class="btn-row" style="margin-top:12px">';
+  html += '<button class="btn btn-outline btn-sm" onclick="syncFromSheets()">🔄 تحديث من Sheets</button>';
+  html += '</div>';
+  html += '<div id="s-data-status"></div>';
+  var unsyncedCount = expenses.filter(function(e) { return e.synced === false; }).length;
+  if (unsyncedCount) {
+    html += '<div class="settings-row" style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:10px">'
+      + '<span style="color:var(--red-text)">⚠️ ' + unsyncedCount + ' عملية لم تُرفع لـ Sheets</span>'
+      + '<button class="btn btn-outline btn-sm" onclick="retryAllUploads()">🔄 أعد محاولة رفع الكل</button></div>';
+    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">محفوظة بالتطبيق فقط — فشل رفعها للشيت (انقطاع شبكة/مفتاح خاطئ). الزر يعيد محاولة رفعها كلها دفعة وحدة بدل واحدة واحدة.</div>';
+    html += '<div id="s-pending-upload-status"></div>';
+  }
+  if (pendingDeletes.length) {
+    html += '<div class="settings-row" style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:10px">'
+      + '<span style="color:var(--red-text)">⚠️ ' + pendingDeletes.length + ' عملية لم تُحذف من Sheets</span>'
+      + '<button class="btn btn-outline btn-sm" onclick="retryPendingDeletes()">🗑 أعد محاولة الحذف</button></div>';
+    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">حُذفت من التطبيق لكن فشل حذف صفّها من الشيت (انقطاع شبكة/مفتاح خاطئ) — ستبقى ظاهرة هناك حتى تنجح إعادة المحاولة.</div>';
+    html += '<div id="s-pending-del-status"></div>';
+  }
+  html += '<div style="height:1px;background:var(--border-soft);margin:14px 0"></div>';
+  html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">احفظ نسخة كاملة (عمليات + إعدادات + تصنيفات متعلَّمة) أو صدّرها كـCSV.</div>';
+  html += '<div class="btn-row">';
+  html += '<button class="btn btn-outline btn-sm" onclick="exportBackup()">⬇️ نسخة احتياطية (JSON)</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'import-file\').click()">⬆️ استعادة</button>';
+  html += '</div>';
+  html += '<div class="btn-row" style="margin-top:8px">';
+  html += '<button class="btn btn-outline btn-sm" onclick="exportCSV()">📄 تصدير CSV</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="removeDuplicates()">🔍 فحص التكرارات</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="reclassifyUndetermined()">🏷️ أعد تصنيف "غير محدد"</button>';
+  html += '</div>';
+  html += '<div class="settings-row" style="margin-top:12px"><span>تصنيفات متعلَّمة من تصحيحاتك</span><span class="settings-val">' + learnedCount + '</span></div>';
+  html += '<div id="s-backup-status"></div>';
+  html += '</div></div>';
+
+  // ============================================================
+  // مجموعة "استيراد كشف حساب PDF" — تظهر دايماً (تُستخدم كل رحلة)
+  // ============================================================
+  html += '<div class="card"><div class="card-body">';
+  html += '<div class="card-title">📄 استيراد عمليات من كشف حساب (PDF)</div>';
+  html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">ارفع ملف PDF لكشف حساب البطاقة — يفيد بعد سفرة ما قدرت تسجّل خلالها الرسائل. يستخرج البرنامج العمليات ويعرضها للمراجعة قبل الحفظ النهائي. كشف الحساب لا يحتوي وقت العملية ولا الرصيد بعدها؛ هذان الحقلان يبقيان فارغين للعمليات المستوردة (بخلاف رسائل SMS اللي فيها الاثنين).</div>';
+  html += '<div class="btn-row">';
+  html += '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'bulkimport-file\').click()">⬆️ اختيار ملف PDF</button>';
+  html += '</div>';
+  // رسالة النتيجة النهائية فقط (بعد ما تُفرَّغ _bulkRows وتُعاد renderSettings) — عنصر التقدّم
+  // الحي أثناء الحفظ نفسه موجود داخل renderImportPreview() جنب زر الحفظ مباشرة (id مختلف)
+  html += '<div id="s-bulkimport-status"></div>';
+  html += '<div id="bulkimport-area"></div>';
+  html += '</div></div>';
+
+  // ============================================================
+  // مجموعة "إعدادات متقدّمة" — تُضبط مرة واحدة، مطوية افتراضياً
+  // ============================================================
+  html += '<details class="hist-extra"><summary>⚙️ إعدادات متقدّمة (تُضبط مرة واحدة)</summary>';
 
   html += '<div class="card"><div class="card-body">';
   html += '<div class="card-title">إعدادات التمويل</div>';
@@ -1596,72 +1659,31 @@ function renderSettings() {
   html += '<div style="font-size:12px;color:var(--muted);margin:-2px 0 8px">المفتاح يُحفظ في متصفحك فقط ويُرسل مع كل طلب. لازم يطابق قيمة <code>SECRET</code> في إعدادات الـ Apps Script.</div>';
   html += '<div class="field"><label>رابط الشيت</label><input type="text" id="s-sheeturl" value="' + (settings.sheetUrl||'') + '"></div>';
   html += '<div class="btn-row">';
-  html += '<button class="btn btn-outline btn-sm" onclick="saveWebApp()">حفظ الروابط</button>';
-  html += '<button class="btn btn-outline btn-sm" onclick="openSheet()">فتح الشيت ↗</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="saveWebApp()">💾 حفظ الروابط</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="openSheet()">🔗 فتح الشيت ↗</button>';
   html += '</div>';
   html += '<div id="s-webapp-status"></div>';
   html += '</div></div>';
 
+  html += '</details>';
+
+  // ============================================================
+  // مجموعة "إجراءات حسّاسة" — مطوية افتراضياً، تمييز بصري بالأحمر
+  // ============================================================
+  html += '<details class="hist-extra" style="border-color:var(--red-border)"><summary style="color:var(--red-text)">⚠️ إجراءات حسّاسة</summary>';
   html += '<div class="card"><div class="card-body">';
-  html += '<div class="card-title">البيانات</div>';
-  html += '<div class="settings-row"><span>عدد العمليات المحفوظة</span><span class="settings-val">' + expenses.length + ' عملية</span></div>';
-  html += '<div class="btn-row" style="margin-top:12px">';
-  html += '<button class="btn btn-outline btn-sm" onclick="syncFromSheets()">🔄 تحديث من Sheets</button>';
+  html += '<div class="btn-row">';
   html += '<button class="btn btn-danger btn-sm" onclick="clearData()">🗑 مسح البيانات</button>';
+  if (learnedCount) html += '<button class="btn btn-outline btn-sm" onclick="clearLearned()">🧠 نسيان التصنيفات المتعلَّمة</button>';
   html += '</div>';
-  html += '<div id="s-data-status"></div>';
-  var unsyncedCount = expenses.filter(function(e) { return e.synced === false; }).length;
-  if (unsyncedCount) {
-    html += '<div class="settings-row" style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:10px">'
-      + '<span style="color:var(--red-text)">⚠️ ' + unsyncedCount + ' عملية لم تُرفع لـ Sheets</span>'
-      + '<button class="btn btn-outline btn-sm" onclick="retryAllUploads()">🔄 أعد محاولة رفع الكل</button></div>';
-    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">محفوظة بالتطبيق فقط — فشل رفعها للشيت (انقطاع شبكة/مفتاح خاطئ). الزر يعيد محاولة رفعها كلها دفعة وحدة بدل واحدة واحدة.</div>';
-    html += '<div id="s-pending-upload-status"></div>';
-  }
-  if (pendingDeletes.length) {
-    html += '<div class="settings-row" style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:10px">'
-      + '<span style="color:var(--red-text)">⚠️ ' + pendingDeletes.length + ' عملية لم تُحذف من Sheets</span>'
-      + '<button class="btn btn-outline btn-sm" onclick="retryPendingDeletes()">🗑 أعد محاولة الحذف</button></div>';
-    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">حُذفت من التطبيق لكن فشل حذف صفّها من الشيت (انقطاع شبكة/مفتاح خاطئ) — ستبقى ظاهرة هناك حتى تنجح إعادة المحاولة.</div>';
-    html += '<div id="s-pending-del-status"></div>';
-  }
   html += '</div></div>';
+  html += '</details>';
 
-  // النسخ الاحتياطي والتصدير
-  var learnedCount = Object.keys(learned).length;
+  // ============================================================
+  // مجموعة "تشخيص" — أداة لتحسين المحلّل، مو إعداد يومي، مطوية افتراضياً
+  // ============================================================
+  html += '<details class="hist-extra"><summary>📥 رسائل لم تُحلَّل' + (failedMsgs.length ? ' (' + failedMsgs.length + ')' : '') + '</summary>';
   html += '<div class="card"><div class="card-body">';
-  html += '<div class="card-title">💾 النسخ الاحتياطي والتصدير</div>';
-  html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">احفظ نسخة كاملة (عمليات + إعدادات + تصنيفات متعلَّمة) أو صدّرها كـCSV.</div>';
-  html += '<div class="btn-row">';
-  html += '<button class="btn btn-outline btn-sm" onclick="exportBackup()">⬇️ نسخة احتياطية (JSON)</button>';
-  html += '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'import-file\').click()">⬆️ استعادة</button>';
-  html += '</div>';
-  html += '<div class="btn-row" style="margin-top:8px">';
-  html += '<button class="btn btn-outline btn-sm" onclick="exportCSV()">📄 تصدير CSV</button>';
-  html += '<button class="btn btn-outline btn-sm" onclick="removeDuplicates()">🔍 فحص التكرارات</button>';
-  html += '<button class="btn btn-outline btn-sm" onclick="reclassifyUndetermined()">🏷️ أعد تصنيف "غير محدد"</button>';
-  html += '</div>';
-  html += '<div class="settings-row" style="margin-top:12px"><span>تصنيفات متعلَّمة من تصحيحاتك</span><span class="settings-val">' + learnedCount + '</span></div>';
-  if (learnedCount) html += '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="clearLearned()">🧠 نسيان التصنيفات المتعلَّمة</button></div>';
-  html += '<div id="s-backup-status"></div>';
-  html += '</div></div>';
-
-  // استيراد بالجملة من كشف حساب PDF — حل لفجوة السفر (رسائل SMS ما انسجّلت أولاً بأول)
-  html += '<div class="card"><div class="card-body">';
-  html += '<div class="card-title">📄 استيراد عمليات من كشف حساب (PDF)</div>';
-  html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">ارفع ملف PDF لكشف حساب البطاقة — يفيد بعد سفرة ما قدرت تسجّل خلالها الرسائل. يستخرج البرنامج العمليات ويعرضها للمراجعة قبل الحفظ النهائي.</div>';
-  html += '<div class="btn-row">';
-  html += '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'bulkimport-file\').click()">⬆️ اختيار ملف PDF</button>';
-  html += '</div>';
-  // رسالة النتيجة النهائية فقط (بعد ما تُفرَّغ _bulkRows وتُعاد renderSettings) — عنصر التقدّم
-  // الحي أثناء الحفظ نفسه موجود داخل renderImportPreview() جنب زر الحفظ مباشرة (id مختلف)
-  html += '<div id="s-bulkimport-status"></div>';
-  html += '<div id="bulkimport-area"></div>';
-  html += '</div></div>';
-
-  // رسائل لم تُحلَّل — أرشيف للمعالجة لاحقاً
-  html += '<div class="card"><div class="card-body">';
-  html += '<div class="card-title">📥 رسائل لم تُحلَّل' + (failedMsgs.length ? ' (' + failedMsgs.length + ')' : '') + '</div>';
   if (!failedMsgs.length) {
     html += '<div style="font-size:13px;color:var(--muted)">لا توجد رسائل فاشلة — كل شيء تمام 👍</div>';
   } else {
@@ -1677,6 +1699,7 @@ function renderSettings() {
   }
   html += '<div id="s-failed-status"></div>';
   html += '</div></div>';
+  html += '</details>';
 
   el.innerHTML = html;
 }
