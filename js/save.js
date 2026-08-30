@@ -130,11 +130,9 @@ async function removeDuplicates() {
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof renderSettings === 'function') renderSettings();
   if (s) s.innerHTML = '<div class="alert alert-green">✅ حُذف ' + dups.length + ' تكرار محلياً</div>';
-  // حذف من Sheets في الخلفية (أفضل جهد)
+  // حذف من Sheets دفعة وحدة (bulkdelete) بدل طلب منفصل لكل صف
   if (settings.webapp) {
-    Object.keys(ids).forEach(function(id) {
-      try { fetch(appendKey(settings.webapp + '?action=delete&id=' + encodeURIComponent(id))); } catch (e) {}
-    });
+    try { await bulkDeleteEntries(Object.keys(ids)); } catch (e) {}
   }
 }
 
@@ -536,6 +534,20 @@ async function bulkAppendEntries(entries) {
   });
   var json = await resp.json();
   if (json.status !== 'ok' || !Array.isArray(json.results)) throw new Error(json.message || 'bulk append failed');
+  return json.results;
+}
+
+// حذف دفعة عمليات من Sheets بطلب POST واحد (action=bulkdelete) — نفس منطق bulkAppendEntries
+// بس للحذف. مُستخدمة من removeDuplicates() ومن تنظيفات يدوية لدفعات كبيرة (مثال: حذف كل
+// عمليات استيراد كشف حساب دفعة وحدة تمهيداً لإعادة استيرادها).
+async function bulkDeleteEntries(ids) {
+  if (!ids.length) return [];
+  var resp = await fetch(appendKey(settings.webapp + '?action=bulkdelete'), {
+    method: 'POST',
+    body: JSON.stringify({ ids: ids })
+  });
+  var json = await resp.json();
+  if (json.status !== 'ok' || !Array.isArray(json.results)) throw new Error(json.message || 'bulk delete failed');
   return json.results;
 }
 

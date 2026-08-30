@@ -158,6 +158,11 @@ function doPost(e) {
       const entries = Array.isArray(body.entries) ? body.entries : [];
       return jsonOut({ status: 'ok', results: bulkAppendRows(entries) });
     }
+    if (action === 'bulkdelete') {
+      const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+      const ids = Array.isArray(body.ids) ? body.ids : [];
+      return jsonOut({ status: 'ok', results: bulkDeleteRows(ids) });
+    }
     return jsonOut({ status: 'error', message: 'unknown action: ' + action });
   } catch (err) {
     return jsonOut({ status: 'error', message: String(err && err.message || err) });
@@ -732,6 +737,48 @@ function deleteRow(p) {
   if (found.error) return { status: 'error', message: found.error };
   sh.deleteRow(found.row);
   return { status: 'ok', deleted: 1, row: found.row };
+}
+
+// حذف دفعة IDs ضمن تنفيذ واحد بدل طلب GET منفصل لكل id (نفس سبب بطء bulkAppendRows: كل طلب
+// GET يفتح تنفيذ Apps Script مستقل). يقرأ عمود المعرّف مرة وحدة لكل الدفعة (بدل findRowById
+// لكل id، اللي يعيد قراءة العمود من الصفر في كل استدعاء)، ثم يحذف من الأسفل للأعلى — الصفوف
+// المستهدَفة الأعلى ما تتأثر بحذف صف أدنى منها، فتبقى فهارس الصفوف المحسوبة مسبقاً صحيحة
+// طول الوقت بدون حاجة لإعادة حسابها بعد كل حذف.
+function bulkDeleteRows(ids) {
+  const sh = getTxnSheet();
+  const map = getHeaderMap(sh);
+  const idCol = map.keyToCol['id'];
+  const results = [];
+  if (!idCol) { ids.forEach(function (id) { results.push({ id: id, status: 'error', message: 'no id column' }); }); return results; }
+
+  const headerRow = map.headerRow;
+  const lastRow = sh.getLastRow();
+  const idToRow = {};
+  if (lastRow > headerRow) {
+    const colVals = sh.getRange(headerRow + 1, idCol, lastRow - headerRow, 1).getValues();
+    colVals.forEach(function (r, i) {
+      const v = String(r[0]).trim();
+      if (v) idToRow[v] = headerRow + 1 + i;
+    });
+  }
+
+  const targets = ids.map(function (id) { return { id: id, row: idToRow[String(id).trim()] }; })
+    .filter(function (t) { return t.row; })
+    .sort(function (a, b) { return b.row - a.row; });   // من الأسفل للأعلى
+  const foundIds = {};
+  targets.forEach(function (t) {
+    foundIds[String(t.id)] = true;
+    try {
+      sh.deleteRow(t.row);
+      results.push({ id: t.id, status: 'ok' });
+    } catch (err) {
+      results.push({ id: t.id, status: 'error', message: String(err && err.message || err) });
+    }
+  });
+  ids.forEach(function (id) {
+    if (!foundIds[String(id)]) results.push({ id: id, status: 'ok', message: 'id not found' });
+  });
+  return results;
 }
 
 function updateRow(p) {
