@@ -447,9 +447,14 @@ async function doSave(p, statusId) {
   }
 }
 
-// معاملات رفع عملية جديدة إلى Sheets — مستخرجة لإعادة استخدامها في إعادة الرفع (retryUpload)
-function appendEntryParams(entry) {
-  return new URLSearchParams({
+// حقول رفع عملية جديدة إلى Sheets كـobject عادي (لا URLSearchParams) — يُستخدم مباشرة
+// لحمولة JSON بالرفع الجماعي (bulkAppendEntries) ولبناء appendEntryParams أدناه. الحقول
+// المُعلَّمة بـENCODED_KEYS بالباك-إند (merchant/type/method/bank/intl/txType/note/behalf)
+// تُمرَّر بـencodeURIComponent مرة واحدة فقط هنا — dec() بالباك-إند يعكسها بdecodeURIComponent
+// مرة واحدة أيضاً؛ عبر GET تُضاف طبقة ترميز ثانية تلقائياً من URLSearchParams.toString() نفسها
+// (تُفَكّ تلقائياً بفكّ Apps Script للـquery string)، أما عبر JSON فلا توجد طبقة إضافية أصلاً.
+function appendEntryFields(entry) {
+  return {
     date: entry.date,
     time: entry.time,
     merchant: encodeURIComponent(entry.merchant),
@@ -472,7 +477,26 @@ function appendEntryParams(entry) {
     fxUnconverted: entry.fxUnconverted ? 'TRUE' : '',
     intlFee: entry.intlFee != null ? entry.intlFee : '',
     intlFeeSettled: entry.intlFeeSettled ? 'TRUE' : ''
+  };
+}
+
+// معاملات رفع عملية جديدة إلى Sheets — مستخرجة لإعادة استخدامها في إعادة الرفع (retryUpload)
+function appendEntryParams(entry) {
+  return new URLSearchParams(appendEntryFields(entry));
+}
+
+// رفع دفعة عمليات لـSheets بطلب POST واحد (action=bulkappend) بدل طلب GET منفصل لكل عملية —
+// كل عملية كانت تفتح تنفيذ Apps Script مستقل (مصادقة + فتح الشيت من الصفر)، وهذا ما يفسّر
+// كون رفع ١٥٠ عملية عبر الحلقة القديمة (GET واحد تلو الآخر) يأخذ دقائق. هنا الباك-إند يلف
+// على appendRow لكل عنصر داخل تنفيذ واحد فيرجع نتيجة لكل عملية بترتيبها.
+async function bulkAppendEntries(entries) {
+  var resp = await fetch(appendKey(settings.webapp + '?action=bulkappend'), {
+    method: 'POST',
+    body: JSON.stringify({ entries: entries.map(appendEntryFields) })
   });
+  var json = await resp.json();
+  if (json.status !== 'ok' || !Array.isArray(json.results)) throw new Error(json.message || 'bulk append failed');
+  return json.results;
 }
 
 // إعادة رفع عملية حُفظت محلياً بس فشل رفعها لـ Sheets (entry.synced === false).

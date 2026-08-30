@@ -6,6 +6,8 @@
  *  - GET ?action=read             → يرجّع كل الصفوف JSON
  *  - GET ?action=dict             → يرجّع قاموس التصنيفات
  *  - GET ?action=headers          → (تشخيص) يرجّع رؤوس "العمليات"
+ *  - POST ?action=bulkappend + جسم JSON {entries:[...]} → يضيف دفعة عمليات بتنفيذ واحد
+ *    (يستخدمها استيراد كشف الحساب بالجملة — js/bulkimport.js — بدل طلب GET لكل عملية)
  *
  * النشر: Deploy → Manage deployments → القلم (تعديل) → Version: New version → Deploy
  *
@@ -134,6 +136,38 @@ function doGet(e) {
     // لا أكشن: تحتاج معاملات إدخال صالحة (التاريخ والمبلغ على الأقل) للإضافة
     if (!p.date && !p.amount) return jsonOut({ status: 'error', message: 'missing entry params' });
     return jsonOut(appendRow(p));
+  } catch (err) {
+    return jsonOut({ status: 'error', message: String(err && err.message || err) });
+  }
+}
+
+// POST ?action=bulkappend&key=... مع جسم JSON {entries:[...]} — يضيف دفعة عمليات ضمن تنفيذ
+// واحد بدل طلب GET منفصل لكل عملية (كل طلب GET كان يفتح تنفيذ Apps Script مستقل بمصادقة
+// كاملة، وهذا سبب بطء استيراد كشوف الحساب الكبيرة: دقائق لعشرات/مئات العمليات). يلف على
+// appendRow لكل عنصر بنفس منطق الإضافة الفردية غير المتغيّر (ترتيب حسب التاريخ + فاصل الشهور)،
+// ويرجّع نتيجة لكل عملية بنفس id المُرسَل حتى يطابقها الفرونت-إند صفاً بصف.
+function doPost(e) {
+  try {
+    const p = (e && e.parameter) || {};
+    const action = (p.action || '').toLowerCase();
+    const secret = getSecret();
+    if (secret && String(p.key || '') !== secret) {
+      return jsonOut({ status: 'error', message: 'unauthorized' });
+    }
+    if (action === 'bulkappend') {
+      const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+      const entries = Array.isArray(body.entries) ? body.entries : [];
+      const results = entries.map(function (entry) {
+        try {
+          appendRow(entry);
+          return { id: entry.id, status: 'ok' };
+        } catch (err) {
+          return { id: entry.id, status: 'error', message: String(err && err.message || err) };
+        }
+      });
+      return jsonOut({ status: 'ok', results: results });
+    }
+    return jsonOut({ status: 'error', message: 'unknown action: ' + action });
   } catch (err) {
     return jsonOut({ status: 'error', message: String(err && err.message || err) });
   }

@@ -371,6 +371,10 @@ function renderImportPreview() {
   html += '<button class="btn btn-green btn-sm" onclick="confirmBulkImport()">💾 حفظ العمليات المحدَّدة (<span id="bulkimport-count">' + included + '</span>)</button>';
   html += '<button class="btn btn-outline btn-sm" onclick="_bulkRows=[];_bulkAccount=\'\';renderSettings()">إلغاء</button>';
   html += '</div>';
+  // بجانب زر الحفظ مباشرة — لا فوق قائمة البطاقات (قد تكون مئات) حتى تظهر حالة "جاري
+  // الحفظ: X من Y" بدون تمرير للأعلى أثناء الحفظ. id مختلف عن s-bulkimport-status (رسالة
+  // النتيجة النهائية بأعلى البطاقة) لأن هذا العنصر يختفي بعد اكتمال الحفظ (تُفرَّغ _bulkRows)
+  html += '<div id="s-bulkimport-progress"></div>';
   html += rawLinesDebugHtml();
   area.innerHTML = html;
 }
@@ -380,11 +384,11 @@ function updateBulkImportCount() {
   if (el) el.textContent = _bulkRows.filter(function(r) { return r.include; }).length;
 }
 
-// نسخة مصغّرة من doSave (js/save.js) بدون التعامل مع زر/event ولا حوار confirm()
-// عند التكرار — غير مناسب لحلقة مئات العمليات. التكرار يُتجاوَز صامتاً بدل السؤال.
-async function bulkSaveEntry(p) {
+// يبني كائن العملية محلياً من صف المعاينة (بدون لمس الشبكة) — مستخرج من bulkSaveEntry
+// القديمة لفصل الحفظ المحلي (سريع) عن الرفع لـSheets (بالدفعات، انظر confirmBulkImport).
+function buildBulkEntry(p, idOffset) {
   var entry = {
-    id: Date.now(),
+    id: Date.now() + idOffset,   // Date.now() وحده يتصادم بين عمليات تُبنى بنفس المللي ثانية
     date: p.date || today(),
     time: '',
     merchant: p.merchant || '',
@@ -402,49 +406,58 @@ async function bulkSaveEntry(p) {
     behalf: (p.behalf || '').trim()
   };
   if (_bulkAccount && typeof applyAccount === 'function') applyAccount(entry, _bulkAccount);
-  if (typeof isDuplicate === 'function' && isDuplicate(entry)) return 'duplicate';
-
-  expenses.unshift(entry);
-  localStorage.setItem('expenses_v2', JSON.stringify(expenses));
-  if (entry.behalf && typeof registerPerson === 'function') registerPerson(entry.behalf);
-  if (typeof learnMerchant === 'function') learnMerchant(entry.merchant, entry.type, entry.direction);
-
-  if (!settings.webapp) { entry.synced = false; localStorage.setItem('expenses_v2', JSON.stringify(expenses)); return 'local'; }
-  try {
-    var params = appendEntryParams(entry);
-    var resp = await fetch(appendKey(settings.webapp + '?' + params.toString()));
-    var json = await resp.json();
-    entry.synced = (json.status === 'ok');
-    localStorage.setItem('expenses_v2', JSON.stringify(expenses));
-    return entry.synced ? 'ok' : 'sheet-error';
-  } catch (e) {
-    entry.synced = false;
-    localStorage.setItem('expenses_v2', JSON.stringify(expenses));
-    return 'sheet-error';
-  }
+  return entry;
 }
+
+// عدد العمليات بكل طلب رفع جماعي — يوازن بين تقليل عدد الطلبات (كل طلب GET سابقاً كان
+// يفتح تنفيذ Apps Script مستقل بمصادقة كاملة، وهذا كان سبب بطء الرفع الفعلي: دقائق لـ١٥٠
+// عملية) وبين البقاء ضمن حد وقت تنفيذ Apps Script (٦ دقائق) وإظهار تقدّم تدريجي بدل انتظار
+// طويل صامت لدفعة وحدة ضخمة.
+var BULK_UPLOAD_CHUNK = 40;
 
 async function confirmBulkImport() {
   var toSave = _bulkRows.filter(function(r) { return r.include; });
-  function setStatus(h) { var el = document.getElementById('s-bulkimport-status'); if (el) el.innerHTML = h; }
+  function setProgress(h) { var el = document.getElementById('s-bulkimport-progress'); if (el) el.innerHTML = h; }
+  function setFinal(h) { var el = document.getElementById('s-bulkimport-status'); if (el) el.innerHTML = h; }
   var ok = 0, dup = 0, err = 0;
-  // try/finally حول الحلقة كلها — أي استثناء غير متوقّع (بصف وحد أو خارج الحلقة)
-  // كان يقطع التنفيذ قبل ما يوصل لكود التنظيف بالأسفل، فتبقى البطاقات ظاهرة وما
-  // تطلع رسالة نجاح ولا فشل، كأن الضغطة على الزر ما سوّت شيء
+  var toSync = [];
+  // try/finally حول الحلقة كلها — أي استثناء غير متوقّع كان يقطع التنفيذ قبل ما يوصل
+  // لكود التنظيف بالأسفل، فتبقى البطاقات ظاهرة وما تطلع رسالة نجاح ولا فشل
   try {
+    // المرحلة ١: بناء كل العمليات وحفظها محلياً فوراً (بدون شبكة، سريع) — التكرار يُتجاوَز صامتاً
+    setProgress('<div class="alert alert-blue">⏳ جاري الحفظ محلياً...</div>');
     for (var i = 0; i < toSave.length; i++) {
-      setStatus('<div class="alert alert-blue">⏳ جاري الحفظ: ' + (i + 1) + ' من ' + toSave.length + '</div>');
+      var entry = buildBulkEntry(toSave[i], i);
+      if (typeof isDuplicate === 'function' && isDuplicate(entry)) { dup++; continue; }
+      expenses.unshift(entry);
+      if (entry.behalf && typeof registerPerson === 'function') registerPerson(entry.behalf);
+      if (typeof learnMerchant === 'function') learnMerchant(entry.merchant, entry.type, entry.direction);
+      if (settings.webapp) toSync.push(entry);
+      else { entry.synced = false; ok++; }
+    }
+    localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+
+    // المرحلة ٢: رفع العمليات لـSheets بدفعات — طلب POST واحد لكل ٤٠ عملية بدل طلب GET
+    // منفصل لكل عملية (الفرق الجوهري بالسرعة: من مئات الطلبات المتتالية لعدد محدود من الدفعات)
+    for (var c = 0; c < toSync.length; c += BULK_UPLOAD_CHUNK) {
+      var chunk = toSync.slice(c, c + BULK_UPLOAD_CHUNK);
+      setProgress('<div class="alert alert-blue">⏳ جاري الرفع لـSheets: ' + Math.min(c + BULK_UPLOAD_CHUNK, toSync.length) + ' من ' + toSync.length + '</div>');
       try {
-        var result = await bulkSaveEntry(toSave[i]);
-        if (result === 'duplicate') dup++;
-        else if (result === 'sheet-error') err++;
-        else ok++;
+        var results = await bulkAppendEntries(chunk);
+        var byId = {};
+        results.forEach(function(r) { byId[String(r.id)] = r; });
+        chunk.forEach(function(en) {
+          var r = byId[String(en.id)];
+          en.synced = !!(r && r.status === 'ok');
+          if (en.synced) ok++; else err++;
+        });
       } catch (e) {
-        err++;
+        chunk.forEach(function(en) { en.synced = false; err++; });
       }
+      localStorage.setItem('expenses_v2', JSON.stringify(expenses));
     }
   } finally {
-    if (typeof sortSheetsInBackground === 'function') sortSheetsInBackground();   // مرة وحدة لكل الدفعة، مو لكل صف
+    if (toSync.length && typeof sortSheetsInBackground === 'function') sortSheetsInBackground();   // مرة وحدة لكل الدفعة كلها
     _bulkRows = [];
     if (typeof renderDashboard === 'function') renderDashboard();
     if (typeof refreshPeopleList === 'function') refreshPeopleList();
@@ -452,7 +465,7 @@ async function confirmBulkImport() {
     renderSettings();
     var msg = '✅ اكتمل الاستيراد — حُفظت ' + ok + ' عملية';
     if (dup) msg += '، تجوهلت ' + dup + ' مكررة';
-    if (err) msg += '، وفشل رفع ' + err + ' للشيت (بقيت محلياً — أعد المزامنة لاحقاً)';
-    setStatus('<div class="alert alert-green">' + msg + '</div>');
+    if (err) msg += '، وفشل رفع ' + err + ' للشيت (بقيت محلياً — أعد المزامنة من تبويب الإعدادات لاحقاً)';
+    setFinal('<div class="alert alert-green">' + msg + '</div>');
   }
 }

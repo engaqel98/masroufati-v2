@@ -1733,6 +1733,8 @@ function renderSettings() {
   html += '<div class="btn-row">';
   html += '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'bulkimport-file\').click()">⬆️ اختيار ملف PDF</button>';
   html += '</div>';
+  // رسالة النتيجة النهائية فقط (بعد ما تُفرَّغ _bulkRows وتُعاد renderSettings) — عنصر التقدّم
+  // الحي أثناء الحفظ نفسه موجود داخل renderImportPreview() جنب زر الحفظ مباشرة (id مختلف)
   html += '<div id="s-bulkimport-status"></div>';
   html += '<div id="bulkimport-area"></div>';
   html += '</div></div>';
