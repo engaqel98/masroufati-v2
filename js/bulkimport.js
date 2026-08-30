@@ -102,6 +102,14 @@ function normalizeCardPaymentRow(merchant, isCredit) {
 // ظهور له لا أول ظهور، وإلا تُقطَع عمليات الصفحات الوسطى بالكامل (لوحظ فعلياً:
 // كشف بأكثر من ١٠٠ عملية عبر ٤ صفحات كان يُستخرَج منه ١٦ عملية فقط — عمليات
 // الصفحة الأولى حصراً — بسبب هذا القطع المبكر).
+//
+// كشف قد يغطي أكثر من بطاقة على نفس الحساب (بطاقة أساسية + بطاقة إضافية باسم آخر،
+// مثال فعلي: "1321" لحامل الحساب و"1740" باسم "IBAA TOLIB") — كل قسم يبدأ بسطر
+// مقنَّع "XXXXXXXXXX<رقم>" (آخر ٤ أرقامه هي رقم البطاقة الظاهر بالتطبيق) يليه اسم
+// حامل تلك البطاقة، قبل أول عملية بذاك القسم. نتتبّعه ونعلّم كل عملية ببطاقتها
+// الفعلية بدل تطبيق حقل "الحساب/البطاقة" الموحّد على كل الصفوف بلا تمييز.
+var SAB_CARD_HEADER_RE = /^X{4,}(\d{4,})$/i;
+
 function parseSABStatement(lines) {
   var startIdx = findLineIndex(lines, /trans\W{0,3}date|activity\s*\/?\s*transaction|amount\s*\(saudi riyals\)/i);
   if (startIdx === -1) return [];
@@ -109,8 +117,11 @@ function parseSABStatement(lines) {
   var body = lines.slice(startIdx + 1, endIdx === -1 ? lines.length : endIdx);
   var rows = [];
   var lastMatchedIdx = -1;
+  var currentCard = '';
   for (var i = 0; i < body.length; i++) {
     var line = body[i];
+    var cardHeader = line.match(SAB_CARD_HEADER_RE);
+    if (cardHeader) { currentCard = cardHeader[1].slice(-4); continue; }
     var m = line.match(/^(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(.*)$/);
     if (m) {
       var rest = m[2];
@@ -127,7 +138,7 @@ function parseSABStatement(lines) {
       rows.push({
         date: extractDate(m[1]), merchant: merchant, amount: amount,
         direction: isCredit ? 'credit' : 'debit',
-        type: type, behalf: '', note: '', include: true
+        type: type, behalf: '', note: '', include: true, card: currentCard
       });
       lastMatchedIdx = i;
     } else if (rows.length && lastMatchedIdx === i - 1 && !/\d/.test(line) && line.length < 40
@@ -341,7 +352,7 @@ function renderImportPreview() {
     html += '<input type="checkbox" onclick="event.stopPropagation()" ' + (r.include ? 'checked' : '') + ' onchange="_bulkRows[' + i + '].include=this.checked;updateBulkImportCount()">';
     html += '<span style="direction:ltr;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">' + htmlEsc(r.merchant || '') + '</span>';
     html += '</span>';
-    html += '<span style="font-size:11.5px;color:var(--muted);white-space:nowrap">' + (suspect ? '⚠️ ' : '') + fmt(r.amount) + ' · ' + (r.date || '') + '</span>';
+    html += '<span style="font-size:11.5px;color:var(--muted);white-space:nowrap">' + (suspect ? '⚠️ ' : '') + fmt(r.amount) + ' · ' + (r.date || '') + (r.card ? ' · ' + htmlEsc(r.card) : '') + '</span>';
     html += '</summary>';
     html += '<div style="padding:0 12px 12px">';
     html += '<div class="field"><label>الوصف</label><input type="text" value="' + htmlEsc(r.merchant || '') + '" style="direction:ltr;text-align:left" onchange="_bulkRows[' + i + '].merchant=this.value"></div>';
@@ -361,6 +372,7 @@ function renderImportPreview() {
         }).join('')
       + '</select></div>';
     html += '</div>';
+    html += '<div class="field"><label>البطاقة' + (r.card ? ' (مُكتشَفة تلقائياً من الكشف)' : '') + '</label><input type="text" placeholder="مثال: 1321" value="' + htmlEsc(r.card || '') + '" style="direction:ltr;text-align:left" onchange="_bulkRows[' + i + '].card=this.value"></div>';
     html += '<div class="field"><label>👥 نيابة عن (اختياري)</label><input type="text" list="people-list" placeholder="اسم الشخص — يُخصم من المتبقي عليه" value="' + htmlEsc(r.behalf || '') + '" onchange="_bulkRows[' + i + '].behalf=this.value"></div>';
     html += '<div class="field"><label>ملاحظة (اختياري)</label><input type="text" value="' + htmlEsc(r.note || '') + '" onchange="_bulkRows[' + i + '].note=this.value"></div>';
     html += '</div>';
@@ -396,7 +408,7 @@ function buildBulkEntry(p, idOffset) {
     type: p.type || 'غير محدد',
     method: 'بطاقة',
     balance: '',
-    card: '',
+    card: p.card || '',   // مُكتشَف تلقائياً من قسم البطاقة بالكشف (parseSABStatement) — يبقى فارغاً لو الكشف بلا أقسام متعددة
     bank: 'كشف حساب (استيراد)',
     txType: 'استيراد من كشف حساب',
     intl: '',
