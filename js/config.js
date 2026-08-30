@@ -111,9 +111,9 @@ var DICT = {
   // ٢٠٢٦-٠٨-٣٠ بعد ملاحظة إن ~٤٠٪ من عمليات الخصم كانت "غير محدد" لغياب أسماء التجار
   // الإنجليزية/المُعرَّبة الشائعة بكشوف SAB (القاموس الأصلي عربي بالغالب + علامات قليلة)
   'أساسيات': ['بنزين','وقود','كهرباء','إنترنت','انترنت','ماء','أكل','بقالة','خضار','لحم','دجاج','خبز','حليب','مترو','باص','مواصلات','صيدلية','دواء','ايجار','إيجار','تأمين','اشتراك انترنت','carrefour','كارفور','lulu','لولو','othaim','العثيم','tamimi','تميمي','danube','الدانوب','nesto','extra','الكترونيات','هايبر','hyper',
-    'sasco','aldrees','unifco','woqod','petroleum','mobily','jawwy',' stc ','gosi','saso gov','mofa-visa','mudad','chamber of comm','hosp','metro','airport','riyadh parking','railway','panda retail'],
+    'sasco','aldrees','unifco','woqod','petroleum','mobily','jawwy',' stc ','gosi','saso gov','mofa-visa','mudad','chamber of comm','hosp','metro','airport','riyadh parking','railway','panda retail','tawuniya'],
   // مطاعم/مقاهي/حلويات، سينما، سفر وحجوزات، تسوق/أزياء — نفس دفعة ٢٠٢٦-٠٨-٣٠
   'كماليات': ['مطعم','قهوة','كافيه','كافيهات','ستاربكس','starbucks','coffee','cafe','حلويات','مخبز','ملابس','عطر','سينما','سفر','هدية','نتفلكس','netflix','اشتراك','حلاق','مغسلة','صيانة','ترفيه','ألعاب','games','amazon','امازون','noon','نون','جرير','sold out','jarir',
-    'al baik','burger','hungerstation','sweets','shawarmer','bakery','roaster','luqaimat','karak','vox','cinema','trip.com','wingie','flynas','jett','wego','ucuzabilet','tourism','centrepoint','trendyol','temu.com'],
+    'al baik','burger','hungerstation','sweets','shawarmer','bakery','roaster','luqaimat','karak','vox','cinema','trip.com','wingie','flynas','jett','wego','ucuzabilet','tourism','centrepoint','trendyol','temu.com','shein'],
   'سداد التمويل': ['سداد','قسط','تمويل','تسديد','mortgage','loan','finance','rajhi finance','الراجحي للتمويل','sabb','riyadh finance','aqsat']
 };
