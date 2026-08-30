@@ -137,13 +137,28 @@ function parseSABStatement(lines) {
       // تقسيط لعملية قديمة. تجاهله بالكامل بدل تصنيفه "سداد التمويل" (طلب المستخدم بعد ما
       // لاحظ هذا التكرار فعلياً وحذف الصفوف يدوياً).
       if (/^aqsat\s+\d+\s+\d+\s+of\s+\d+/i.test(merchant)) { lastMatchedIdx = i; continue; }
+      // عملية دولية: رمز عملة (٣ أحرف كبيرة، مثال USD/JOD/SAR) يظهر بين المبلغ الأجنبي
+      // وسعر الصرف بنفس السطر — الصفوف المحلية ما فيها أي حرف بين الأرقام إطلاقاً. عند
+      // الكشف، amounts[] (مستخرجة أعلاه) بترتيب أعمدة الكشف الثابت: [مبلغ أجنبي، سعر صرف،
+      // رسوم أخرى، ضريبة، Amount(SAR) النهائي] — لا حاجة لاستخراج إضافي، فقط نربط كل رقم
+      // بمعناه بنفس صيغة intl المُنتَجة من رسائل SMS (راجع js/save.js:424).
+      var fxCurrency = '', fxAmount = null, fxRate = null, intlFeeVal = null;
+      var fxMatch = restNoCr.match(/([\d,]+\.\d{2})\s+([A-Z]{3})\s+([\d,]+\.\d{2})/);
+      if (fxMatch && amounts.length >= 5) {
+        fxAmount = parseFloat(fxMatch[1].replace(/,/g, ''));
+        fxCurrency = fxMatch[2];
+        fxRate = amounts[1];
+        intlFeeVal = amounts[2];
+      }
       var payment = normalizeCardPaymentRow(merchant, isCredit);
       var type = payment ? payment.type : classifyMerchant(merchant, '');
       if (payment) merchant = payment.merchant;
       rows.push({
         date: extractDate(m[1]), merchant: merchant, amount: amount,
         direction: isCredit ? 'credit' : 'debit',
-        type: type, behalf: '', note: '', include: true, card: currentCard
+        type: type, behalf: '', note: '', include: true, card: currentCard,
+        statementBank: 'الأول', method: 'بطاقة',
+        fxCurrency: fxCurrency, fxAmount: fxAmount, fxRate: fxRate, intlFee: intlFeeVal
       });
       lastMatchedIdx = i;
     } else if (rows.length && lastMatchedIdx === i - 1 && !/\d/.test(line) && line.length < 40
@@ -267,7 +282,13 @@ function parseRajhiStatement(lines) {
       type: type,
       behalf: '',
       note: '',
-      include: true
+      include: true,
+      statementBank: 'الراجحي',
+      // حساب جاري بلا بطاقة — أغلب عملياته تحويلات لا مشتريات، فطريقة الدفع الثابتة
+      // "بطاقة" (الافتراضي لكشوف SAB) خطأ هنا. نص نوع العملية (typeLine) مستخرَج أصلاً
+      // فوق لبناء اسم التاجر — نعيد استخدامه كطريقة دفع بدل تخمين قيمة واحدة عامة لكل
+      // الصفوف. فاضي لو غاب سطر النوع (نادر) بدل افتراض "بطاقة" خطأً.
+      method: typeLine || ''
     });
   }
   return rows;
@@ -403,6 +424,11 @@ function updateBulkImportCount() {
 
 // يبني كائن العملية محلياً من صف المعاينة (بدون لمس الشبكة) — مستخرج من bulkSaveEntry
 // القديمة لفصل الحفظ المحلي (سريع) عن الرفع لـSheets (بالدفعات، انظر confirmBulkImport).
+// bank/method/intl تُؤخَذ من p لو الكشف حدّدها (statementBank من parseStatementLines،
+// method من typeLine بكشف الراجحي، fx* من عمود العملة الدولية بكشف SAB) — نفس البيانات
+// المتاحة لرسائل SMS المكافئة، بدل قيم ثابتة عامة تفقد سياق المصدر الفعلي. time/balance
+// تبقيان فاضيتين دايماً — كشف الحساب لا يحتوي وقت العملية ولا الرصيد بعدها إطلاقاً (فجوة
+// بنيوية بمصدر البيانات نفسه، مو نقص بالمحلّل).
 function buildBulkEntry(p, idOffset) {
   var entry = {
     id: Date.now() + idOffset,   // Date.now() وحده يتصادم بين عمليات تُبنى بنفس المللي ثانية
@@ -411,17 +437,19 @@ function buildBulkEntry(p, idOffset) {
     merchant: p.merchant || '',
     amount: p.amount,
     type: p.type || 'غير محدد',
-    method: 'بطاقة',
+    method: p.method != null ? p.method : 'بطاقة',
     balance: '',
     card: p.card || '',   // مُكتشَف تلقائياً من قسم البطاقة بالكشف (parseSABStatement) — يبقى فارغاً لو الكشف بلا أقسام متعددة
-    bank: 'كشف حساب (استيراد)',
+    bank: p.statementBank ? (p.statementBank + ' (استيراد)') : 'كشف حساب (استيراد)',
     txType: 'استيراد من كشف حساب',
-    intl: '',
+    intl: (p.fxCurrency && p.fxAmount) ? (p.fxCurrency + ' ' + p.fxAmount + (p.fxRate ? ' @' + p.fxRate : '')) : '',
     note: (p.note || '').trim(),
     origAmount: p.amount,
     direction: p.direction || 'debit',
     behalf: (p.behalf || '').trim()
   };
+  if (p.fxCurrency) { entry.fxCurrency = p.fxCurrency; entry.fxAmount = p.fxAmount; if (p.fxRate) entry.fxRate = p.fxRate; }
+  if (p.intlFee != null) entry.intlFee = p.intlFee;
   if (_bulkAccount && typeof applyAccount === 'function') applyAccount(entry, _bulkAccount);
   return entry;
 }
