@@ -142,10 +142,9 @@ function doGet(e) {
 }
 
 // POST ?action=bulkappend&key=... مع جسم JSON {entries:[...]} — يضيف دفعة عمليات ضمن تنفيذ
-// واحد بدل طلب GET منفصل لكل عملية (كل طلب GET كان يفتح تنفيذ Apps Script مستقل بمصادقة
-// كاملة، وهذا سبب بطء استيراد كشوف الحساب الكبيرة: دقائق لعشرات/مئات العمليات). يلف على
-// appendRow لكل عنصر بنفس منطق الإضافة الفردية غير المتغيّر (ترتيب حسب التاريخ + فاصل الشهور)،
-// ويرجّع نتيجة لكل عملية بنفس id المُرسَل حتى يطابقها الفرونت-إند صفاً بصف.
+// واحد بدل طلب GET منفصل لكل عملية. راجع bulkAppendRows() لتفاصيل التحسين (قراءة الشيت مرة
+// واحدة لكل الدفعة بدل مرة لكل عملية) — ويرجّع نتيجة لكل عملية بنفس id المُرسَل حتى يطابقها
+// الفرونت-إند صفاً بصف.
 function doPost(e) {
   try {
     const p = (e && e.parameter) || {};
@@ -157,15 +156,7 @@ function doPost(e) {
     if (action === 'bulkappend') {
       const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
       const entries = Array.isArray(body.entries) ? body.entries : [];
-      const results = entries.map(function (entry) {
-        try {
-          appendRow(entry);
-          return { id: entry.id, status: 'ok' };
-        } catch (err) {
-          return { id: entry.id, status: 'error', message: String(err && err.message || err) };
-        }
-      });
-      return jsonOut({ status: 'ok', results: results });
+      return jsonOut({ status: 'ok', results: bulkAppendRows(entries) });
     }
     return jsonOut({ status: 'error', message: 'unknown action: ' + action });
   } catch (err) {
@@ -861,28 +852,36 @@ function findFormatSource(sh, aroundRow, lastCol, headerRow) {
   return 0;
 }
 
-// يضيف العملية في مكانها الصحيح حسب تاريخها (الأحدث فوق)، مع فواصل بين الشهور.
-// لا ينقل ولا يعيد كتابة أي صف موجود — يكتفي بإدراج الصف الجديد.
-function appendRow(p) {
-  const sh = getTxnSheet();
-  let map = getHeaderMap(sh);
-
-  // أضف عمود فقط لمفتاح جديد له قيمة وما له عمود (مثل "نيابة" أول مرة)
-  Object.keys(p).forEach(function (k) {
-    if (k === 'action' || !KEY_HEADERS[k]) return;
-    const hasValue = p[k] != null && p[k] !== '';
-    if (hasValue && !map.keyToCol[k]) {
-      const preferred = KEY_HEADERS[k][0];
-      const newCol = sh.getLastColumn() + 1;
-      sh.getRange(map.headerRow, newCol).setValue(preferred);
-      map = getHeaderMap(sh);
-    }
-  });
-
+// يقرأ صفوف البيانات الحالية (غير الفارغة) مع فهارسها — مستخرجة من appendRow لإعادة استخدامها
+// عبر دفعة كاملة (bulkAppendRows) بقراءة واحدة بدل قراءة الشيت كله من جديد لكل عملية. هذا
+// القراءة كانت أبطأ جزء بالرفع الجماعي: مع شيت كبير (سنة+ من عمليات)، ١١٠ استدعاءات appendRow
+// متتالية كل وحدة تعيد قراءة كل الصفوف من الصفر = قراءات O(n²) تراكمية داخل تنفيذ واحد.
+function readItems(sh, map) {
   const lastCol = sh.getLastColumn();
   const headerRow = map.headerRow;
   const dataStart = headerRow + 1;
   const dateCol = map.keyToCol['date'] || 1;
+  const lastRow = sh.getLastRow();
+  const items = [];
+  if (lastRow >= dataStart) {
+    const region = sh.getRange(dataStart, 1, lastRow - headerRow, lastCol).getValues();
+    region.forEach(function (r, i) {
+      if (r.some(function (c) { return c !== '' && c != null; })) {
+        items.push({ row: dataStart + i, date: asDateStr(r[dateCol - 1]), month: monthKey(r[dateCol - 1]) });
+      }
+    });
+  }
+  return items;
+}
+
+// يضيف عملية واحدة بمكانها الصحيح حسب تاريخها (الأحدث فوق)، مع فواصل بين الشهور، ضمن sh/map
+// جاهزين و"items" (نتيجة readItems) تُحدَّث في الذاكرة بعد كل إدراج (تُزاح فهارس الصفوف
+// وتُدرَج العملية الجديدة بموضعها) — حتى تصلح لاستدعاءات متتالية بلا حاجة لإعادة قراءة الشيت.
+// لا ينقل ولا يعيد كتابة أي صف موجود — يكتفي بإدراج الصف الجديد.
+function insertRowIntoItems(p, sh, map, items) {
+  const lastCol = sh.getLastColumn();
+  const headerRow = map.headerRow;
+  const dataStart = headerRow + 1;
   const SEP = 2; // عدد صفوف الفصل بين الشهور
 
   // ابنِ الصف الجديد
@@ -897,21 +896,10 @@ function appendRow(p) {
   const newDate = asDateStr(p.date);
   const newMonth = monthKey(p.date);
 
-  // اقرأ صفوف البيانات الحالية (غير الفارغة) مع فهارسها
-  const lastRow = sh.getLastRow();
-  const items = [];
-  if (lastRow >= dataStart) {
-    const region = sh.getRange(dataStart, 1, lastRow - headerRow, lastCol).getValues();
-    region.forEach(function (r, i) {
-      if (r.some(function (c) { return c !== '' && c != null; })) {
-        items.push({ row: dataStart + i, date: asDateStr(r[dateCol - 1]), month: monthKey(r[dateCol - 1]) });
-      }
-    });
-  }
-
   // أول إعداد: لا بيانات بعد
   if (!items.length) {
     sh.getRange(dataStart, 1, 1, lastCol).setValues([newRow]);
+    items.push({ row: dataStart, date: newDate, month: newMonth });
     return { status: 'ok', row: dataStart };
   }
 
@@ -962,7 +950,64 @@ function appendRow(p) {
     rng.clearContent(); rng.clearFormat();
   });
 
+  // حدّث items بالذاكرة: أزح كل صف بعد نقطة الإدراج بمقدار count، ثم أدرج العملية الجديدة
+  // بموضعها الصحيح ضمن القائمة المفروزة تنازلياً — يغني عن إعادة قراءة الشيت للاستدعاء التالي
+  items.forEach(function (it) { if (it.row >= insertAt) it.row += count; });
+  const insertIdx = (ti === -1) ? items.length : ti;
+  items.splice(insertIdx, 0, { row: newRowSheet, date: newDate, month: newMonth });
+
   return { status: 'ok', row: newRowSheet };
+}
+
+function appendRow(p) {
+  const sh = getTxnSheet();
+  let map = getHeaderMap(sh);
+
+  // أضف عمود فقط لمفتاح جديد له قيمة وما له عمود (مثل "نيابة" أول مرة)
+  Object.keys(p).forEach(function (k) {
+    if (k === 'action' || !KEY_HEADERS[k]) return;
+    const hasValue = p[k] != null && p[k] !== '';
+    if (hasValue && !map.keyToCol[k]) {
+      const preferred = KEY_HEADERS[k][0];
+      const newCol = sh.getLastColumn() + 1;
+      sh.getRange(map.headerRow, newCol).setValue(preferred);
+      map = getHeaderMap(sh);
+    }
+  });
+
+  return insertRowIntoItems(p, sh, map, readItems(sh, map));
+}
+
+// نسخة الرفع الجماعي من appendRow: تقرأ items مرة واحدة لكل الدفعة (لا لكل عملية) وتمرّرها
+// عبر كل استدعاءات insertRowIntoItems المتتالية — نفس خوارزمية appendRow حرفياً لكل صف
+// (نفس الإدراج/الفواصل/نسخ التنسيق)، فقط بدون إعادة قراءة الشيت الكامل بينها.
+function bulkAppendRows(entries) {
+  const sh = getTxnSheet();
+  let map = getHeaderMap(sh);
+
+  // أضف أي أعمدة ناقصة تحتاجها أي عملية بالدفعة، مرة واحدة مقدَّماً
+  entries.forEach(function (p) {
+    Object.keys(p).forEach(function (k) {
+      if (k === 'action' || !KEY_HEADERS[k]) return;
+      const hasValue = p[k] != null && p[k] !== '';
+      if (hasValue && !map.keyToCol[k]) {
+        const preferred = KEY_HEADERS[k][0];
+        const newCol = sh.getLastColumn() + 1;
+        sh.getRange(map.headerRow, newCol).setValue(preferred);
+        map = getHeaderMap(sh);
+      }
+    });
+  });
+
+  const items = readItems(sh, map);
+  return entries.map(function (p) {
+    try {
+      insertRowIntoItems(p, sh, map, items);
+      return { id: p.id, status: 'ok' };
+    } catch (err) {
+      return { id: p.id, status: 'error', message: String(err && err.message || err) };
+    }
+  });
 }
 
 function readRows() {
