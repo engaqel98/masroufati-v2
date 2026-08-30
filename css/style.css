@@ -31,9 +31,12 @@
   --orange-bg: rgba(201,138,43,.14);
   --orange-border: rgba(201,138,43,.32);
   --orange-text: #A86E1E;
-  --yellow-bg: rgba(201,138,43,.14);
-  --yellow-border: rgba(201,138,43,.32);
-  --yellow-text: #A86E1E;
+  /* yellow == orange, same values — kept as an alias since .alert-yellow (used
+     throughout js/save.js, js/render.js, js/bulkimport.js) references --yellow-*;
+     not worth renaming every call site for one fewer var family */
+  --yellow-bg: var(--orange-bg);
+  --yellow-border: var(--orange-border);
+  --yellow-text: var(--orange-text);
 
   /* category palette */
   --c-ess: #12A574;
@@ -82,9 +85,9 @@ html[data-theme="dark"] {
   --orange-bg: rgba(240,180,84,.14);
   --orange-border: rgba(240,180,84,.32);
   --orange-text: #F0B454;
-  --yellow-bg: rgba(240,180,84,.14);
-  --yellow-border: rgba(240,180,84,.32);
-  --yellow-text: #F0B454;
+  --yellow-bg: var(--orange-bg);
+  --yellow-border: var(--orange-border);
+  --yellow-text: var(--orange-text);
 
   --c-ess: #2FD49B;
   --c-lux: #F0B454;
@@ -127,9 +130,10 @@ body {
   text-decoration: none; white-space: nowrap; cursor: pointer; transition: transform .12s, filter .15s;
 }
 .hlink:active { transform: scale(.95); }
+/* border-radius overridden below (line ~495) */
 .icon-btn {
   width: 38px; height: 38px; display: grid; place-items: center; font-size: 17px;
-  border-radius: 999px; border: 1px solid var(--border); background: var(--card);
+  border: 1px solid var(--border); background: var(--card);
   color: var(--text); cursor: pointer; box-shadow: var(--shadow-sm);
   transition: transform .2s, background-color .25s, border-color .25s;
 }
@@ -248,26 +252,30 @@ select { cursor: pointer; }
 .alert-blue { background: var(--blue-bg); color: var(--blue-text); border-color: var(--blue-border); }
 
 /* ============================================================ Result card */
-.amount-big { text-align: center; padding: 22px 16px 16px; background: linear-gradient(180deg, var(--card-2), var(--card)); border-bottom: 1px solid var(--border); }
-.amount-num { font-size: 42px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
-.amount-sub { font-size: 13.5px; color: var(--muted); margin-top: 7px; font-weight: 500; }
+/* .amount-big/.amount-num/.amount-sub/.badge: padding/font-size/background overridden
+   by the Design 2 pass below (line ~527) — only the properties that pass doesn't
+   touch are declared here, to keep one visual source of truth per property. */
+.amount-big { text-align: center; border-bottom: 1px solid var(--border); }
+.amount-num { font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+.amount-sub { color: var(--muted); font-weight: 500; }
 .drow { display: flex; justify-content: space-between; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--border-soft); font-size: 13px; }
 .drow:last-child { border-bottom: none; }
 .drow-key { color: var(--muted); font-weight: 500; }
 .drow-val { font-weight: 600; max-width: 60%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 999px; margin-top: 10px; border: 1px solid transparent; }
+.badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; margin-top: 10px; border: 1px solid transparent; }
 .badge-green { background: var(--green-bg); color: var(--green-text); border-color: var(--green-border); }
 .badge-orange { background: var(--orange-bg); color: var(--orange-text); border-color: var(--orange-border); }
 .badge-blue { background: var(--blue-bg); color: var(--blue-text); border-color: var(--blue-border); }
 .badge-gray { background: var(--bg-soft); color: var(--muted); border-color: var(--border); }
 
 /* ============================================================ History */
-.hist-filters { display: flex; gap: 7px; margin-bottom: 13px; flex-wrap: wrap; }
+/* .hist-filters flex-wrap and .hist-item padding/border-bottom overridden by the
+   Design 2 pass below (lines ~534, ~695) — see note there. */
+.hist-filters { display: flex; gap: 7px; margin-bottom: 13px; }
 .filt-btn { padding: 7px 14px; font-size: 12.5px; font-weight: 600; border: 1.5px solid var(--border); border-radius: 999px; background: var(--card); color: var(--muted); cursor: pointer; font-family: inherit; transition: transform .12s, background-color .2s, color .2s, border-color .2s; }
 .filt-btn:active { transform: scale(.94); }
 .filt-btn.active { background: var(--text); color: var(--card); border-color: var(--text); }
-.hist-item { display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; border-bottom: 1px solid var(--border-soft); }
-.hist-item:last-child { border-bottom: none; }
+.hist-item { display: flex; justify-content: space-between; align-items: center; }
 .hist-name { font-size: 13.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; font-weight: 500; }
 .hist-right { text-align: left; flex-shrink: 0; margin-right: 10px; }
@@ -279,8 +287,9 @@ select { cursor: pointer; }
 .cat-row { margin-bottom: 14px; }
 .cat-row:last-child { margin-bottom: 0; }
 .cat-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; margin-bottom: 6px; }
-.cat-name { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-.cat-left { font-weight: 700; white-space: nowrap; }
+/* .cat-name font-weight and .cat-left font-size overridden by the Design 2 pass below (line ~554) */
+.cat-name { display: inline-flex; align-items: center; gap: 6px; }
+.cat-left { white-space: nowrap; }
 .cat-left.neg { color: var(--red-text); }
 .cat-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
 .cat-warn { font-size: 11.5px; font-weight: 600; color: var(--c-lux); margin-top: 5px;
@@ -292,16 +301,15 @@ select { cursor: pointer; }
 .month-close .card-title { color: var(--c-lux); }
 
 /* ============================================================ Finance */
+/* .metric/.metric-unit fully overridden below (line ~559) — deleted here.
+   .metric-label/.metric-val/.metric-sub keep only the properties the later pass
+   doesn't redeclare. .progress-track/.progress-fill fully overridden (line ~547). */
 .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-bottom: 13px; }
-.metric { background: var(--card-2); border: 1px solid var(--border); border-radius: var(--rs); padding: 14px; }
 .metric.full { grid-column: 1 / -1; }
-.metric-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 7px; }
-.metric-val { font-size: 23px; font-weight: 800; line-height: 1; letter-spacing: -.5px; }
-.metric-sub { font-size: 11px; color: var(--muted); margin-top: 5px; font-weight: 500; }
-.metric-unit { font-size: 13px; font-weight: 500; color: var(--muted); }
+.metric-label { text-transform: uppercase; letter-spacing: .4px; margin-bottom: 7px; }
+.metric-val { line-height: 1; }
+.metric-sub { font-weight: 500; }
 .progress-wrap { margin: 8px 0 2px; }
-.progress-track { background: var(--bg-soft); border-radius: 999px; height: 9px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 999px; transition: width .8s cubic-bezier(.22,1,.36,1); }
 .prog-green { background: linear-gradient(90deg, #059669, #10b981); } .prog-orange { background: linear-gradient(90deg, #d97706, #f59e0b); } .prog-red { background: linear-gradient(90deg, #dc2626, #ef4444); } .prog-blue { background: linear-gradient(90deg, #2563eb, #3b82f6); }
 
 /* finance chart */
@@ -319,30 +327,33 @@ select { cursor: pointer; }
 .divider { height: 1px; background: var(--border); margin: 12px 0; }
 .sheet-link { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; padding: 12px; margin-top: 10px; font-size: 13px; font-weight: 700; font-family: inherit; border-radius: var(--rs); border: 1px solid var(--blue-border); background: var(--blue-bg); color: var(--blue-text); cursor: pointer; text-decoration: none; transition: transform .12s; }
 .sheet-link:active { transform: scale(.98); }
-.empty { text-align: center; padding: 44px 20px; color: var(--muted); }
-.empty-icon { font-size: 34px; margin-bottom: 10px; }
-.empty-text { font-size: 14px; font-weight: 600; }
+/* .empty and .empty-icon fully overridden below (line ~576); .empty-text keeps
+   only font-weight (font-size is redeclared there too). */
+.empty-text { font-weight: 600; }
 .spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; }
 @keyframes sp { to { transform: rotate(360deg); } }
 
-#sec-history, #sec-finance, #sec-accounts, #sec-settings { display: none; }
-.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border-soft); font-size: 13px; }
+#sec-history, #sec-accounts, #sec-settings { display: none; }
+/* .settings-row padding/font-size and .settings-val font-weight overridden below (line ~566) */
+.settings-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-soft); }
 .settings-row:last-child { border-bottom: none; }
-.settings-val { font-weight: 700; color: var(--blue-text); font-size: 12px; direction: ltr; text-align: left; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-val { color: var(--blue-text); font-size: 12px; direction: ltr; text-align: left; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ============================================================ Month navigation */
+/* .month-nav padding, .month-nav-btn border-radius, .month-nav-label font-weight
+   overridden below (line ~570) — dropped here to keep one source of truth. */
 .month-nav {
   display: flex; align-items: center; justify-content: center; gap: 14px;
-  margin: 0 0 12px; padding: 6px 10px;
+  margin: 0 0 12px;
 }
 .month-nav-btn {
-  width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--card); color: var(--text); font-size: 20px; font-weight: 700;
+  width: 34px; height: 34px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 20px;
   cursor: pointer; display: grid; place-items: center; transition: transform .12s, background-color .2s, opacity .2s;
 }
 .month-nav-btn:active { transform: scale(.92); }
 .month-nav-btn:disabled { opacity: .35; cursor: not-allowed; }
-.month-nav-label { font-size: 14px; font-weight: 700; min-width: 120px; text-align: center; }
+.month-nav-label { font-size: 14px; min-width: 120px; text-align: center; }
 
 /* قائمة الشهر في السجل */
 .hist-month-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -425,12 +436,12 @@ html[data-theme="dark"] .behalf-total.owe-pos b { color: #c4b5fd; }
 
 /* ============================================================ History action buttons */
 .hist-actions { display: flex; flex-direction: column; gap: 5px; margin-inline-start: 8px; flex-shrink: 0; }
+/* size/border-radius/color/font-size/transition/:active overridden below (line ~549) */
 .hist-act-btn {
-  width: 30px; height: 30px; display: grid; place-items: center; font-size: 13px;
-  border: 1px solid var(--border); border-radius: 8px; background: var(--card-2);
-  color: var(--text-soft); cursor: pointer; transition: transform .12s, background-color .2s, color .2s, border-color .2s;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); background: var(--card-2);
+  cursor: pointer;
 }
-.hist-act-btn:active { transform: scale(.9); }
 .hist-act-btn:hover { background: var(--bg-soft); }
 .hist-act-btn.hist-del:hover { background: var(--red-bg); color: var(--red-text); border-color: var(--red-border); }
 

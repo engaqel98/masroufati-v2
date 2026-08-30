@@ -1526,17 +1526,6 @@ function renderAccounts() {
   if (fxEl) renderFxPendingTab(fxEl);
 }
 
-// ============================================================
-// FINANCE TAB
-// ============================================================
-function pBar(label, val, total, color) {
-  var pct = Math.min(100, Math.max(0, (val/total)*100));
-  return '<div style="margin-bottom:10px">'
-    + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>' + label + '</span><span style="font-weight:600">' + curFmt(fmtInt(val)) + '</span></div>'
-    + '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;background:' + color + '"></div></div>'
-    + '</div>';
-}
-
 function projectionRows(curMonth, total, payment, start) {
   var parts = start.split('-');
   var sy = parseInt(parts[0]), sm = parseInt(parts[1]);
@@ -1556,76 +1545,6 @@ function projectionRows(curMonth, total, payment, start) {
     rows += '</tr>';
   }
   return rows;
-}
-
-function renderFinance() {
-  var el = document.getElementById('finance-content');
-  var total = settings.total, payment = settings.payment;
-  var basic = settings.basic, salary = settings.salary, start = settings.start;
-  var free = salary - payment - basic;
-
-  var now = new Date();
-  var parts = start.split('-');
-  var sy = parseInt(parts[0]), sm = parseInt(parts[1]);
-  var monthNum = (now.getFullYear()-sy)*12 + (now.getMonth()+1-sm) + 1;
-  var monthsLeft = Math.max(0, 24 - monthNum + 1);
-  var totalPaid = expenses.filter(function(e) { return e.type === 'سداد التمويل' && !e.behalf && e.direction !== 'credit'; }).reduce(function(s,e) { return s + (e.amount||0); }, 0);
-  var paidEst = Math.min(totalPaid, total);
-  var remaining = Math.max(0, total - paidEst);
-  var progress = Math.min(100, Math.round((paidEst/total)*100));
-  var progClass = progress >= 66 ? 'prog-green' : progress >= 33 ? 'prog-orange' : 'prog-red';
-
-  var mNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-  var curLabel = mNames[now.getMonth()] + ' ' + now.getFullYear();
-  var endD = new Date(sy, sm - 1 + 23); // الشهر الـ24 (آخر قسط)
-  var endLabel = mNames[endD.getMonth()] + ' ' + endD.getFullYear();
-  var curM = today().substring(0,7);
-  var thisMonth = expenses.filter(function(e) { return e.date && e.date.startsWith(curM) && !e.behalf && e.direction !== 'credit' && !e.fxUnconverted; });
-  var essAct = thisMonth.filter(function(e) { return e.type==='أساسيات'; }).reduce(function(s,e) { return s+(e.amount||0); },0);
-  var luxAct = thisMonth.filter(function(e) { return e.type==='كماليات'; }).reduce(function(s,e) { return s+(e.amount||0); },0);
-  var loanAct = thisMonth.filter(function(e) { return e.type==='سداد التمويل'; }).reduce(function(s,e) { return s+(e.amount||0); },0);
-
-  var committed = loanAct >= payment;
-  var budgetOK = (essAct + luxAct) <= (salary - payment);
-
-  var html = '';
-
-  html += finHeroHtml();   // بطل التمويل في المقدّمة (يغني عن بطاقة "تقدم السداد")
-
-
-  // بطاقة الشهر الحالي
-  html += '<div class="card"><div class="card-body">';
-  html += '<div class="card-title">' + curLabel + '</div>';
-  html += '<div class="metrics">';
-  html += '<div class="metric"><div class="metric-label">أساسيات فعلية</div><div class="metric-val" style="color:' + (essAct>basic?'var(--red-text)':'var(--green)') + '">' + fmt(essAct) + '</div><div class="metric-sub">هدف ≤ ' + curFmt(fmtInt(basic)) + '</div></div>';
-  html += '<div class="metric"><div class="metric-label">كماليات فعلية</div><div class="metric-val" style="color:' + (luxAct>free?'var(--red-text)':'inherit') + '">' + fmt(luxAct) + '</div><div class="metric-sub">فائض ' + curFmt(fmtInt(free)) + '</div></div>';
-  html += '<div class="metric"><div class="metric-label">سداد التمويل</div><div class="metric-val" style="color:' + (committed?'var(--green)':'var(--red-text)') + '">' + fmt(loanAct) + '</div><div class="metric-sub">هدف ' + curFmt(fmtInt(payment)) + '</div></div>';
-  html += '<div class="metric"><div class="metric-label">مؤشر الالتزام</div><div class="metric-val" style="font-size:26px">' + (committed&&budgetOK?'✅':'❌') + '</div><div class="metric-sub">' + (committed&&budgetOK?'ملتزم':'غير ملتزم بعد') + '</div></div>';
-  html += '</div>';
-  if (!committed) html += '<div class="alert alert-red">⚠️ لم يُسجَّل سداد التمويل هذا الشهر (' + curFmt(fmtInt(payment)) + ')</div>';
-  if (essAct > basic) html += '<div class="alert alert-yellow">⚠️ الأساسيات تجاوزت الهدف</div>';
-  if (luxAct > free) html += '<div class="alert alert-yellow">⚠️ الكماليات تجاوزت الفائض الحر</div>';
-  html += '</div></div>';
-
-  // توزيع الراتب
-  html += '<div class="card"><div class="card-body">';
-  html += '<div class="card-title">توزيع الراتب</div>';
-  html += pBar('القسط المُسدَّد', payment, salary, '#1a56db');
-  html += pBar('أساسيات (هدف)', basic, salary, '#057a55');
-  html += pBar('فائض حر', free, salary, '#d97706');
-  html += '<div class="divider"></div>';
-  html += '<div style="font-size:12px;color:var(--muted);text-align:center">الراتب الإجمالي: ' + curFmt(fmtInt(salary)) + '/شهر</div>';
-  html += '</div></div>';
-
-  // جدول الأشهر
-  html += '<div class="card"><div class="card-body">';
-  html += '<div class="card-title">الأشهر القادمة</div>';
-  html += '<div style="overflow-x:auto"><table class="fin-table">';
-  html += '<tr><th>#</th><th>الشهر</th><th>القسط</th><th>المتبقي</th><th></th></tr>';
-  html += projectionRows(monthNum, total, payment, start);
-  html += '</table></div></div></div>';
-
-  el.innerHTML = html;
 }
 
 // ============================================================
