@@ -73,6 +73,11 @@ function findLineIndex(lines, re, fromIdx) {
   return -1;
 }
 
+function findLastLineIndex(lines, re, fromIdx) {
+  for (var i = lines.length - 1; i > (fromIdx || 0); i--) if (re.test(lines[i])) return i;
+  return -1;
+}
+
 // دفعة سداد بطاقة مستلمة ("Payment received"/"SABNet") = نفس معنى رسالة "تم سداد
 // بطاقتك" المُحلَّلة من SMS (parseCardPayment بـjs/parsers.js): إضافة ترفع الرصيد
 // المتاح، غير محسوبة كصرف. نطبّق نفس الاسم/التصنيف الثابتين حتى تُعامَل وتُعرض
@@ -91,10 +96,16 @@ function normalizeCardPaymentRow(merchant, isCredit) {
 // لاحقة "CR" = عملية إضافة (دفعة سداد مستلمة)، غيابها = خصم.
 // نقيّد التحليل بين رأس جدول العمليات وجدول الملخّص أسفله فقط، حتى لا يُلتقط صف
 // "رقم الحساب/تاريخ الكشف" أعلى الصفحة كعملية وهمية (فيه تاريخ ورقم 0.00 أيضاً).
+// كشوف متعددة الصفحات تكرّر جدول الملخّص (Previous Balance/Minimum Payment Due)
+// مرتين: مرة أولى بمنتصف الكشف (بعد أول صفحة عمليات فقط) ومرة ثانية بالنهاية
+// الفعلية (بعد آخر صفحة عمليات، قبل جدول أقساط SAB AQSAT إن وجد). لازم نأخذ آخر
+// ظهور له لا أول ظهور، وإلا تُقطَع عمليات الصفحات الوسطى بالكامل (لوحظ فعلياً:
+// كشف بأكثر من ١٠٠ عملية عبر ٤ صفحات كان يُستخرَج منه ١٦ عملية فقط — عمليات
+// الصفحة الأولى حصراً — بسبب هذا القطع المبكر).
 function parseSABStatement(lines) {
   var startIdx = findLineIndex(lines, /trans\W{0,3}date|activity\s*\/?\s*transaction|amount\s*\(saudi riyals\)/i);
   if (startIdx === -1) return [];
-  var endIdx = findLineIndex(lines, /previous balance|total amount due|minimum payment due/i, startIdx + 1);
+  var endIdx = findLastLineIndex(lines, /previous balance|total amount due|minimum payment due/i, startIdx);
   var body = lines.slice(startIdx + 1, endIdx === -1 ? lines.length : endIdx);
   var rows = [];
   var lastMatchedIdx = -1;
