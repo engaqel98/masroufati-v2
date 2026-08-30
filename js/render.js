@@ -1720,6 +1720,7 @@ function renderSettings() {
   html += '<div class="btn-row" style="margin-top:8px">';
   html += '<button class="btn btn-outline btn-sm" onclick="exportCSV()">📄 تصدير CSV</button>';
   html += '<button class="btn btn-outline btn-sm" onclick="removeDuplicates()">🔍 فحص التكرارات</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="reclassifyUndetermined()">🏷️ أعد تصنيف "غير محدد"</button>';
   html += '</div>';
   html += '<div class="settings-row" style="margin-top:12px"><span>تصنيفات متعلَّمة من تصحيحاتك</span><span class="settings-val">' + learnedCount + '</span></div>';
   if (learnedCount) html += '<div class="btn-row" style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="clearLearned()">🧠 نسيان التصنيفات المتعلَّمة</button></div>';

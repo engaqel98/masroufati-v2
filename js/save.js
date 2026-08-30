@@ -138,6 +138,46 @@ async function removeDuplicates() {
   }
 }
 
+// يعيد تشغيل classifyMerchant() على كل عملية "غير محدد" محفوظة مسبقاً — مفيد بعد توسيع
+// DICT بكلمات جديدة (لن يُصنَّف تلقائياً إلا العمليات الجديدة/المُحلَّلة من جديد؛ هذا الزر
+// يطبّق القاموس المحدَّث بأثر رجعي على الموجود). لا يلمس عمليات لها تصنيف فعلي أصلاً حتى لو
+// اختلف عمّا يرجّحه القاموس الآن — فقط "غير محدد" ترتقي لتصنيف حقيقي، تفادياً لإلغاء تصحيح
+// يدوي سابق للمستخدم.
+async function reclassifyUndetermined() {
+  var s = document.getElementById('s-backup-status');
+  function setStatus(h) { if (s) s.innerHTML = h; }
+  var changed = [];
+  expenses.forEach(function(e) {
+    if (e.type !== 'غير محدد' || typeof classifyMerchant !== 'function') return;
+    var newType = classifyMerchant(e.merchant, e.txType);
+    if (newType !== 'غير محدد') { e.type = newType; changed.push(e); }
+  });
+  if (!changed.length) { setStatus('<div class="alert alert-green">✅ لا توجد عمليات تحتاج إعادة تصنيف</div>'); return; }
+  localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderHistory === 'function') renderHistory();
+  if (!settings.webapp) {
+    setStatus('<div class="alert alert-green">✅ أُعيد تصنيف ' + changed.length + ' عملية محلياً</div>');
+    return;
+  }
+  var ok = 0, err = 0;
+  for (var i = 0; i < changed.length; i++) {
+    setStatus('<div class="alert alert-blue">⏳ جاري تحديث Sheets: ' + (i + 1) + ' من ' + changed.length + '</div>');
+    try {
+      var params = new URLSearchParams({ action: 'update', id: changed[i].id, type: encodeURIComponent(changed[i].type) });
+      var resp = await fetch(appendKey(settings.webapp + '?' + params.toString()));
+      var json = await resp.json();
+      if (json.status === 'ok') { changed[i].synced = true; ok++; } else { changed[i].synced = false; err++; }
+    } catch (e) {
+      changed[i].synced = false; err++;
+    }
+  }
+  localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  setStatus(err
+    ? '<div class="alert alert-yellow">أُعيد تصنيف ' + changed.length + ' عملية — رُفع ' + ok + '، وفشل رفع ' + err + ' للشيت (أعد المزامنة لاحقاً)</div>'
+    : '<div class="alert alert-green">✅ أُعيد تصنيف ورُفع ' + ok + ' عملية</div>');
+}
+
 // ============================================================
 // تنبيهات الميزانية — إشعار متصفح عند الاقتراب/التجاوز (opt-in)
 // ============================================================
