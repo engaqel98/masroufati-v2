@@ -1691,6 +1691,14 @@ function renderSettings() {
   html += '<button class="btn btn-danger btn-sm" onclick="clearData()">🗑 مسح البيانات</button>';
   html += '</div>';
   html += '<div id="s-data-status"></div>';
+  var unsyncedCount = expenses.filter(function(e) { return e.synced === false; }).length;
+  if (unsyncedCount) {
+    html += '<div class="settings-row" style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:10px">'
+      + '<span style="color:var(--red-text)">⚠️ ' + unsyncedCount + ' عملية لم تُرفع لـ Sheets</span>'
+      + '<button class="btn btn-outline btn-sm" onclick="retryAllUploads()">🔄 أعد محاولة رفع الكل</button></div>';
+    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">محفوظة بالتطبيق فقط — فشل رفعها للشيت (انقطاع شبكة/مفتاح خاطئ). الزر يعيد محاولة رفعها كلها دفعة وحدة بدل واحدة واحدة.</div>';
+    html += '<div id="s-pending-upload-status"></div>';
+  }
   if (pendingDeletes.length) {
     html += '<div class="settings-row" style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:10px">'
       + '<span style="color:var(--red-text)">⚠️ ' + pendingDeletes.length + ' عملية لم تُحذف من Sheets</span>'

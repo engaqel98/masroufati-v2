@@ -512,6 +512,44 @@ async function retryUpload(id) {
   }
 }
 
+// إعادة رفع كل العمليات المحفوظة محلياً بفشل رفعها لـ Sheets دفعة وحدة (entry.synced === false)،
+// بدل الضغط على "إعادة رفع" لكل عملية على حدة. نفس منطق retryUpload لكل صف — بحث update أولاً
+// قبل append، تفادياً لتكرار الصف لو كان الفشل مجرد انقطاع بالرد بعد نجاح الكتابة فعلياً.
+async function retryAllUploads() {
+  var s = document.getElementById('s-pending-upload-status');
+  function setStatus(h) { if (s) s.innerHTML = h; }
+  var toRetry = expenses.filter(function(e) { return e.synced === false; });
+  if (!settings.webapp || !toRetry.length) return;
+  var ok = 0, fail = 0;
+  for (var i = 0; i < toRetry.length; i++) {
+    setStatus('<div class="alert alert-blue">⏳ جاري إعادة الرفع: ' + (i + 1) + ' من ' + toRetry.length + '</div>');
+    var entry = toRetry[i];
+    try {
+      var upd = new URLSearchParams({ action: 'update', id: entry.id, amount: entry.amount, date: entry.date });
+      var respUpd = await fetch(appendKey(settings.webapp + '?' + upd.toString()));
+      var jsonUpd = await respUpd.json();
+      var json;
+      if (jsonUpd.status === 'ok') {
+        json = jsonUpd;
+      } else {
+        var resp = await fetch(appendKey(settings.webapp + '?' + appendEntryParams(entry).toString()));
+        json = await resp.json();
+      }
+      if (json.status === 'ok') { entry.synced = true; ok++; } else { fail++; }
+    } catch (e) {
+      fail++;
+    }
+  }
+  localStorage.setItem('expenses_v2', JSON.stringify(expenses));
+  sortSheetsInBackground();
+  if (typeof renderHistory === 'function') renderHistory();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  setStatus(fail
+    ? '<div class="alert alert-yellow">⚠️ رُفعت ' + ok + '، وفشل ' + fail + ' (أعد المحاولة لاحقاً)</div>'
+    : '<div class="alert alert-green">✅ اكتمل رفع كل العمليات المعلَّقة (' + ok + ')</div>');
+  setTimeout(function () { if (typeof renderSettings === 'function') renderSettings(); }, 1500);
+}
+
 // تسجيل رسوم دولية معلَّقة كعملية مصروف واحدة، وربطها بالعملية/العمليات المسبِّبة لها
 // (تُعلَّم مصادرها intlFeeSettled حتى لا تظهر كفجوة مرة ثانية ولا تُحسب مرتين).
 function recordFeeSettlement(ids, total, date, card, bank, rerender) {
