@@ -440,13 +440,35 @@ async function confirmBulkImport() {
   // خطأً. الفحص هنا يقتصر على ما كان موجوداً فعلاً قبل الاستيراد — يمنع إعادة استيراد نفس
   // الكشف مرتين، بدون التضحية بعمليات متعددة متطابقة القيم ضمن نفس الدفعة.
   var preExistingKeys = {};
-  expenses.forEach(function(e) { preExistingKeys[dupKey(e)] = true; });
+  // مطابقة إضافية "مرنة" بجانب dupKey الدقيق: رسائل SMS تختصر اسم التاجر عن نص كشف الحساب
+  // الكامل (مثال حقيقي مؤكَّد: SMS "Riyadh Parking" مقابل الكشف "Riyadh Parking AR Riyadh"،
+  // "ARAMCO" مقابل "ARAMCO RIYADH") — dupKey الدقيق (نص تاجر مطابق حرفياً) ما يلتقط هذا
+  // النمط أبداً، فيستورد صف مكرر لعملية مسجَّلة فعلاً من الرسالة. نبني هنا فهرس (تاريخ+مبلغ+
+  // اتجاه) → قائمة أسماء تجار موجودة، ونعتبره تكراراً لو اسم أحدهما بادئة للآخر — فقط عندما
+  // يوجد مرشّح واحد مطابق بهذا الشكل (لو تعدّدت الاحتمالات المتطابقة نترك الصف ليُراجَع يدوياً
+  // بدل تخمين أيها الصحيح).
+  var preExistingByAmountDir = {};
+  expenses.forEach(function(e) {
+    preExistingKeys[dupKey(e)] = true;
+    var k2 = e.date + '|' + (Number(e.amount) || 0) + '|' + (e.direction || 'debit');
+    (preExistingByAmountDir[k2] = preExistingByAmountDir[k2] || []).push(merchantKey(e.merchant));
+  });
+  function looksLikeExistingDuplicate(entry) {
+    if (preExistingKeys[dupKey(entry)]) return true;
+    var k2 = entry.date + '|' + (Number(entry.amount) || 0) + '|' + (entry.direction || 'debit');
+    var candidates = preExistingByAmountDir[k2];
+    if (!candidates || !candidates.length) return false;
+    var mk = merchantKey(entry.merchant);
+    if (!mk) return false;
+    var matches = candidates.filter(function(c) { return c && (mk.indexOf(c) === 0 || c.indexOf(mk) === 0); });
+    return matches.length === 1;
+  }
   try {
     // المرحلة ١: بناء كل العمليات وحفظها محلياً فوراً (بدون شبكة، سريع) — التكرار يُتجاوَز صامتاً
     setProgress('<div class="alert alert-blue">⏳ جاري الحفظ محلياً...</div>');
     for (var i = 0; i < toSave.length; i++) {
       var entry = buildBulkEntry(toSave[i], i);
-      if (preExistingKeys[dupKey(entry)]) { dup++; continue; }
+      if (looksLikeExistingDuplicate(entry)) { dup++; continue; }
       expenses.unshift(entry);
       if (entry.behalf && typeof registerPerson === 'function') registerPerson(entry.behalf);
       if (typeof learnMerchant === 'function') learnMerchant(entry.merchant, entry.type, entry.direction);
