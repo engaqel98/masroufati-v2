@@ -421,14 +421,20 @@ async function confirmBulkImport() {
   function setFinal(h) { var el = document.getElementById('s-bulkimport-status'); if (el) el.innerHTML = h; }
   var ok = 0, dup = 0, err = 0;
   var toSync = [];
-  // try/finally حول الحلقة كلها — أي استثناء غير متوقّع كان يقطع التنفيذ قبل ما يوصل
-  // لكود التنظيف بالأسفل، فتبقى البطاقات ظاهرة وما تطلع رسالة نجاح ولا فشل
+  // لقطة من مفاتيح التكرار الموجودة *قبل* بداية هذه الدفعة فقط — isDuplicate() العادية تفحص
+  // expenses الحي المتنامي أثناء الحلقة، فيتصادم صف مع صف آخر أُضيف للتو بنفس الدفعة إذا
+  // تطابقا بالتاريخ/المبلغ/التاجر/الاتجاه (مثال حقيقي: عدة تذاكر JETT AMMAN بنفس المبلغ
+  // بنفس اليوم — عمليات حقيقية متكررة شرعاً، مو تكراراً بالخطأ) فتُتجاهل الثانية والثالثة
+  // خطأً. الفحص هنا يقتصر على ما كان موجوداً فعلاً قبل الاستيراد — يمنع إعادة استيراد نفس
+  // الكشف مرتين، بدون التضحية بعمليات متعددة متطابقة القيم ضمن نفس الدفعة.
+  var preExistingKeys = {};
+  expenses.forEach(function(e) { preExistingKeys[dupKey(e)] = true; });
   try {
     // المرحلة ١: بناء كل العمليات وحفظها محلياً فوراً (بدون شبكة، سريع) — التكرار يُتجاوَز صامتاً
     setProgress('<div class="alert alert-blue">⏳ جاري الحفظ محلياً...</div>');
     for (var i = 0; i < toSave.length; i++) {
       var entry = buildBulkEntry(toSave[i], i);
-      if (typeof isDuplicate === 'function' && isDuplicate(entry)) { dup++; continue; }
+      if (preExistingKeys[dupKey(entry)]) { dup++; continue; }
       expenses.unshift(entry);
       if (entry.behalf && typeof registerPerson === 'function') registerPerson(entry.behalf);
       if (typeof learnMerchant === 'function') learnMerchant(entry.merchant, entry.type, entry.direction);
