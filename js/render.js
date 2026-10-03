@@ -896,6 +896,54 @@ function dismissMonthClose() {
   if (typeof renderDashboard === 'function') renderDashboard();
 }
 
+// تنبيه "الشهر الجزئي": دورة كشف البطاقة تنتهي يوم ٢٥ لا آخر الشهر، فعمليات ٢٦ → آخر
+// الشهر ما تجي إلا مع كشف الدورة التالية. بدونه يُقرأ مجموع الشهر كأنه انخفاض حقيقي
+// بالمصروف وهو مجرد تغطية ناقصة.
+//
+// شرطان لإظهاره، وكلاهما يجعله يختفي من نفسه بدل ما يبقى تنبيهاً عالقاً:
+//   ١. لا يوجد كشف دورة أحدث — الكشف التالي يغطّي ذيل الشهر أصلاً.
+//   ٢. لا توجد ولا عملية مسجَّلة بعد يوم القطع داخل الشهر — فلو سجّلها المستخدم من رسائل
+//      SMS (وهو الوضع الطبيعي) فالشهر مكتمل ولا داعي للتنبيه.
+function partialMonthNoticeHtml(curM) {
+  var list = settings.statements || [];
+  if (!list.length) return '';
+  var inMonth = null;
+  list.forEach(function (st) {
+    if (st.statementDate && st.statementDate.indexOf(curM) === 0) inMonth = st;
+  });
+  if (!inMonth) return '';
+  var cut = inMonth.statementDate;
+  var hasNewer = list.some(function (st) { return st.statementDate > cut; });
+  if (hasNewer) return '';
+  var hasAfter = expenses.some(function (e) {
+    return e.date && e.date.indexOf(curM) === 0 && e.date > cut;
+  });
+  if (hasAfter) return '';
+  return '<div class="alert alert-yellow" style="margin-bottom:10px">📄 هذا الشهر مغطّى بكشف الحساب حتى يوم '
+    + cut.slice(8) + ' فقط — عمليات ما بعده تجي مع كشف الدورة القادمة، فالمجاميع أدناه ناقصة.</div>';
+}
+
+// سجل الكشوف المستوردة + فحص تسلسل الدورات: «المبلغ الكامل المستحق» لكشف = «الرصيد
+// السابق» للكشف التالي بالضبط، فأي عدم تطابق = كشف دورة مفقود بينهما.
+function statementsChainHtml() {
+  var list = settings.statements || [];
+  if (!list.length) return '';
+  var html = '<details class="hist-extra" style="margin-top:10px"><summary>🧾 الكشوف المستوردة (' + list.length + ')</summary>';
+  for (var i = list.length - 1; i >= 0; i--) {
+    var st = list[i];
+    var mark;
+    if (i === 0) mark = 'أقدم كشف مستورد';
+    else {
+      var gap = Math.round((st.prev - (Number(list[i - 1].due) || 0)) * 100) / 100;
+      mark = gap ? '⚠️ فرق ' + fmt(gap) + ' — دورة مفقودة؟' : '🔗 متصل';
+    }
+    html += '<div class="settings-row"><span>' + st.statementDate + ' · ' + mark
+      + '</span><span class="settings-val">مستحق ' + fmt(st.due) + '</span></div>';
+  }
+  html += '</details>';
+  return html;
+}
+
 function renderDashboard() {
   var el = document.getElementById('dashboard');
   if (!el) return;
@@ -969,6 +1017,9 @@ function renderDashboard() {
     html += '<button class="month-nav-btn" ' + (canNewer ? 'onclick="navDash(-1)"' : 'disabled') + ' aria-label="شهر أحدث">›</button>';
     html += '</div>';
   }
+
+  // تنبيه تغطية الكشف الجزئية للشهر المعروض (يتبع التنقّل بين الأشهر كذلك)
+  html += partialMonthNoticeHtml(curM);
 
   // ملخّص الشهر المختار (قابل للطي) — متاح في أي وقت، يتبع التنقّل بين الأشهر
   html += '<details class="hist-extra" style="margin-bottom:14px"><summary>📋 ملخّص ' + monthLabel + '</summary>'
@@ -1622,6 +1673,7 @@ function renderSettings() {
   html += '<div class="btn-row">';
   html += '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'bulkimport-file\').click()">⬆️ اختيار ملف PDF</button>';
   html += '</div>';
+  html += statementsChainHtml();
   // رسالة النتيجة النهائية فقط (بعد ما تُفرَّغ _bulkRows وتُعاد renderSettings) — عنصر التقدّم
   // الحي أثناء الحفظ نفسه موجود داخل renderImportPreview() جنب زر الحفظ مباشرة (id مختلف)
   html += '<div id="s-bulkimport-status"></div>';

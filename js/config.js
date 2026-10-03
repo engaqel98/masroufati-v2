@@ -77,6 +77,15 @@ if (typeof settings.balanceCutoff !== 'string') settings.balanceCutoff = '2026-0
 // بدل ما تنكسر سلسلة مطابقة الرصيد بينهما (بطاقة 1740 تابعة لبطاقة 1321 وتشاركها الرصيد).
 if (typeof settings.linkedCards !== 'object' || !settings.linkedCards) settings.linkedCards = { '1740': '1321' };
 
+// سجل الكشوف المستوردة — ميتاداتا فقط، ولا عملية واحدة فيه: لكل كشف
+// { statementDate, dueDate, prev, purchases, payments, newBalance, aqsat, due, importedAt }.
+// يُستخدم لشيئين فقط (كلاهما عرض/تحقّق، لا يؤثر على أي مبلغ محسوب):
+//   ١. تسلسل الدورات: «المبلغ الكامل المستحق» لكشف = «الرصيد السابق» للكشف التالي، فأي
+//      كشف شهر مفقود بينهما يُكتشف فوراً (مؤكَّد على كشوف ٦/٧/٨ الفعلية).
+//   ٢. تنبيه الشهر الجزئي: دورة الكشف تنتهي يوم ٢٥ لا آخر الشهر، فأيام ٢٦→آخر الشهر
+//      ما تجي إلا بكشف الشهر التالي — نبيّنها بدل ما تُقرأ كانخفاض حقيقي بالمصروف.
+if (!Array.isArray(settings.statements)) settings.statements = [];
+
 // خزّان العتبات التي أُطلق عليها إشعار لكل شهر — لمنع تكرار الإشعار:
 // { 'YYYY-MM': { 'أساسيات:80': true, 'كماليات:100': true, ... } }
 var firedAlerts = JSON.parse(localStorage.getItem('alerts_v2') || '{}');

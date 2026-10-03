@@ -15,6 +15,7 @@ var _pdfJsPromise = null;
 var _bulkRows = [];
 var _bulkRawLines = [];   // الأسطر الخام المستخرجة من آخر ملف — لتشخيص/معايرة parseStatementLines
 var _bulkAccount = '';    // حساب/بطاقة الكشف كامله (واحد لكل الدفعة) — يُطبَّق وقت الحفظ عبر applyAccount()
+var _bulkSummary = null;  // جدول ملخّص كشف SAB المقروء من آخر ملف (أو null) — للمطابقة فقط، لا يُحفظ مع أي عملية
 
 function loadPdfJs() {
   if (_pdfJsPromise) return _pdfJsPromise;
@@ -174,6 +175,71 @@ function parseSABStatement(lines) {
   return rows;
 }
 
+// ============================================================
+// ملخّص كشف SAB — "مطابقة الكشف" (checksum)
+// ============================================================
+// آخر الكشف جدول ملخّص من تسعة أرقام على صف بصري واحد، بترتيب أعمدة ثابت كما يوثّقه
+// رأس الجدول نفسه:
+//   [٠] الرصيد السابق            [١] المشتريات والسحوبات     [٢] المدفوعات والمرتجعات (سالب)
+//   [٣] أرباح التورق             [٤] رسوم التأخير            [٥] مجموع الضريبة
+//   [٦] الرصيد الجديد عدا الأقساط [٧] أقساط الأول غير المفوترة [٨] المبلغ الكامل المستحق
+//
+// الجدول يقفل حسابياً بمعادلتين دقيقتين: (٠)+(١)−|٢| = (٦)، و(٦)+(٧) = (٨) — تحققنا منهما
+// على كشوف ٦/٧/٨ الفعلية بالهللة. فبدل ما نخمّن موقع الصف بنمط نصي هشّ، نشترط تحقّق
+// المعادلتين نفسهما كشرط تعرُّف — أي صف أرقام آخر بالملف لن يحققهما معاً، فالتعرّف
+// ذاتي التحقّق ولا يحتاج أي مرساة نصية.
+//
+// الفائدة: مجموع الصفوف المقروءة من الـPDF يُقارَن بعمودَي المشتريات/المدفوعات، فنعرف
+// **قبل الحفظ** إن كانت القراءة كاملة. باگ قطع الصفحات المتعددة (١٦ صفاً من ١٠٠+) كان
+// يظهر فوراً بفرق ضخم بالأحمر بدل ما يُكتشف بمقارنة يدوية بعد أسبوع.
+//
+// ملاحظة: صفوف "AQSAT n m of k" المستبعدة عمداً في parseSABStatement مستبعدة كذلك من
+// عمود المشتريات بالكشف (تظهر في عمود "أقساط الأول" لحالها) — فاستبعادنا لها لا يكسر
+// المطابقة، مؤكَّد على كشفَي ٦ و٧ (٢,٥٤٣.٨٩ و٢,٥٤٣.٨٤).
+function parseSABSummary(lines) {
+  for (var i = lines.length - 1; i >= 0; i--) {
+    var n = extractLineAmounts(lines[i]);
+    if (n.length < 9) continue;
+    for (var st = 0; st + 9 <= n.length; st++) {
+      var w = n.slice(st, st + 9);
+      // صف أصفار كامل يحقّق المعادلتين بلا معنى — أي دورة حقيقية فيها مشتريات أو مدفوعات
+      if (!w[1] && !w[2]) continue;
+      // إشارة عمود المدفوعات سالبة بالكشف، لكن قد تُفقد عند استخراج النص — نأخذ القيمة المطلقة
+      var pay = Math.abs(w[2]);
+      if (Math.abs(w[0] + w[1] - pay - w[6]) > 0.02) continue;
+      if (Math.abs(w[6] + w[7] - w[8]) > 0.02) continue;
+      var d = sabStatementDates(lines);
+      return {
+        prev: w[0], purchases: w[1], payments: pay, tawarruq: w[3], lateFees: w[4],
+        vat: w[5], newBalance: w[6], aqsat: w[7], due: w[8],
+        statementDate: d.statementDate, dueDate: d.dueDate
+      };
+    }
+  }
+  return null;
+}
+
+// صف بيانات الحساب بأعلى الكشف يحمل تاريخين متجاورين: "… MasterCard 0.00 25/08/2026 20/09/2026"
+// الأول = تاريخ الكشف (نهاية الدورة)، الثاني = تاريخ استحقاق الدفع. صفوف العمليات فيها
+// تاريخ واحد فقط، فتجاور تاريخين كاملين بنفس السطر مميّز لهذا الصف.
+function sabStatementDates(lines) {
+  for (var i = 0; i < lines.length; i++) {
+    var m = lines[i].match(/(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}\/\d{1,2}\/\d{4})/);
+    if (m) return { statementDate: extractDate(m[1]), dueDate: extractDate(m[2]) };
+  }
+  return { statementDate: '', dueDate: '' };
+}
+
+// الكشف السابق لتاريخ معيّن من سجل الكشوف المستوردة (settings.statements)
+function prevImportedStatement(statementDate) {
+  var best = null;
+  (settings.statements || []).forEach(function (st) {
+    if (!st.statementDate || st.statementDate >= statementDate) return;
+    if (!best || st.statementDate > best.statementDate) best = st;
+  });
+  return best;
+}
+
 // تحليل أولي عام (احتياطي لأي كشف حساب غير SAB): بدون علم بمواقع الأعمدة، فقط
 // أفضل تخمين — يأخذ أول رقم عشري بالسطر كمبلغ. أقل دقة من parseSABStatement عمداً؛
 // راجع كل صف قبل الحفظ (الصفوف المشبوهة بمبلغ 0 تُعلَّم تلقائياً بالواجهة).
@@ -325,6 +391,7 @@ async function handleStatementFile(input) {
     }
     input.value = '';
     _bulkRawLines = lines;
+    _bulkSummary = parseSABSummary(lines);
     var rows = parseStatementLines(lines);
     if (!rows.length) {
       setArea('<div class="alert alert-yellow">⚠️ ما قدرنا نطلع عمليات من الملف. جرّب ملف آخر أو راجع صيغته.</div>' + rawLinesDebugHtml());
@@ -368,6 +435,7 @@ function renderImportPreview() {
   if (!area) return;
   var included = _bulkRows.filter(function(r) { return r.include; }).length;
   var html = '<div style="font-size:12.5px;color:var(--muted);margin:8px 0">راجع كل عملية قبل الحفظ — عدّل الحقول أو ألغِ تحديد أي صف تبي تستبعده (مثل سطر رصيد افتتاحي/إجمالي انقرأ غلط كعملية). اطوِ أي بطاقة بالنقر على شريط عنوانها بعد ما تراجعها. الصفوف بمبلغ 0 مُعلَّمة بالأحمر — راجعها قبل الحفظ.</div>';
+  html += '<div id="bulk-checksum">' + bulkChecksumHtml() + '</div>';
   html += '<div class="field"><label>الحساب/البطاقة لهذا الكشف (اختياري)</label><input type="text" list="accounts-list" placeholder="مثال: 1321 أو اسم البنك — يُطبَّق على كل العمليات المحفوظة" oninput="_bulkAccount=this.value"></div>';
   _bulkRows.forEach(function(r, i) {
     var suspect = !r.amount;
@@ -384,10 +452,10 @@ function renderImportPreview() {
     html += '<div class="field"><label>الوصف</label><input type="text" value="' + htmlEsc(r.merchant || '') + '" style="direction:ltr;text-align:left" onchange="_bulkRows[' + i + '].merchant=this.value"></div>';
     html += '<div class="field-row">';
     html += '<div class="field"><label>التاريخ</label><input type="date" value="' + (r.date || '') + '" onchange="_bulkRows[' + i + '].date=this.value"></div>';
-    html += '<div class="field"><label>المبلغ (ر.س)</label><input type="number" step="0.01" value="' + r.amount + '" onchange="_bulkRows[' + i + '].amount=parseFloat(this.value)||0"></div>';
+    html += '<div class="field"><label>المبلغ (ر.س)</label><input type="number" step="0.01" value="' + r.amount + '" onchange="_bulkRows[' + i + '].amount=parseFloat(this.value)||0;updateBulkChecksum()"></div>';
     html += '</div>';
     html += '<div class="field-row">';
-    html += '<div class="field"><label>الاتجاه</label><select onchange="_bulkRows[' + i + '].direction=this.value">'
+    html += '<div class="field"><label>الاتجاه</label><select onchange="_bulkRows[' + i + '].direction=this.value;updateBulkChecksum()">'
       + '<option value="debit"' + (r.direction === 'debit' ? ' selected' : '') + '>خصم</option>'
       + '<option value="credit"' + (r.direction === 'credit' ? ' selected' : '') + '>إضافة</option></select></div>';
     html += '<div class="field"><label>التصنيف</label><select onchange="_bulkRows[' + i + '].type=this.value">'
@@ -407,7 +475,7 @@ function renderImportPreview() {
   });
   html += '<div class="btn-row" style="margin-top:10px">';
   html += '<button class="btn btn-green btn-sm" onclick="confirmBulkImport()">💾 حفظ العمليات المحدَّدة (<span id="bulkimport-count">' + included + '</span>)</button>';
-  html += '<button class="btn btn-outline btn-sm" onclick="_bulkRows=[];_bulkAccount=\'\';renderSettings()">إلغاء</button>';
+  html += '<button class="btn btn-outline btn-sm" onclick="_bulkRows=[];_bulkAccount=\'\';_bulkSummary=null;renderSettings()">إلغاء</button>';
   html += '</div>';
   // بجانب زر الحفظ مباشرة — لا فوق قائمة البطاقات (قد تكون مئات) حتى تظهر حالة "جاري
   // الحفظ: X من Y" بدون تمرير للأعلى أثناء الحفظ. id مختلف عن s-bulkimport-status (رسالة
@@ -415,6 +483,94 @@ function renderImportPreview() {
   html += '<div id="s-bulkimport-progress"></div>';
   html += rawLinesDebugHtml();
   area.innerHTML = html;
+}
+
+// بطاقة "مطابقة الكشف" أعلى المعاينة: تقارن ما قُرئ فعلاً من الـPDF بعمودَي المشتريات
+// والمدفوعات في جدول الملخّص، وتفحص تسلسل الدورة مع آخر كشف مستورد.
+//
+// تُحسب من _bulkRows كاملة — حتى الصفوف غير المحدَّدة — لأن السؤال هنا "هل قرأنا الكشف
+// كاملاً وصحيحاً؟" لا "ماذا سنحفظ؟": استبعادك صفاً يدوياً أو تجاهل الحفظ لمكرر مسجَّل من
+// SMS ليس خطأ قراءة، فلو خصمناهما من المجموع لظهر فرق كاذب كل مرة.
+function bulkChecksumHtml() {
+  var isSab = _bulkRows.length && _bulkRows[0].statementBank === 'الأول';
+  if (!_bulkSummary) {
+    if (!isSab) return '';
+    return '<div class="alert alert-blue">🧾 ما قدرنا نقرأ جدول ملخّص الكشف من هذا الملف، فمطابقة المجاميع غير متاحة — راجع الصفوف يدوياً. الاستيراد يكمل عادي.</div>';
+  }
+  var sum = _bulkSummary;
+  var debit = 0, credit = 0;
+  _bulkRows.forEach(function (r) {
+    var a = Number(r.amount) || 0;
+    if (r.direction === 'credit') credit += a; else debit += a;
+  });
+  var dDiff = Math.round((debit - sum.purchases) * 100) / 100;
+  var cDiff = Math.round((credit - sum.payments) * 100) / 100;
+  var matched = !dDiff && !cDiff;
+
+  function cmpRow(label, got, want, diff) {
+    var mark = diff ? '⚠️' : '✅';
+    return '<div class="settings-row"><span>' + mark + ' ' + label + '</span><span class="settings-val">'
+      + fmt(got) + ' / ' + fmt(want) + (diff ? ' (فرق ' + fmt(diff) + ')' : '') + '</span></div>';
+  }
+
+  var html = '<div class="card" style="margin:8px 0"><div class="card-body">';
+  html += '<div class="card-title">🧾 مطابقة الكشف' + (sum.statementDate ? ' — دورة تنتهي ' + sum.statementDate : '') + '</div>';
+  html += '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">المقروء من الملف / المعلن في جدول ملخّص الكشف</div>';
+  html += cmpRow('المشتريات والسحوبات', debit, sum.purchases, dDiff);
+  html += cmpRow('المدفوعات والمرتجعات', credit, sum.payments, cDiff);
+  if (sum.aqsat) {
+    html += '<div class="settings-row"><span>أقساط الأول غير المفوترة (مستبعدة عمداً)</span><span class="settings-val">' + fmt(sum.aqsat) + '</span></div>';
+  }
+  html += '<div class="settings-row"><span>المبلغ الكامل المستحق' + (sum.dueDate ? ' — يُسدَّد قبل ' + sum.dueDate : '') + '</span><span class="settings-val">' + fmt(sum.due) + '</span></div>';
+  html += matched
+    ? '<div class="alert alert-green" style="margin-top:8px">✅ القراءة مطابقة للكشف بالهللة — كل عمليات الدورة مستخرَجة، ما فيه صف ناقص.</div>'
+    : '<div class="alert alert-red" style="margin-top:8px">⚠️ المجاميع ما تطابق الكشف — على الأغلب صف لم يُقرأ أو قُرئ مبلغه غلط. راجع الصفوف قبل الحفظ (افتح «النص الخام» بالأسفل للمقارنة).</div>';
+  html += bulkChainHtml(sum);
+  html += '</div></div>';
+  return html;
+}
+
+// تسلسل الدورات: «المبلغ الكامل المستحق» لكشف = «الرصيد السابق» للكشف التالي بالضبط
+// (مؤكَّد على كشوف ٦→٧→٨ الفعلية). فأي عدم تطابق = كشف شهر كامل مفقود بينهما.
+function bulkChainHtml(sum) {
+  if (!sum.statementDate) return '';
+  var already = (settings.statements || []).filter(function (st) { return st.statementDate === sum.statementDate; })[0];
+  if (already) {
+    return '<div class="alert alert-yellow" style="margin-top:8px">🔁 كشف هذه الدورة (' + sum.statementDate + ') مستورد مسبقاً — الحفظ يتجاهل العمليات المكرّرة تلقائياً.</div>';
+  }
+  var prevSt = prevImportedStatement(sum.statementDate);
+  if (!prevSt) {
+    return '<div class="alert alert-blue" style="margin-top:8px">ℹ️ أول كشف يُستورد — ما فيه كشف أقدم لفحص التسلسل معه.</div>';
+  }
+  var gap = Math.round((sum.prev - (Number(prevSt.due) || 0)) * 100) / 100;
+  if (!gap) {
+    return '<div class="alert alert-green" style="margin-top:8px">🔗 متصل بكشف ' + prevSt.statementDate + ' — مستحقه (' + fmt(prevSt.due) + ') يطابق الرصيد السابق لهذا الكشف. ما فيه دورة مفقودة.</div>';
+  }
+  return '<div class="alert alert-yellow" style="margin-top:8px">🔗 الرصيد السابق لهذا الكشف (' + fmt(sum.prev) + ') ما يطابق مستحق كشف '
+    + prevSt.statementDate + ' (' + fmt(prevSt.due) + ') — فرق ' + fmt(gap) + '. على الأغلب فيه كشف دورة بينهما ما استوردته.</div>';
+}
+
+// تحديث بطاقة المطابقة وحدها بعد تعديل مبلغ/اتجاه صف (بدون إعادة بناء المعاينة كاملة —
+// إعادة البناء تطوي البطاقات المفتوحة وتفقد موضع التمرير أثناء مراجعة مئات الصفوف)
+function updateBulkChecksum() {
+  var el = document.getElementById('bulk-checksum');
+  if (el) el.innerHTML = bulkChecksumHtml();
+}
+
+// يسجّل ميتاداتا الكشف المستورد في settings.statements (بلا أي عملية) — للتحقق من تسلسل
+// الدورات لاحقاً وتنبيه الشهر الجزئي. يستبدل أي سجل بنفس تاريخ الكشف بدل ما يكرّره.
+function recordImportedStatement(sum) {
+  if (!sum || !sum.statementDate) return;
+  var list = (settings.statements || []).filter(function (st) { return st.statementDate !== sum.statementDate; });
+  list.push({
+    statementDate: sum.statementDate, dueDate: sum.dueDate || '',
+    prev: sum.prev, purchases: sum.purchases, payments: sum.payments,
+    newBalance: sum.newBalance, aqsat: sum.aqsat, due: sum.due,
+    importedAt: today()
+  });
+  list.sort(function (a, b) { return a.statementDate < b.statementDate ? -1 : 1; });
+  settings.statements = list.slice(-36);   // سقف ٣ سنوات — الإعدادات تبقى صغيرة
+  localStorage.setItem('settings_v2', JSON.stringify(settings));
 }
 
 function updateBulkImportCount() {
@@ -531,6 +687,9 @@ async function confirmBulkImport() {
     }
   } finally {
     if (toSync.length && typeof sortSheetsInBackground === 'function') sortSheetsInBackground();   // مرة وحدة لكل الدفعة كلها
+    // ميتاداتا الكشف تُسجَّل فقط لو فعلاً حُفظ شي من هذه الدفعة — حتى لا يُسجَّل كشف أُلغي حفظه
+    if (toSave.length) recordImportedStatement(_bulkSummary);
+    _bulkSummary = null;
     _bulkRows = [];
     if (typeof renderDashboard === 'function') renderDashboard();
     if (typeof refreshPeopleList === 'function') refreshPeopleList();
