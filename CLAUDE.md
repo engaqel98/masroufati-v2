@@ -15,6 +15,7 @@ Scripts load in a fixed order (see bottom of `index.html`); later files depend o
 3. **`js/save.js`** — persistence and Google Sheets sync. `doSave()` pushes to `expenses`, writes localStorage, then fires the entry to the Web App via GET query params. `syncFromSheets()` (`?action=read`) replaces local data with the sheet's, and `loadDictFromSheets()` (`?action=dict`) overrides `DICT` from the sheet. localStorage is always written first, so sheet failures degrade gracefully.
 4. **`js/render.js`** — all DOM rendering. `analyze()` renders the parsed-SMS result card; `renderHistory()`, `renderFinance()`, `renderSettings()` build their tab contents as HTML strings injected into the section `<div>`s. The finance tab computes a 24-month loan projection from `settings` (total, payment, basic, salary, start).
 5. **`js/app.js`** — `switchTab()` (re-renders the target tab on switch) and the init block that sets the date field, loads the remote dictionary, and syncs from Sheets on load.
+6. **`js/i18n.js`** — the Arabic↔English layer, plus the privacy number-masking pass. It runs *after* rendering rather than at each string site, so it loads last among the render files and wraps the render functions (`wrapRenderers`). See "Internationalization" below before adding any Arabic UI string.
 
 `css/style.css` — all styling, including the CSS variables and the badge/dot color classes (`badge-green`, `dot-ess`, etc.) that `parsers.js` returns class names for.
 
@@ -129,6 +130,20 @@ Three features build on it, all **display/verification only** — nothing touche
 1. **Import checksum** (`bulkChecksumHtml()`) — sums the parsed rows and compares against the `purchases`/`payments` columns before saving, so a missed or misread row surfaces at import time. Computed over *all* `_bulkRows` regardless of each row's `include` flag: the question is "did we read the PDF correctly", not "what will we save" — deselecting a row or skipping a duplicate is not a read error. Re-rendered in place by `updateBulkChecksum()` when a row's amount or direction is edited (a full `renderImportPreview()` would collapse open cards and lose scroll position). Confirmed exact on all three statements end-to-end: 149/127/11 parsed rows summing to the statement's own columns to the halala, which also means the deliberate AQSAT-row skip does not break the checksum (those rows are excluded from the `purchases` column too, reported separately under `aqsat`).
 2. **Cycle chain** (`settings.statements`, `bulkChainHtml()`, `statementsChainHtml()`) — metadata only, no transactions: `totalDue` of one statement equals `prev` of the next exactly (verified 2026-06-25 → 07-25 → 08-25), so a skipped cycle is detected. Also flags re-importing an already-imported cycle. Capped at 36 entries.
 3. **Partial-month notice** (`partialMonthNoticeHtml()` in `js/render.js`) — shown on the dashboard for the month containing the newest statement's cutoff. Self-silencing by two conditions: it hides once a newer cycle's statement is imported, or once any expense is logged in that month after the cutoff date (i.e. the user resumed SMS logging).
+
+## Internationalization (`js/i18n.js`)
+
+**All-or-nothing per text node.** `i18n.js` is a post-render DOM replacement layer, not a `t()` call at each string site: `render.js`/`bulkimport.js` stay Arabic, and `translateTree` walks the rendered text nodes running `translateStr`, which applies the `REPL_RAW` Arabic→English pairs sorted **longest key first**. `translateStr` ends with `if (ARABIC_RE.test(out)) return s;` — if *any* Arabic character survives every substitution it discards the partial result and returns the **original Arabic string in full**, rather than showing a confusing Arabic/English mix.
+
+The consequence is a trap worth knowing before touching UI copy: a new Arabic string with no dictionary entry is harmless (it just stays Arabic), but a **half-covered** phrase renders as 100% Arabic — looking exactly as if the entry were never added. So when adding Arabic UI text:
+
+- A fixed string → one entry keyed on the whole string.
+- A string interpolating a date or amount → register the Arabic **fragments surrounding the value**, never one key spanning it. `'🔗 متصل بكشف ' + date + ' — مستحقه (' + fmt(x) + ') يطابق…'` needs three entries (`'🔗 متصل بكشف '`, `' — مستحقه ('`, `') يطابق…'`). Every Arabic span must be covered.
+- Longest-first sorting means a specific phrase safely overrides a generic one (`'المبلغ الكامل المستحق'` wins over `'مستحق '`), so don't re-add a generic key that already exists — `['فرق ', 'Diff ']` is already there, which made a separate `['⚠️ فرق ', '⚠️ Diff ']` pure duplication.
+- Avoid apostrophes in the English value; the dictionary is single-quoted JS (existing entries use `"` for inner quotes).
+- Numbers are always rendered with `en-US` grouping even in Arabic (`localeCode()`), because the Arabic decimal and thousands separators (`٫` / `٬`) look nearly identical.
+
+**How to audit it headlessly** (there is no `node` on this machine — use `jsc` at `/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc`): concatenate `js/render.js` + `js/bulkimport.js` + the dictionary half of `i18n.js` behind small `localStorage`/`document` stubs, force `LANG = 'en'`, call the real render functions, split their HTML on `/<[^>]*>/` to recover the true text nodes, then assert for each node that `translateStr` both changed the string *and* left no Arabic. Splitting on spaces instead of tags makes every word its own "node" and produces a flood of false failures. This caught a duplicated "only" in the partial-month sentence that reading the diff did not.
 
 ## Local conventions
 
